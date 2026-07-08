@@ -49,6 +49,6 @@ jobs:
           git config --global url."https://x-access-token:${AEGIS_CLI_TOKEN}@github.com/".insteadOf "https://github.com/"
           npm install -g "git+https://github.com/LeeHueeng/privit-project.git#${AEGIS_CLI_REF}" "aigate-cli@${AIGATE_CLI_VERSION}"
           git config --global --unset-all url."https://x-access-token:${AEGIS_CLI_TOKEN}@github.com/".insteadOf || true
-      - run: npm run ci:aegis
+      - run: npm run ci:aegis:github
       - run: npm run gate:ready
       - run: npm run ai:doctor
