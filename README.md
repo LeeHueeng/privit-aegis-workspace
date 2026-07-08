@@ -17,6 +17,7 @@ latest HTML report.
 ## Quality Gate
 
 ```sh
+npm run security:audit
 npm run ci:aegis
 npm run gate:ready
 ```
@@ -34,3 +35,9 @@ npm run ai:report
 
 Codex, Gemini, and Claude share the same Aegis scope, AIGate quality gate, and
 upload workflow. See `docs/ai-integration.md`.
+
+## GitHub Security
+
+The GitHub workflow pins Aegis and AIGate versions, runs `npm audit`, and
+requires an `AEGIS_CLI_TOKEN` repository secret because the Aegis CLI source
+repository is private. See `docs/github-security-hardening.md`.
