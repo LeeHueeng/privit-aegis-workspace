@@ -6,6 +6,7 @@ The local and CI security gate is:
 npm run ci:aegis
 npm run security:hardening
 npm run security:target
+npm run completion:audit
 npm run gate:ready
 ```
 
@@ -16,6 +17,7 @@ The gate performs:
 - Passive frontend plan generation
 - Passive frontend site discovery
 - Frontend response header, auth-page cache, cookie flag, and autocomplete advisory
+- Completion audit for CLI, web, i18n, AI providers, target advisory, and GitHub readiness
 - OWASP/GitHub hardening baseline review
 - HTML report generation
 - AIGate upload readiness check
@@ -49,3 +51,7 @@ and only requests in-scope HTML/auth-like URLs. It checks the live target for
 OWASP-style response header coverage, `Cache-Control: no-store` on
 authentication-like pages, defensive cookie attributes, and password-manager
 autocomplete hints. It does not submit forms or send attack payloads.
+
+Use `npm run completion:audit` when iterating on the workspace. It reports code
+TODO items separately from external GitHub blockers such as repository secrets
+or private-repository branch protection limits.

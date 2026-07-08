@@ -17,6 +17,12 @@ npm run security:target
 
 It writes `.aegis/reports/frontend-advisory.json`.
 
+The overall completion audit runs with:
+
+```sh
+npm run completion:audit
+```
+
 ## What It Checks
 
 - Local Aegis scope remains non-destructive, loopback-only, and bounded by
@@ -32,7 +38,8 @@ It writes `.aegis/reports/frontend-advisory.json`.
   with `GET` and state-changing forms without obvious CSRF tokens.
 - The live target advisory checks discovered in-scope HTML/auth URLs for
   security response headers, auth-page cache controls, cookie attributes, and
-  password-manager autocomplete hints without submitting forms.
+  password-manager autocomplete hints without submitting forms. It also warns
+  when framework fingerprinting headers such as `X-Powered-By` are exposed.
 
 Application findings from passive discovery are warnings by default so the
 workspace can keep producing reports while the target application is fixed.

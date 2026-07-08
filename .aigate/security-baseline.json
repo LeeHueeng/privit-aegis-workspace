@@ -55,6 +55,7 @@
     "csrfRequiredForStateChangingForms": true,
     "passwordAutocompleteRecommended": true,
     "sensitiveResponsesNoStore": true,
+    "hidePoweredByHeader": true,
     "sessionCookiesRequireFlags": [
       "HttpOnly",
       "SameSite",

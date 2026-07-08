@@ -252,6 +252,17 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     "Permissions-Policy disables unused browser capabilities such as camera, microphone, and geolocation."
   );
 
+  const poweredByPresent = reachable.filter((response) => headerValue(response, "x-powered-by"));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.powered_by",
+    "Responses do not expose X-Powered-By",
+    poweredByPresent.length === 0,
+    "Framework disclosure headers add avoidable fingerprinting detail.",
+    { present: poweredByPresent.map((response) => response.finalUrl || response.url) }
+  );
+
   const framingMissing = htmlResponses.filter((response) => {
     const csp = headerValue(response, "content-security-policy");
     const xfo = headerValue(response, "x-frame-options");
@@ -421,7 +432,8 @@ async function main() {
         "referrer-policy": response.headers?.["referrer-policy"] || "",
         "strict-transport-security": response.headers?.["strict-transport-security"] || "",
         "x-content-type-options": response.headers?.["x-content-type-options"] || "",
-        "x-frame-options": response.headers?.["x-frame-options"] || ""
+        "x-frame-options": response.headers?.["x-frame-options"] || "",
+        "x-powered-by": response.headers?.["x-powered-by"] || ""
       },
       setCookieCount: response.setCookies?.length || 0
     })),
