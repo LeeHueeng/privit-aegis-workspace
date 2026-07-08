@@ -346,8 +346,11 @@ function evaluateForms(findings, discovery) {
       if (type === "password" && !["current-password", "new-password"].includes(autocomplete)) {
         autocompleteIssues.push({ page: form.page_url, field: control.name || control.id || "password", expected: "current-password or new-password" });
       }
-      if (["email", "text"].includes(type) && /user|email|account|login/i.test(`${control.name || ""} ${control.id || ""}`) && !["username", "email"].includes(autocomplete)) {
-        autocompleteIssues.push({ page: form.page_url, field: control.name || control.id || type, expected: "username or email" });
+      if (["email", "text"].includes(type) && /user|email|account|login/i.test(`${control.name || ""} ${control.id || ""}`)) {
+        const allowed = type === "email" ? ["email", "username"] : ["username", "email", "organization"];
+        if (!allowed.includes(autocomplete)) {
+          autocompleteIssues.push({ page: form.page_url, field: control.name || control.id || type, expected: allowed.join(" or ") });
+        }
       }
     }
   }
