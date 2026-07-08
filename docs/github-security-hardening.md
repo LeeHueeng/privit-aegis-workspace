@@ -16,6 +16,20 @@ AEGIS_CLI_TOKEN
 Do not reuse a broad local `gh` token for CI. Rotate this token if it is exposed
 or if the Aegis CLI repository access changes.
 
+Check the remaining GitHub-side readiness items locally with:
+
+```sh
+npm run github:ready
+```
+
+To set the secret without printing it in shell history:
+
+```sh
+read -s AEGIS_CLI_TOKEN
+gh secret set AEGIS_CLI_TOKEN --repo LeeHueeng/privit-aegis-workspace --body "$AEGIS_CLI_TOKEN"
+unset AEGIS_CLI_TOKEN
+```
+
 ## Workflow Pinning
 
 The workflow pins:
@@ -45,6 +59,9 @@ checkout so the workflow token is not left in the local git configuration.
 AIGate reports `89/100` until GitHub server-side enforcement is verified. Enable
 branch protection or required status checks for the `AIGate` workflow when the
 repository plan supports protected branches for private repositories.
+
+The readiness check reports this as a TODO until GitHub verifies `AIGate` as a
+required status check on `main`.
 
 ## Dependency Audit
 

@@ -20,6 +20,7 @@
     "security:report": "aegis report --format html",
     "security:audit": "npm audit --audit-level=moderate",
     "security:hardening": "node ./scripts/security-hardening.js",
+    "github:ready": "node ./scripts/github-readiness.js",
     "gate": "aigate test --language ko",
     "gate:ready": "aigate git-ready --language ko",
     "gate:doctor": "aigate doctor --language ko",
