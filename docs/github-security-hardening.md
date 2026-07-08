@@ -24,10 +24,10 @@ The workflow pins:
   `f3511404a2d983218b717035eadbd4ec89832d84`
 - AIGate CLI package: `aigate-cli@0.1.7`
 - GitHub Actions:
-  - `actions/checkout` v4.2.2:
-    `11bd71901bbe5b1630ceea73d27597364c9af683`
-  - `actions/setup-node` v4.4.0:
-    `49933ea5288caeca8642d1e84afbd3f7d6820020`
+  - `actions/checkout` v5.0.1:
+    `93cb6efe18208431cddfb8368fd83d5badbf9bfd`
+  - `actions/setup-node` v5.0.0:
+    `a0853c24544627f65ddf259abe73b1d18a591444`
 
 Update both intentionally after reviewing release notes and rerunning:
 
