@@ -1,4 +1,5 @@
 .aegis/
+aegis.plan.json
 .aigate/reports/*
 !.aigate/reports/.gitkeep
 node_modules/
