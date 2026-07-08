@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "generatedBy": "aigate 0.1.7",
+  "project": {
+    "name": "Privit Aegis Workspace",
+    "packageName": "privit-aegis-workspace"
+  },
+  "profile": {
+    "type": "app",
+    "hosting": "gitlab",
+    "ciProvider": "gitlab",
+    "packageManager": "npm"
+  },
+  "workflow": {
+    "defaultBranch": "main",
+    "targetBranch": "main",
+    "protectedBranches": [
+      "main",
+      "develop"
+    ],
+    "workBranches": [
+      "codex/*",
+      "feature/*",
+      "feat/*",
+      "fix/*",
+      "docs/*",
+      "chore/*"
+    ],
+    "distribution": "auto"
+  },
+  "providers": [
+    "codex",
+    "gemini",
+    "claude"
+  ],
+  "requiredCommands": [
+    "npm test",
+    "aigate git-ready",
+    "aigate test",
+    "aigate aitest",
+    "aigate push --dry-run origin <branch>"
+  ],
+  "validationCommands": [
+    "npm test",
+    "aigate git-ready"
+  ],
+  "branchStrategy": "Git Flow",
+  "requiredChecks": [
+    "GitLab CI pipeline",
+    "aigate git-ready"
+  ]
+}

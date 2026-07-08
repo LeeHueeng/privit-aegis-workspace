@@ -1,0 +1,59 @@
+version: 1
+generatedBy: aigate 0.1.7
+
+project:
+  name: "privit-aegis-workspace"
+  package: "privit-aegis-workspace"
+  defaultBranch: "main"
+  targetBranch: "main"
+  type: app
+  hosting: gitlab
+  ciProvider: gitlab
+  packageManager: npm
+
+reports:
+  defaultFormat: markdown
+  outputDir: .aigate/reports
+  outputs:
+    - markdown
+    - html
+    - json
+    - sarif
+
+notifications:
+  defaults:
+    BLOCK:
+      - terminal
+      - slack
+    SECRET_DETECTED:
+      - terminal
+      - slack
+
+branchStrategy:
+  default: "auto"
+  protectedBranches:
+    - main
+    - develop
+  workBranches:
+    - codex/*
+    - feature/*
+    - feat/*
+    - fix/*
+    - docs/*
+    - chore/*
+
+aiIntegrations:
+  providers:
+    - codex
+    - gemini
+    - claude
+  requiredChecks:
+    - GitLab CI pipeline
+    - aigate git-ready
+
+qualityGates:
+  beforePush:
+    minimumProjectScore: 89
+    commands:
+      - npm test
+      - aigate git-ready

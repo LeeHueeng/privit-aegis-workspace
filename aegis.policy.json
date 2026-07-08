@@ -1,0 +1,49 @@
+{
+  "mandatory_authorization": true,
+  "default_execution_mode": "passive",
+  "scope_file_required": true,
+  "ownership_verification_required": true,
+  "production_active_scan_default": false,
+  "llm_direct_shell_execution": false,
+  "tool_allowlist_required": true,
+  "secret_redaction_before_llm": true,
+  "human_approval_for_high_risk_actions": true,
+  "localization": {
+    "default_locale": "ko-KR",
+    "fallback_locale": "en-US",
+    "supported_locales": [
+      "ko-KR",
+      "ja-JP",
+      "zh-CN",
+      "en-US"
+    ],
+    "aliases": {
+      "korean": "ko-KR",
+      "japanese": "ja-JP",
+      "chinese": "zh-CN",
+      "english": "en-US"
+    }
+  },
+  "disallowed_capabilities": [
+    "unauthorized_target_testing",
+    "brute_force_login",
+    "credential_stuffing",
+    "privilege_escalation_automation",
+    "webshell_or_backdoor_creation",
+    "persistence_creation",
+    "defense_evasion",
+    "data_exfiltration",
+    "destructive_production_db_testing",
+    "llm_generated_direct_shell_execution"
+  ],
+  "allowed_tool_adapters": [
+    "scope_guard_adapter",
+    "playwright_adapter",
+    "semgrep_adapter",
+    "trivy_adapter",
+    "syft_adapter",
+    "zap_adapter",
+    "nuclei_adapter",
+    "db_readonly_adapter"
+  ]
+}

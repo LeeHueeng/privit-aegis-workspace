@@ -1,0 +1,21 @@
+stages:
+  - security
+
+privit-aegis:
+  image: node:20
+  stage: security
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+  variables:
+    AEGIS_CLI_SOURCE: "git+https://github.com/LeeHueeng/privit-project.git"
+  before_script:
+    - npm install -g "$AEGIS_CLI_SOURCE" aigate-cli
+  script:
+    - npm run ci:aegis
+    - npm run gate:ready
+  artifacts:
+    when: always
+    paths:
+      - .aegis/reports/
+    expire_in: 7 days

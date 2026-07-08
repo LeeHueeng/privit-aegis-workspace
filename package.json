@@ -1,0 +1,33 @@
+{
+  "name": "privit-aegis-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "npm@10.8.2",
+  "scripts": {
+    "prepare": "git config core.hooksPath \"$(pwd)/.githooks\" && chmod +x .githooks/pre-push || true",
+    "aegis": "aegis",
+    "web": "node ./scripts/aegis-web.js",
+    "setup": "node ./scripts/setup-aegis.js",
+    "start:aegis": "node ./scripts/start-aegis.js",
+    "catalog:generate": "aegis catalog generate",
+    "docs:generate": "aegis docs generate --lang all",
+    "security:init": "aegis init",
+    "security:verify": "aegis scope verify",
+    "security:plan": "aegis plan --mode passive --target frontend --limit 25",
+    "security:frontend": "aegis run --target frontend --mode passive --dry-run",
+    "security:report": "aegis report --format html",
+    "gate": "aigate test --language ko",
+    "gate:ready": "aigate git-ready --language ko",
+    "gate:doctor": "aigate doctor --language ko",
+    "ai:integrate": "aigate integrate all --language ko",
+    "ai:doctor": "node ./scripts/ai-doctor.js",
+    "ai:report": "aigate ai report --language ko",
+    "ai:prompt": "aigate aitest --language ko --prompt-output .aigate/reports/ai-remediation-prompt.md",
+    "ai:prompt:codex": "aigate aitest --language ko --provider codex --prompt-output .aigate/reports/ai-remediation-codex.md",
+    "ai:prompt:gemini": "aigate aitest --language ko --provider gemini --prompt-output .aigate/reports/ai-remediation-gemini.md",
+    "ai:prompt:claude": "aigate aitest --language ko --provider claude --prompt-output .aigate/reports/ai-remediation-claude.md",
+    "ci:aegis": "npm run catalog:generate && npm run security:verify && npm run security:plan && npm test && npm run security:report && npm run gate",
+    "test": "aegis scope verify && aegis run --target frontend --mode passive --dry-run"
+  }
+}

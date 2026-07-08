@@ -1,0 +1,60 @@
+{
+  "project": "privit",
+  "environment": "local",
+  "targets": {
+    "frontend": {
+      "enabled": true,
+      "base_url": "http://localhost:3000",
+      "allowed_hosts": [
+        "localhost",
+        "127.0.0.1"
+      ],
+      "allowed_paths": [
+        "/*"
+      ],
+      "denied_paths": [
+        "/payments/live/*",
+        "/admin/delete/*"
+      ]
+    },
+    "backend_api": {
+      "enabled": false,
+      "base_url": "http://localhost:3000/api",
+      "openapi_file": "./openapi.yaml",
+      "allowed_hosts": [
+        "localhost",
+        "127.0.0.1"
+      ],
+      "allowed_paths": [
+        "/*"
+      ],
+      "denied_paths": [
+        "/admin/delete/*"
+      ]
+    },
+    "database": {
+      "enabled": false,
+      "mode": "read_only_audit",
+      "connection_profile": "readonly-local-db"
+    },
+    "ci_cd": {
+      "enabled": true,
+      "repository_root": "."
+    }
+  },
+  "authorization": {
+    "owner": "security@example.com",
+    "proof_type": "manual_approval_file",
+    "proof_file": "./aegis.auth.json",
+    "expires_at": "2027-07-08"
+  },
+  "safety": {
+    "max_rps": 2,
+    "max_concurrency": 3,
+    "destructive_tests": false,
+    "brute_force": false,
+    "data_exfiltration": false,
+    "persistence": false,
+    "production_active_scan": false
+  }
+}

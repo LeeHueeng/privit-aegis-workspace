@@ -1,0 +1,6 @@
+.aegis/
+.aigate/reports/*
+!.aigate/reports/.gitkeep
+node_modules/
+npm-debug.log*
+.DS_Store

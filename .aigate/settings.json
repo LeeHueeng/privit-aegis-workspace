@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "language": "ko",
+  "projectType": "app",
+  "hosting": "gitlab",
+  "ciProvider": "gitlab",
+  "packageManager": "npm",
+  "distribution": "auto",
+  "defaultBranch": "main",
+  "targetBranch": "main",
+  "branchStrategy": "gitlab-flow",
+  "protectedBranches": [
+    "main",
+    "develop"
+  ],
+  "workBranches": [
+    "codex/*",
+    "feature/*",
+    "feat/*",
+    "fix/*",
+    "docs/*",
+    "chore/*"
+  ],
+  "requiredChecks": [
+    "GitLab CI pipeline",
+    "aigate git-ready"
+  ],
+  "qualityCommands": [
+    "npm test",
+    "aigate git-ready"
+  ],
+  "aiProviders": [
+    "codex",
+    "gemini",
+    "claude"
+  ],
+  "aiRootFiles": "protect",
+  "serverEnforcement": {
+    "gitlab": {
+      "onlyAllowMergeIfPipelineSucceeds": "auto"
+    },
+    "github": {
+      "requiredChecksEnforced": "auto"
+    }
+  }
+}

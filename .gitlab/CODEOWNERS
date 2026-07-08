@@ -1,0 +1,6 @@
+* @security-team
+aegis.scope.json @security-team
+.aigate.yml @security-team
+.gitlab-ci.yml @security-team
+.github/workflows/* @security-team
+scripts/* @security-team
