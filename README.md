@@ -29,6 +29,7 @@ login-route indicators.
 
 ```sh
 npm run security:audit
+npm run security:hardening
 npm run ci:aegis
 npm run gate:ready
 ```
@@ -36,6 +37,9 @@ npm run gate:ready
 All configured checks are passive by default. Discovery follows only allowlisted
 hosts and paths, does not submit forms, and does not run brute-force tests.
 Active or destructive tests must be approved in scope before they are added.
+The hardening baseline adds OWASP/GitHub checks for local scope safety,
+browser security headers, CI token permissions, checkout credential persistence,
+and passive authentication/CSRF advisories.
 
 ## AI Assistants
 

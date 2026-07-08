@@ -1,0 +1,73 @@
+{
+  "version": 1,
+  "profile": "owasp-github-local-passive",
+  "sources": [
+    {
+      "name": "OWASP HTTP Security Response Headers Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/HTTP_Headers_Cheat_Sheet.html"
+    },
+    {
+      "name": "OWASP Authentication Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
+    },
+    {
+      "name": "OWASP Cross-Site Request Forgery Prevention Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
+    },
+    {
+      "name": "GitHub Actions Secure Use Reference",
+      "url": "https://docs.github.com/en/actions/reference/security/secure-use"
+    },
+    {
+      "name": "MDN Content Security Policy",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP"
+    }
+  ],
+  "scope": {
+    "maxPassiveDepth": 3,
+    "maxPassivePages": 100,
+    "requireLoopbackForLocal": true,
+    "disallowProductionActiveScan": true,
+    "requiredFalseSafetyFlags": [
+      "destructive_tests",
+      "brute_force",
+      "data_exfiltration",
+      "persistence",
+      "production_active_scan"
+    ]
+  },
+  "webConsole": {
+    "requiredDefaultHost": "127.0.0.1",
+    "requiredHeaders": [
+      "content-security-policy",
+      "x-content-type-options",
+      "referrer-policy",
+      "x-frame-options",
+      "permissions-policy",
+      "cross-origin-opener-policy",
+      "cache-control"
+    ],
+    "hstsWhenTlsOnly": true
+  },
+  "frontendAdvisory": {
+    "authFormsMustUsePost": true,
+    "csrfRequiredForStateChangingForms": true,
+    "passwordAutocompleteRecommended": true,
+    "sensitiveResponsesNoStore": true,
+    "recommendedHeaders": [
+      "content-security-policy",
+      "strict-transport-security",
+      "x-content-type-options",
+      "referrer-policy",
+      "permissions-policy",
+      "cache-control"
+    ]
+  },
+  "githubActions": {
+    "forbidPullRequestTarget": true,
+    "requireReadOnlyContentsPermission": true,
+    "requireJobTimeout": true,
+    "requireCheckoutPersistCredentialsFalse": true,
+    "warnOnTagPinnedActions": true
+  }
+}

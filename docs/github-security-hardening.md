@@ -30,6 +30,11 @@ Update both intentionally after reviewing release notes and rerunning:
 npm run ci:security
 ```
 
+The workflow also sets `permissions: contents: read`, applies a job timeout, and
+uses `persist-credentials: false` on checkout so the workflow token is not left
+in the local git configuration. `security:hardening` verifies these controls in
+local and CI runs.
+
 ## Branch Protection
 
 AIGate reports `89/100` until GitHub server-side enforcement is verified. Enable
