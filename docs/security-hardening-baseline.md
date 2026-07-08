@@ -42,10 +42,21 @@ The baseline follows these primary references:
 - MDN Content Security Policy:
   https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP
 
-## Target App Follow-Up
+## Target App Status
 
-The latest scan currently flags a login-like form using `GET`. The application
-should change authentication and reset flows to `POST`, avoid credentials or
-tokens in URLs, and add CSRF protection for state-changing cookie-authenticated
-requests. This is tracked as a warning in the hardening report until the target
-application is patched.
+The running `localhost:3000` target app has been patched so the discovered
+login and password-recovery forms render as `POST` forms and expose a
+`csrfToken` control. The public auth API routes now require the matching
+`X-CSRF-Token` header before proxying login, MFA, or password-recovery requests.
+
+Patched target app files:
+
+- `/Volumes/develop/develop/company_develop/admin-project/adminpage/apps/root/src/lib/auth/csrf.ts`
+- `/Volumes/develop/develop/company_develop/admin-project/adminpage/apps/root/src/components/auth/RootLogin.tsx`
+- `/Volumes/develop/develop/company_develop/admin-project/adminpage/apps/root/src/views/auth/ForgotPassword.tsx`
+- `/Volumes/develop/develop/company_develop/admin-project/adminpage/apps/root/src/app/api/v1/auth/login/route.ts`
+- `/Volumes/develop/develop/company_develop/admin-project/adminpage/apps/root/src/app/api/v1/auth/mfa-verify/route.ts`
+- `/Volumes/develop/develop/company_develop/admin-project/adminpage/apps/root/src/app/api/v1/auth/forgot-password/route.ts`
+
+After regenerating discovery with `npm run security:map`, the hardening review
+passes all checks with `npm run security:hardening`.

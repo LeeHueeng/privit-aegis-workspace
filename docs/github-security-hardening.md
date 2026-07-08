@@ -23,6 +23,11 @@ The workflow pins:
 - Aegis CLI source commit:
   `f3511404a2d983218b717035eadbd4ec89832d84`
 - AIGate CLI package: `aigate-cli@0.1.7`
+- GitHub Actions:
+  - `actions/checkout` v4.2.2:
+    `11bd71901bbe5b1630ceea73d27597364c9af683`
+  - `actions/setup-node` v4.4.0:
+    `49933ea5288caeca8642d1e84afbd3f7d6820020`
 
 Update both intentionally after reviewing release notes and rerunning:
 
@@ -30,10 +35,10 @@ Update both intentionally after reviewing release notes and rerunning:
 npm run ci:security
 ```
 
-The workflow also sets `permissions: contents: read`, applies a job timeout, and
-uses `persist-credentials: false` on checkout so the workflow token is not left
-in the local git configuration. `security:hardening` verifies these controls in
-local and CI runs.
+The workflow also sets `permissions: contents: read`, applies a job timeout,
+pins GitHub actions by full commit SHA, and uses `persist-credentials: false` on
+checkout so the workflow token is not left in the local git configuration.
+`security:hardening` verifies these controls in local and CI runs.
 
 ## Branch Protection
 
