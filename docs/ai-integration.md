@@ -21,6 +21,7 @@ npm run ai:report
 npm run ai:prompt
 npm run ai:model:show
 npm run ai:model:commands
+npm run ai:model:check
 ```
 
 Provider-specific prompt files:
@@ -40,12 +41,23 @@ npm run ai:model:set -- --provider gemini --model gemini-3.1-pro-preview
 npm run ai:model:set -- --provider claude --model sonnet --effort high
 ```
 
+Local and direct API providers are available but disabled by default. They store
+only endpoint and environment-variable names, never secret values:
+
+```sh
+npm run ai:model:set -- --provider local --enable --model llama3.1:8b --endpoint http://127.0.0.1:11434/v1/chat/completions --health-url http://127.0.0.1:11434/api/tags --api-style openai-chat
+npm run ai:model:set -- --provider api --enable --model gpt-5.5 --endpoint https://api.openai.com/v1/responses --api-style openai-responses --api-key-env OPENAI_API_KEY
+npm run ai:model:check
+```
+
 Reference commands generated from the current settings:
 
 ```sh
 codex --model "gpt-5.5"
 gemini --model "gemini-3.1-pro-preview"
 claude --model "sonnet" --effort "high"
+curl -sS "http://127.0.0.1:11434/v1/chat/completions" -H "Content-Type: application/json" -d "{\"model\":\"llama3.1:8b\",\"messages\":[{\"role\":\"user\",\"content\":\"<prompt>\"}],\"stream\":false}"
+curl -sS "https://api.openai.com/v1/responses" -H "Content-Type: application/json" -H "Authorization: Bearer $OPENAI_API_KEY" -d "{\"model\":\"gpt-5.5\",\"input\":\"<prompt>\"}"
 ```
 
 Model reference pages:
@@ -53,6 +65,8 @@ Model reference pages:
 - Codex: https://developers.openai.com/codex/models
 - Gemini: https://ai.google.dev/gemini-api/docs/models
 - Claude Code: https://docs.anthropic.com/en/docs/claude-code/model-config
+- Local/Ollama API: https://github.com/ollama/ollama/blob/main/docs/api.md
+- OpenAI Responses API: https://developers.openai.com/api/reference/resources/responses/methods/create
 
 The assistants must keep Aegis runs passive unless the scope file explicitly
 allows a stronger mode. Generated `.aegis/` artifacts stay local unless a

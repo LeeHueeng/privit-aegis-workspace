@@ -25,6 +25,7 @@ const actions = {
   aiDoctor: ["npm", ["run", "ai:doctor"]],
   aiReport: ["npm", ["run", "ai:report"]],
   aiModelCommands: ["npm", ["run", "ai:model:commands"]],
+  aiProviderCheck: ["npm", ["run", "ai:model:check"]],
   ciSecurity: ["npm", ["run", "ci:security"]],
   gitStatus: ["git", ["status", "--short", "--branch"]],
   start: ["npm", ["run", "start:aegis"]]
@@ -147,20 +148,28 @@ function gitInfo() {
 function buildAiState(integrations, settings) {
   const configured = new Set([...(integrations?.providers || []), ...(settings?.aiProviders || [])]);
   const modelReport = buildAiModelReport(settings?.aiModelSettings);
-  const providers = [
-    { id: "codex", label: "Codex", command: "codex", rootFile: "AGENTS.md" },
-    { id: "gemini", label: "Gemini", command: "gemini", rootFile: "GEMINI.md" },
-    { id: "claude", label: "Claude", command: "claude", rootFile: "CLAUDE.md" }
-  ].map((provider) => {
-    const sidecarFile = `.aigate/integrations/${provider.id}.md`;
-    const enabled = configured.has(provider.id);
-    const rootReady = existsSync(resolve(cwd, provider.rootFile));
-    const sidecarReady = existsSync(resolve(cwd, sidecarFile));
-    const cli = commandInfo(provider.command);
+  const providers = AI_PROVIDER_IDS.map((id) => {
+    const config = modelReport.providers[id];
+    const provider = {
+      id,
+      label: config.label,
+      providerType: config.providerType,
+      command: config.command,
+      rootFile: config.rootFile,
+      sidecarFile: config.sidecarFile
+    };
+    const enabled = provider.providerType === "cli" ? configured.has(provider.id) || config.enabled : config.enabled;
+    const rootReady = provider.rootFile ? existsSync(resolve(cwd, provider.rootFile)) : true;
+    const sidecarReady = provider.sidecarFile ? existsSync(resolve(cwd, provider.sidecarFile)) : true;
+    const cli = provider.providerType === "cli" ? commandInfo(provider.command) : { installed: true, path: "", version: "" };
+    const endpointReady = provider.providerType === "cli" || Boolean(config.endpoint);
+    const apiKeyReady = provider.providerType === "cli" || !config.apiKeyEnv || Boolean(process.env[config.apiKeyEnv]);
+    const ready = enabled
+      ? enabled && rootReady && sidecarReady && cli.installed && endpointReady && apiKeyReady
+      : true;
     return {
       ...provider,
       enabled,
-      sidecarFile,
       rootReady,
       sidecarReady,
       commandReady: cli.installed,
@@ -168,17 +177,25 @@ function buildAiState(integrations, settings) {
       version: cli.version,
       model: modelReport.providers[provider.id]?.model || "",
       modelConfig: modelReport.providers[provider.id] || {},
+      endpoint: config.endpoint || "",
+      apiStyle: config.apiStyle || "",
+      apiKeyEnv: config.apiKeyEnv || "",
+      endpointReady,
+      apiKeyReady,
       commandReference: modelReport.commands[provider.id] || {},
       filesReady: enabled && rootReady && sidecarReady,
-      ready: enabled && rootReady && sidecarReady && cli.installed
+      ready,
+      status: !enabled ? "disabled" : ready ? "ready" : "check",
+      statusTone: !enabled ? "" : ready ? "ok" : "warn"
     };
   });
+  const enabledProviders = providers.filter((provider) => provider.enabled);
 
   return {
     providers,
     modelSettings: modelReport,
-    readyCount: providers.filter((provider) => provider.ready).length,
-    totalCount: providers.length,
+    readyCount: enabledProviders.filter((provider) => provider.ready).length,
+    totalCount: enabledProviders.length,
     manifestReady: existsSync(resolve(cwd, ".aigate/integrations.json")),
     settingsReady: existsSync(resolve(cwd, ".aigate/settings.json")),
     requiredCommands: integrations?.requiredCommands || [],
@@ -584,6 +601,7 @@ function page() {
               <button data-action="aiDoctor" data-i18n="actionAiDoctor">AI Doctor</button>
               <button data-action="aiReport" data-i18n="actionAiReport">AI Report</button>
               <button data-action="aiModelCommands" data-i18n="actionAiModelCommands">Model Commands</button>
+              <button data-action="aiProviderCheck" data-i18n="actionAiProviderCheck">Provider Check</button>
             </div>
           </div>
           <div class="panel">
@@ -644,8 +662,8 @@ function page() {
         actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionGate: "AIGate", actionStart: "전체 실행",
         latestRun: "최근 실행", scopeSettings: "범위 설정", project: "프로젝트", environment: "환경", frontendUrl: "프론트 URL", backendUrl: "백엔드 API URL", owner: "소유자 이메일", expiresAt: "승인 만료일", allowedPaths: "허용 경로", deniedPaths: "차단 경로", maxRps: "최대 RPS", maxConcurrency: "최대 동시성", backendApi: "백엔드 API", ciCd: "CI/CD", saveScope: "범위 저장",
         discoverySettings: "탐색 설정", maxDepth: "최대 깊이", maxPages: "최대 페이지", sitemapPaths: "사이트맵 경로", loginIndicators: "로그인 지표", discoveryEnabled: "탐색", includeForms: "폼 수집", followRedirects: "리다이렉트 추적", saveDiscovery: "탐색 저장", siteMap: "사이트맵",
-        providers: "프로바이더", aiModels: "AI 모델", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiGate: "AI 게이트", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", modelDocs: "모델 문서",
-        model: "모델", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자",
+        providers: "프로바이더", aiModels: "AI 모델", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiGate: "AI 게이트", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
+        model: "모델", providerType: "유형", enabledProvider: "사용", endpoint: "API/로컬 엔드포인트", healthUrl: "헬스 URL", apiStyle: "API 방식", apiKeyEnv: "키 환경변수", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자", disabled: "비활성", check: "확인 필요",
         updates: "업데이트", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git 상태", actionCiSecurity: "CI 보안", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
         ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
       },
@@ -655,8 +673,8 @@ function page() {
         actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionGate: "AIGate", actionStart: "Start All",
         latestRun: "Latest Run", scopeSettings: "Scope Settings", project: "Project", environment: "Environment", frontendUrl: "Frontend URL", backendUrl: "Backend API URL", owner: "Owner Email", expiresAt: "Authorization Expires", allowedPaths: "Allowed Paths", deniedPaths: "Denied Paths", maxRps: "Max RPS", maxConcurrency: "Max Concurrency", backendApi: "Backend API", ciCd: "CI/CD", saveScope: "Save Scope",
         discoverySettings: "Discovery Settings", maxDepth: "Max Depth", maxPages: "Max Pages", sitemapPaths: "Sitemap Paths", loginIndicators: "Login Indicators", discoveryEnabled: "Discovery", includeForms: "Form Inventory", followRedirects: "Follow Redirects", saveDiscovery: "Save Discovery", siteMap: "Site Map",
-        providers: "Providers", aiModels: "AI Models", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiGate: "AI Gate", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", modelDocs: "Model Docs",
-        model: "Model", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args",
+        providers: "Providers", aiModels: "AI Models", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiGate: "AI Gate", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
+        model: "Model", providerType: "Type", enabledProvider: "Enabled", endpoint: "API/Local Endpoint", healthUrl: "Health URL", apiStyle: "API Style", apiKeyEnv: "Key Env", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args", disabled: "Disabled", check: "Check",
         updates: "Updates", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git Status", actionCiSecurity: "CI Security", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
         ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
       },
@@ -666,8 +684,8 @@ function page() {
         actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionGate: "AIGate", actionStart: "全実行",
         latestRun: "最新実行", scopeSettings: "スコープ設定", project: "プロジェクト", environment: "環境", frontendUrl: "フロントURL", backendUrl: "バックエンドAPI URL", owner: "所有者メール", expiresAt: "承認期限", allowedPaths: "許可パス", deniedPaths: "拒否パス", maxRps: "最大RPS", maxConcurrency: "最大同時実行", backendApi: "バックエンドAPI", ciCd: "CI/CD", saveScope: "スコープ保存",
         discoverySettings: "探索設定", maxDepth: "最大深度", maxPages: "最大ページ", sitemapPaths: "サイトマップパス", loginIndicators: "ログイン指標", discoveryEnabled: "探索", includeForms: "フォーム収集", followRedirects: "リダイレクト追跡", saveDiscovery: "探索保存", siteMap: "サイトマップ",
-        providers: "プロバイダー", aiModels: "AIモデル", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiGate: "AIゲート", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", modelDocs: "モデル文書",
-        model: "モデル", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数",
+        providers: "プロバイダー", aiModels: "AIモデル", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiGate: "AIゲート", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
+        model: "モデル", providerType: "種類", enabledProvider: "有効", endpoint: "API/ローカルエンドポイント", healthUrl: "ヘルスURL", apiStyle: "API方式", apiKeyEnv: "キー環境変数", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数", disabled: "無効", check: "確認",
         updates: "更新", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git状態", actionCiSecurity: "CIセキュリティ", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
         ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
       },
@@ -677,8 +695,8 @@ function page() {
         actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionGate: "AIGate", actionStart: "全部运行",
         latestRun: "最近运行", scopeSettings: "范围设置", project: "项目", environment: "环境", frontendUrl: "前端 URL", backendUrl: "后端 API URL", owner: "所有者邮箱", expiresAt: "授权到期", allowedPaths: "允许路径", deniedPaths: "拒绝路径", maxRps: "最大 RPS", maxConcurrency: "最大并发", backendApi: "后端 API", ciCd: "CI/CD", saveScope: "保存范围",
         discoverySettings: "发现设置", maxDepth: "最大深度", maxPages: "最大页面", sitemapPaths: "站点图路径", loginIndicators: "登录指标", discoveryEnabled: "发现", includeForms: "表单清单", followRedirects: "跟随重定向", saveDiscovery: "保存发现", siteMap: "站点图",
-        providers: "提供方", aiModels: "AI 模型", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiGate: "AI 网关", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", modelDocs: "模型文档",
-        model: "模型", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数",
+        providers: "提供方", aiModels: "AI 模型", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiGate: "AI 网关", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
+        model: "模型", providerType: "类型", enabledProvider: "启用", endpoint: "API/本地端点", healthUrl: "健康 URL", apiStyle: "API 样式", apiKeyEnv: "密钥环境变量", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数", disabled: "已禁用", check: "需检查",
         updates: "更新", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git 状态", actionCiSecurity: "CI 安全", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
         ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
       }
@@ -760,8 +778,8 @@ function page() {
       document.querySelector("#ai-providers").innerHTML = providers.map((provider) => \`
         <div class="line-item">
           <strong>\${escapeHtml(provider.label)}</strong>
-          <span>\${escapeHtml(provider.model || "-")} / \${escapeHtml(provider.rootFile)} / \${escapeHtml(provider.sidecarFile)} / \${escapeHtml(provider.command)} \${escapeHtml(provider.version || "missing")}</span>
-          <span class="pill \${provider.ready ? "ok" : "warn"}">\${provider.ready ? "Ready" : "Check"}</span>
+          <span>\${escapeHtml(provider.providerType || "cli")} / \${escapeHtml(provider.model || "-")} / \${escapeHtml(provider.endpoint || provider.rootFile || "-")} / \${escapeHtml(provider.command)} \${escapeHtml(provider.version || "")}</span>
+          <span class="pill \${escapeHtml(provider.statusTone || "")}">\${escapeHtml(t(provider.status || (provider.ready ? "ready" : "check")))}</span>
         </div>
       \`).join("");
       document.querySelector("#default-provider-select").innerHTML = providers.map((provider) =>
@@ -778,15 +796,29 @@ function page() {
               <h3>\${escapeHtml(provider.label)}</h3>
               <div class="model-card-meta">
                 <a class="docs-link" href="\${escapeHtml(config.docsUrl || "#")}" target="_blank" rel="noreferrer" data-i18n="modelDocs">\${t("modelDocs")}</a>
-                <span class="pill \${provider.ready ? "ok" : "warn"}">\${escapeHtml(config.apiKeyEnv || "")}</span>
+                <span class="pill">\${escapeHtml(config.providerType || "cli")}</span>
+                <span class="pill \${escapeHtml(provider.statusTone || "")}">\${escapeHtml(t(provider.status || "check"))}</span>
               </div>
             </header>
+            <label class="switch"><input name="\${provider.id}.enabled" type="checkbox" \${config.enabled ? "checked" : ""}> <span data-i18n="enabledProvider">\${t("enabledProvider")}</span></label>
             <datalist id="\${datalistId}">
               \${presets.map((model) => \`<option value="\${escapeHtml(model)}"></option>\`).join("")}
             </datalist>
             <div class="row">
               <label><span data-i18n="model">\${t("model")}</span><input name="\${provider.id}.model" list="\${datalistId}" value="\${escapeHtml(config.model || "")}"></label>
+              <label><span data-i18n="providerType">\${t("providerType")}</span><input name="\${provider.id}.providerType" value="\${escapeHtml(config.providerType || "")}" disabled></label>
+            </div>
+            <div class="row">
+              <label><span data-i18n="endpoint">\${t("endpoint")}</span><input name="\${provider.id}.endpoint" value="\${escapeHtml(config.endpoint || "")}"></label>
+              <label><span data-i18n="healthUrl">\${t("healthUrl")}</span><input name="\${provider.id}.healthUrl" value="\${escapeHtml(config.healthUrl || "")}"></label>
+            </div>
+            <div class="row">
+              <label><span data-i18n="apiStyle">\${t("apiStyle")}</span><input name="\${provider.id}.apiStyle" value="\${escapeHtml(config.apiStyle || "")}"></label>
+              <label><span data-i18n="apiKeyEnv">\${t("apiKeyEnv")}</span><input name="\${provider.id}.apiKeyEnv" value="\${escapeHtml(config.apiKeyEnv || "")}"></label>
+            </div>
+            <div class="row">
               <label><span data-i18n="effort">\${t("effort")}</span><input name="\${provider.id}.effort" value="\${escapeHtml(config.effort || "")}"></label>
+              <label><span data-i18n="outputFormat">\${t("outputFormat")}</span><input name="\${provider.id}.outputFormat" value="\${escapeHtml(config.outputFormat || "")}"></label>
             </div>
             <div class="row">
               <label><span data-i18n="approvalMode">\${t("approvalMode")}</span><input name="\${provider.id}.approvalMode" value="\${escapeHtml(config.approvalMode || "")}"></label>
@@ -794,12 +826,9 @@ function page() {
             </div>
             <div class="row">
               <label><span data-i18n="sandbox">\${t("sandbox")}</span><input name="\${provider.id}.sandbox" value="\${escapeHtml(config.sandbox || "")}"></label>
-              <label><span data-i18n="outputFormat">\${t("outputFormat")}</span><input name="\${provider.id}.outputFormat" value="\${escapeHtml(config.outputFormat || "")}"></label>
-            </div>
-            <div class="row">
               <label><span data-i18n="fallbackModel">\${t("fallbackModel")}</span><input name="\${provider.id}.fallbackModel" value="\${escapeHtml(config.fallbackModel || "")}"></label>
-              <label><span data-i18n="extraArgs">\${t("extraArgs")}</span><input name="\${provider.id}.extraArgs" value="\${escapeHtml(config.extraArgs || "")}"></label>
             </div>
+            <label><span data-i18n="extraArgs">\${t("extraArgs")}</span><input name="\${provider.id}.extraArgs" value="\${escapeHtml(config.extraArgs || "")}"></label>
             <code>\${escapeHtml(commands.interactive || "")}</code>
             <code>\${escapeHtml(commands.headless || "")}</code>
           </div>
@@ -811,6 +840,8 @@ function page() {
         defaultProvider: modelSettings.defaultProvider,
         providers: providers.filter((provider) => provider.enabled).map((provider) => provider.id),
         models: Object.fromEntries(providers.map((provider) => [provider.id, modelSettings.providers?.[provider.id]?.model || ""])),
+        enabled: Object.fromEntries(providers.map((provider) => [provider.id, Boolean(modelSettings.providers?.[provider.id]?.enabled)])),
+        endpoints: Object.fromEntries(providers.map((provider) => [provider.id, modelSettings.providers?.[provider.id]?.endpoint || ""])),
         docs: Object.fromEntries(providers.map((provider) => [provider.id, modelSettings.providers?.[provider.id]?.docsUrl || ""])),
         commands: modelSettings.commands || {},
         validation: ai.validationCommands || [],
@@ -821,10 +852,17 @@ function page() {
     function aiPayloadFromForm() {
       const formData = new FormData(aiModelForm);
       const providers = {};
+      for (const card of document.querySelectorAll(".model-card")) {
+        const provider = card.dataset.provider;
+        providers[provider] = {
+          enabled: Boolean(card.querySelector(\`input[name="\${provider}.enabled"]\`)?.checked)
+        };
+      }
       for (const [key, value] of formData.entries()) {
         if (key === "defaultProvider") continue;
         const [provider, field] = key.split(".");
         providers[provider] ||= {};
+        if (field === "enabled") continue;
         providers[provider][field] = value;
       }
       return {

@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const AI_PROVIDER_IDS = ["codex", "gemini", "claude"];
+export const AI_PROVIDER_IDS = ["codex", "gemini", "claude", "local", "api"];
 
 export const DEFAULT_AI_MODEL_SETTINGS = {
   version: 1,
@@ -11,7 +11,11 @@ export const DEFAULT_AI_MODEL_SETTINGS = {
   providers: {
     codex: {
       label: "Codex",
+      providerType: "cli",
+      enabled: true,
       command: "codex",
+      rootFile: "AGENTS.md",
+      sidecarFile: ".aigate/integrations/codex.md",
       model: "gpt-5.5",
       modelFlag: "--model",
       effort: "high",
@@ -21,13 +25,20 @@ export const DEFAULT_AI_MODEL_SETTINGS = {
       outputFormat: "text",
       fallbackModel: "",
       extraArgs: "",
+      endpoint: "",
+      healthUrl: "",
+      apiStyle: "cli",
       apiKeyEnv: "OPENAI_API_KEY",
       docsUrl: "https://developers.openai.com/codex/models",
       presets: ["gpt-5.5", "gpt-5.3-codex-spark", "gpt-5", "o3"]
     },
     gemini: {
       label: "Gemini",
+      providerType: "cli",
+      enabled: true,
       command: "gemini",
+      rootFile: "GEMINI.md",
+      sidecarFile: ".aigate/integrations/gemini.md",
       model: "gemini-3.1-pro-preview",
       modelFlag: "--model",
       effort: "",
@@ -37,13 +48,20 @@ export const DEFAULT_AI_MODEL_SETTINGS = {
       outputFormat: "text",
       fallbackModel: "",
       extraArgs: "",
+      endpoint: "",
+      healthUrl: "",
+      apiStyle: "cli",
       apiKeyEnv: "GEMINI_API_KEY",
       docsUrl: "https://ai.google.dev/gemini-api/docs/models",
       presets: ["gemini-3.1-pro-preview", "gemini-3.1-flash-lite", "gemini-2.5-pro", "gemini-2.5-flash"]
     },
     claude: {
       label: "Claude",
+      providerType: "cli",
+      enabled: true,
       command: "claude",
+      rootFile: "CLAUDE.md",
+      sidecarFile: ".aigate/integrations/claude.md",
       model: "sonnet",
       modelFlag: "--model",
       effort: "high",
@@ -53,9 +71,58 @@ export const DEFAULT_AI_MODEL_SETTINGS = {
       outputFormat: "text",
       fallbackModel: "",
       extraArgs: "",
+      endpoint: "",
+      healthUrl: "",
+      apiStyle: "cli",
       apiKeyEnv: "ANTHROPIC_API_KEY",
       docsUrl: "https://docs.anthropic.com/en/docs/claude-code/model-config",
       presets: ["sonnet", "opus", "haiku", "fable", "claude-fable-5", "claude-opus-4-8", "claude-sonnet-5", "claude-haiku-4-5"]
+    },
+    local: {
+      label: "Local AI",
+      providerType: "local",
+      enabled: false,
+      command: "curl",
+      rootFile: "",
+      sidecarFile: "",
+      model: "llama3.1:8b",
+      modelFlag: "--model",
+      effort: "",
+      approvalMode: "",
+      permissionMode: "",
+      sandbox: "",
+      outputFormat: "json",
+      fallbackModel: "",
+      extraArgs: "",
+      endpoint: "http://127.0.0.1:11434/v1/chat/completions",
+      healthUrl: "http://127.0.0.1:11434/api/tags",
+      apiStyle: "openai-chat",
+      apiKeyEnv: "",
+      docsUrl: "https://github.com/ollama/ollama/blob/main/docs/api.md",
+      presets: ["llama3.1:8b", "qwen3.5:8b", "gemma4:9b", "gpt-oss:20b"]
+    },
+    api: {
+      label: "Direct API",
+      providerType: "api",
+      enabled: false,
+      command: "curl",
+      rootFile: "",
+      sidecarFile: "",
+      model: "gpt-5.5",
+      modelFlag: "--model",
+      effort: "",
+      approvalMode: "",
+      permissionMode: "",
+      sandbox: "",
+      outputFormat: "json",
+      fallbackModel: "",
+      extraArgs: "",
+      endpoint: "https://api.openai.com/v1/responses",
+      healthUrl: "",
+      apiStyle: "openai-responses",
+      apiKeyEnv: "OPENAI_API_KEY",
+      docsUrl: "https://developers.openai.com/api/reference/resources/responses/methods/create",
+      presets: ["gpt-5.5", "gpt-5.4", "gpt-5.4-mini", "gpt-5.3-codex-spark"]
     }
   }
 };
@@ -67,8 +134,65 @@ function cleanString(value, fallback = "") {
   return String(value).trim();
 }
 
+function cleanBoolean(value, fallback = false) {
+  if (value === undefined || value === null || value === "") {
+    return fallback;
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes", "on", "enable", "enabled"].includes(normalized)) {
+    return true;
+  }
+  if (["0", "false", "no", "off", "disable", "disabled"].includes(normalized)) {
+    return false;
+  }
+  return fallback;
+}
+
 function shellQuote(value) {
   return `"${String(value).replace(/(["\\$`])/g, "\\$1")}"`;
+}
+
+function shellQuoteWithEnv(value) {
+  return `"${String(value).replace(/(["\\`])/g, "\\$1")}"`;
+}
+
+function apiPayload(provider) {
+  if (provider.apiStyle === "openai-responses") {
+    return JSON.stringify({ model: provider.model, input: "<prompt>" });
+  }
+  return JSON.stringify({
+    model: provider.model,
+    messages: [{ role: "user", content: "<prompt>" }],
+    stream: false
+  });
+}
+
+function providerConfigCommand(providerId, provider) {
+  const parts = [
+    "npm run ai:model:set --",
+    "--provider",
+    providerId,
+    "--model",
+    shellQuote(provider.model)
+  ];
+  if (provider.endpoint) parts.push("--endpoint", shellQuote(provider.endpoint));
+  if (provider.apiStyle && provider.apiStyle !== "cli") parts.push("--api-style", shellQuote(provider.apiStyle));
+  if (provider.apiKeyEnv) parts.push("--api-key-env", shellQuote(provider.apiKeyEnv));
+  if (provider.healthUrl) parts.push("--health-url", shellQuote(provider.healthUrl));
+  return parts.join(" ");
+}
+
+function buildApiCommand(provider) {
+  const endpoint = provider.endpoint || "<endpoint>";
+  const headers = [`-H ${shellQuote("Content-Type: application/json")}`];
+  if (provider.apiKeyEnv) {
+    headers.push(`-H ${shellQuoteWithEnv(`Authorization: Bearer $${provider.apiKeyEnv}`)}`);
+  }
+  const payload = apiPayload(provider);
+  return `curl -sS ${shellQuote(endpoint)} ${headers.join(" ")} -d ${shellQuote(payload)}`;
 }
 
 export function normalizeAiModelSettings(input = {}) {
@@ -80,9 +204,13 @@ export function normalizeAiModelSettings(input = {}) {
       ...defaults,
       ...configured,
       label: defaults.label,
-      command: defaults.command,
+      providerType: defaults.providerType,
+      command: cleanString(configured.command, defaults.command),
+      rootFile: defaults.rootFile,
+      sidecarFile: defaults.sidecarFile,
       modelFlag: defaults.modelFlag,
-      apiKeyEnv: defaults.apiKeyEnv,
+      enabled: cleanBoolean(configured.enabled, defaults.enabled),
+      apiKeyEnv: cleanString(configured.apiKeyEnv, defaults.apiKeyEnv),
       docsUrl: defaults.docsUrl,
       presets: Array.from(new Set([...(configured.presets || []), ...defaults.presets])).filter(Boolean),
       model: cleanString(configured.model, defaults.model),
@@ -92,7 +220,10 @@ export function normalizeAiModelSettings(input = {}) {
       sandbox: cleanString(configured.sandbox, defaults.sandbox),
       outputFormat: cleanString(configured.outputFormat, defaults.outputFormat),
       fallbackModel: cleanString(configured.fallbackModel, defaults.fallbackModel),
-      extraArgs: cleanString(configured.extraArgs, defaults.extraArgs)
+      extraArgs: cleanString(configured.extraArgs, defaults.extraArgs),
+      endpoint: cleanString(configured.endpoint, defaults.endpoint),
+      healthUrl: cleanString(configured.healthUrl, defaults.healthUrl),
+      apiStyle: cleanString(configured.apiStyle, defaults.apiStyle)
     };
   }
 
@@ -106,6 +237,16 @@ export function normalizeAiModelSettings(input = {}) {
 }
 
 export function buildProviderCommandReference(providerId, provider) {
+  if (provider.providerType === "local" || provider.providerType === "api") {
+    return {
+      interactive: provider.healthUrl ? `curl -sS ${shellQuote(provider.healthUrl)}` : `test -n "$${provider.apiKeyEnv || "API_KEY"}"`,
+      headless: buildApiCommand(provider),
+      config: providerConfigCommand(providerId, provider),
+      inSession: "Use the generated API command or configure this provider as the default.",
+      health: provider.healthUrl ? `curl -sS ${shellQuote(provider.healthUrl)}` : `test -n "$${provider.apiKeyEnv || "API_KEY"}"`
+    };
+  }
+
   const modelArg = `${provider.modelFlag} ${shellQuote(provider.model)}`;
   const extra = provider.extraArgs ? ` ${provider.extraArgs}` : "";
 
@@ -151,6 +292,61 @@ export function buildAiModelReport(aiModelSettings) {
       AI_PROVIDER_IDS.map((id) => [id, buildProviderCommandReference(id, normalized.providers[id])])
     )
   };
+}
+
+async function probeUrl(url) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(url, { method: "GET", signal: controller.signal });
+    return {
+      ok: response.ok,
+      status: response.status,
+      detail: response.ok ? "reachable" : `HTTP ${response.status}`
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      detail: error.name === "AbortError" ? "timeout" : error.message
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function checkProviders(settings, providerId = "") {
+  const report = buildAiModelReport(settings);
+  const ids = providerId ? [providerId] : AI_PROVIDER_IDS;
+  const checks = {};
+  for (const id of ids) {
+    if (!AI_PROVIDER_IDS.includes(id)) {
+      throw new Error(`Unsupported provider: ${id}`);
+    }
+    const provider = report.providers[id];
+    const envPresent = provider.providerType === "cli" ? true : provider.apiKeyEnv ? Boolean(process.env[provider.apiKeyEnv]) : true;
+    const apiKeyReady = provider.providerType === "cli" ? true : envPresent;
+    const endpointConfigured = provider.providerType === "cli" || Boolean(provider.endpoint);
+    const health = provider.providerType === "local" && provider.healthUrl
+      ? await probeUrl(provider.healthUrl)
+      : { ok: true, status: 0, detail: "not required" };
+    checks[id] = {
+      label: provider.label,
+      providerType: provider.providerType,
+      enabled: provider.enabled,
+      model: provider.model,
+      endpoint: provider.endpoint,
+      healthUrl: provider.healthUrl,
+      apiStyle: provider.apiStyle,
+      apiKeyEnv: provider.apiKeyEnv,
+      apiKeyPresent: envPresent,
+      endpointConfigured,
+      health,
+      ready: !provider.enabled || (endpointConfigured && apiKeyReady && health.ok),
+      commandReference: report.commands[id]
+    };
+  }
+  return checks;
 }
 
 function parseArgs(argv) {
@@ -203,6 +399,11 @@ async function main(argv = process.argv, cwd = process.cwd()) {
     return;
   }
 
+  if (command === "check") {
+    console.log(JSON.stringify(await checkProviders(settings.aiModelSettings, cleanString(flags.provider, "")), null, 2));
+    return;
+  }
+
   if (command === "set") {
     const provider = cleanString(flags.provider, current.defaultProvider);
     if (!AI_PROVIDER_IDS.includes(provider)) {
@@ -215,6 +416,7 @@ async function main(argv = process.argv, cwd = process.cwd()) {
         ...current.providers,
         [provider]: {
           ...current.providers[provider],
+          enabled: flags.enable ? true : flags.disable ? false : cleanBoolean(flags.enabled, current.providers[provider].enabled),
           model: cleanString(flags.model, current.providers[provider].model),
           effort: cleanString(flags.effort, current.providers[provider].effort),
           approvalMode: cleanString(flags["approval-mode"], current.providers[provider].approvalMode),
@@ -222,7 +424,11 @@ async function main(argv = process.argv, cwd = process.cwd()) {
           sandbox: cleanString(flags.sandbox, current.providers[provider].sandbox),
           outputFormat: cleanString(flags["output-format"], current.providers[provider].outputFormat),
           fallbackModel: cleanString(flags["fallback-model"], current.providers[provider].fallbackModel),
-          extraArgs: cleanString(flags["extra-args"], current.providers[provider].extraArgs)
+          extraArgs: cleanString(flags["extra-args"], current.providers[provider].extraArgs),
+          endpoint: cleanString(flags.endpoint, current.providers[provider].endpoint),
+          healthUrl: cleanString(flags["health-url"], current.providers[provider].healthUrl),
+          apiStyle: cleanString(flags["api-style"], current.providers[provider].apiStyle),
+          apiKeyEnv: cleanString(flags["api-key-env"], current.providers[provider].apiKeyEnv)
         }
       },
       updatedAt: new Date().toISOString()

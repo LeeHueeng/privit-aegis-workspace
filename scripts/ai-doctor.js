@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { buildAiModelReport } from "./ai-models.js";
+import { AI_PROVIDER_IDS, buildAiModelReport } from "./ai-models.js";
 
 const cwd = process.cwd();
 
@@ -40,19 +40,33 @@ const integrations = readJsonFile(".aigate/integrations.json", {});
 const settings = readJsonFile(".aigate/settings.json", {});
 const modelReport = buildAiModelReport(settings.aiModelSettings);
 const configured = new Set([...(integrations.providers || []), ...(settings.aiProviders || [])]);
-const providers = [
-  { id: "codex", label: "Codex", command: "codex", rootFile: "AGENTS.md" },
-  { id: "gemini", label: "Gemini", command: "gemini", rootFile: "GEMINI.md" },
-  { id: "claude", label: "Claude", command: "claude", rootFile: "CLAUDE.md" }
-].map((provider) => {
-  const sidecarFile = `.aigate/integrations/${provider.id}.md`;
-  const cli = commandInfo(provider.command);
-  const enabled = configured.has(provider.id);
-  const rootReady = existsSync(resolve(cwd, provider.rootFile));
-  const sidecarReady = existsSync(resolve(cwd, sidecarFile));
+const providers = AI_PROVIDER_IDS.map((id) => {
+  const modelConfig = modelReport.providers[id];
+  const provider = {
+    id,
+    label: modelConfig.label,
+    providerType: modelConfig.providerType,
+    command: modelConfig.command,
+    rootFile: modelConfig.rootFile,
+    sidecarFile: modelConfig.sidecarFile
+  };
+  const cli = provider.providerType === "cli" ? commandInfo(provider.command) : { installed: true, path: "", version: "" };
+  const enabled = provider.providerType === "cli" ? configured.has(provider.id) || modelConfig.enabled : modelConfig.enabled;
+  const rootReady = provider.rootFile ? existsSync(resolve(cwd, provider.rootFile)) : true;
+  const sidecarReady = provider.sidecarFile ? existsSync(resolve(cwd, provider.sidecarFile)) : true;
+  const endpointReady = provider.providerType === "cli" || Boolean(modelConfig.endpoint);
+  const apiKeyReady = provider.providerType === "cli" || !modelConfig.apiKeyEnv || Boolean(process.env[modelConfig.apiKeyEnv]);
+  const ready = enabled
+    ? rootReady && sidecarReady && cli.installed && endpointReady && apiKeyReady
+    : true;
   return {
     ...provider,
     model: modelReport.providers[provider.id]?.model || "",
+    endpoint: modelConfig.endpoint || "",
+    apiStyle: modelConfig.apiStyle || "",
+    apiKeyEnv: modelConfig.apiKeyEnv || "",
+    apiKeyReady,
+    endpointReady,
     commandReference: modelReport.commands[provider.id] || {},
     enabled,
     rootReady,
@@ -60,15 +74,18 @@ const providers = [
     commandReady: cli.installed,
     commandPath: cli.path,
     version: cli.version,
-    ready: enabled && rootReady && sidecarReady && cli.installed
+    ready,
+    status: !enabled ? "DISABLED" : ready ? "READY" : "WARN"
   };
 });
+const enabledProviders = providers.filter((provider) => provider.enabled);
+const activeProviders = enabledProviders.length ? enabledProviders : providers;
 
 const result = {
   command: "ai-doctor",
-  status: providers.every((provider) => provider.ready) ? "READY" : "WARN",
-  readyCount: providers.filter((provider) => provider.ready).length,
-  totalCount: providers.length,
+  status: activeProviders.every((provider) => provider.ready) ? "READY" : "WARN",
+  readyCount: enabledProviders.filter((provider) => provider.ready).length,
+  totalCount: enabledProviders.length,
   providers,
   defaultProvider: modelReport.defaultProvider,
   modelSettings: modelReport.providers,

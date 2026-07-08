@@ -27,6 +27,7 @@
     "ai:report": "aigate ai report --language ko",
     "ai:model:show": "node ./scripts/ai-models.js show",
     "ai:model:commands": "node ./scripts/ai-models.js commands",
+    "ai:model:check": "node ./scripts/ai-models.js check",
     "ai:model:set": "node ./scripts/ai-models.js set",
     "ai:prompt": "aigate aitest --language ko --prompt-output .aigate/reports/ai-remediation-prompt.md",
     "ai:prompt:codex": "aigate aitest --language ko --provider codex --prompt-output .aigate/reports/ai-remediation-codex.md",

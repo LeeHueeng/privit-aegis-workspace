@@ -40,7 +40,11 @@
     "providers": {
       "codex": {
         "label": "Codex",
+        "providerType": "cli",
+        "enabled": true,
         "command": "codex",
+        "rootFile": "AGENTS.md",
+        "sidecarFile": ".aigate/integrations/codex.md",
         "model": "gpt-5.5",
         "modelFlag": "--model",
         "effort": "high",
@@ -50,6 +54,9 @@
         "outputFormat": "text",
         "fallbackModel": "",
         "extraArgs": "",
+        "endpoint": "",
+        "healthUrl": "",
+        "apiStyle": "cli",
         "apiKeyEnv": "OPENAI_API_KEY",
         "docsUrl": "https://developers.openai.com/codex/models",
         "presets": [
@@ -61,7 +68,11 @@
       },
       "gemini": {
         "label": "Gemini",
+        "providerType": "cli",
+        "enabled": true,
         "command": "gemini",
+        "rootFile": "GEMINI.md",
+        "sidecarFile": ".aigate/integrations/gemini.md",
         "model": "gemini-3.1-pro-preview",
         "modelFlag": "--model",
         "effort": "",
@@ -71,6 +82,9 @@
         "outputFormat": "text",
         "fallbackModel": "",
         "extraArgs": "",
+        "endpoint": "",
+        "healthUrl": "",
+        "apiStyle": "cli",
         "apiKeyEnv": "GEMINI_API_KEY",
         "docsUrl": "https://ai.google.dev/gemini-api/docs/models",
         "presets": [
@@ -82,7 +96,11 @@
       },
       "claude": {
         "label": "Claude",
+        "providerType": "cli",
+        "enabled": true,
         "command": "claude",
+        "rootFile": "CLAUDE.md",
+        "sidecarFile": ".aigate/integrations/claude.md",
         "model": "sonnet",
         "modelFlag": "--model",
         "effort": "high",
@@ -92,6 +110,9 @@
         "outputFormat": "text",
         "fallbackModel": "",
         "extraArgs": "",
+        "endpoint": "",
+        "healthUrl": "",
+        "apiStyle": "cli",
         "apiKeyEnv": "ANTHROPIC_API_KEY",
         "docsUrl": "https://docs.anthropic.com/en/docs/claude-code/model-config",
         "presets": [
@@ -104,9 +125,65 @@
           "claude-sonnet-5",
           "claude-haiku-4-5"
         ]
+      },
+      "local": {
+        "label": "Local AI",
+        "providerType": "local",
+        "enabled": false,
+        "command": "curl",
+        "rootFile": "",
+        "sidecarFile": "",
+        "model": "llama3.1:8b",
+        "modelFlag": "--model",
+        "effort": "",
+        "approvalMode": "",
+        "permissionMode": "",
+        "sandbox": "",
+        "outputFormat": "json",
+        "fallbackModel": "",
+        "extraArgs": "",
+        "endpoint": "http://127.0.0.1:11434/v1/chat/completions",
+        "healthUrl": "http://127.0.0.1:11434/api/tags",
+        "apiStyle": "openai-chat",
+        "apiKeyEnv": "",
+        "docsUrl": "https://github.com/ollama/ollama/blob/main/docs/api.md",
+        "presets": [
+          "llama3.1:8b",
+          "qwen3.5:8b",
+          "gemma4:9b",
+          "gpt-oss:20b"
+        ]
+      },
+      "api": {
+        "label": "Direct API",
+        "providerType": "api",
+        "enabled": false,
+        "command": "curl",
+        "rootFile": "",
+        "sidecarFile": "",
+        "model": "gpt-5.5",
+        "modelFlag": "--model",
+        "effort": "",
+        "approvalMode": "",
+        "permissionMode": "",
+        "sandbox": "",
+        "outputFormat": "json",
+        "fallbackModel": "",
+        "extraArgs": "",
+        "endpoint": "https://api.openai.com/v1/responses",
+        "healthUrl": "",
+        "apiStyle": "openai-responses",
+        "apiKeyEnv": "OPENAI_API_KEY",
+        "docsUrl": "https://developers.openai.com/api/reference/resources/responses/methods/create",
+        "presets": [
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark"
+        ]
       }
     },
-    "updatedAt": "2026-07-08T10:15:27.540Z"
+    "updatedAt": "2026-07-08T10:23:19.892Z"
   },
   "aiRootFiles": "protect",
   "serverEnforcement": {

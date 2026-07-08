@@ -44,11 +44,12 @@ npm run ai:integrate
 npm run ai:doctor
 npm run ai:report
 npm run ai:model:show
+npm run ai:model:check
 ```
 
 Codex, Gemini, and Claude share the same Aegis scope, AIGate quality gate, and
-upload workflow. Their model settings can be changed from the AI tab or with
-`npm run ai:model:set -- --provider codex --model gpt-5.5`. See
+upload workflow. Local AI and direct API providers can also be enabled from the
+AI tab or with `npm run ai:model:set -- --provider local --enable`. See
 `docs/ai-integration.md`.
 
 ## GitHub Security
