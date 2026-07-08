@@ -9,6 +9,14 @@ npm run security:hardening
 
 The check writes `.aegis/reports/security-hardening.json`.
 
+The live target advisory is separate and runs with:
+
+```sh
+npm run security:target
+```
+
+It writes `.aegis/reports/frontend-advisory.json`.
+
 ## What It Checks
 
 - Local Aegis scope remains non-destructive, loopback-only, and bounded by
@@ -22,6 +30,9 @@ The check writes `.aegis/reports/security-hardening.json`.
   credentials.
 - Latest passive discovery is reviewed for authentication-like forms submitted
   with `GET` and state-changing forms without obvious CSRF tokens.
+- The live target advisory checks discovered in-scope HTML/auth URLs for
+  security response headers, auth-page cache controls, cookie attributes, and
+  password-manager autocomplete hints without submitting forms.
 
 Application findings from passive discovery are warnings by default so the
 workspace can keep producing reports while the target application is fixed.

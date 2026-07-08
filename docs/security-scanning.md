@@ -5,6 +5,7 @@ The local and CI security gate is:
 ```sh
 npm run ci:aegis
 npm run security:hardening
+npm run security:target
 npm run gate:ready
 ```
 
@@ -14,6 +15,7 @@ The gate performs:
 - Scope verification
 - Passive frontend plan generation
 - Passive frontend site discovery
+- Frontend response header, auth-page cache, cookie flag, and autocomplete advisory
 - OWASP/GitHub hardening baseline review
 - HTML report generation
 - AIGate upload readiness check
@@ -23,6 +25,7 @@ Report outputs:
 - HTML: `.aegis/reports/aegis-report.html`
 - SARIF: `.aegis/reports/aegis-report.sarif`
 - Hardening: `.aegis/reports/security-hardening.json`
+- Frontend advisory: `.aegis/reports/frontend-advisory.json`
 
 The web console serves the latest HTML report at:
 
@@ -40,3 +43,9 @@ The hardening baseline is documented in `docs/security-hardening-baseline.md`.
 It checks local scope safety, web-console security headers, GitHub Actions
 permissions, checkout credential persistence, job timeout, and passive
 authentication/CSRF advisories.
+
+The frontend advisory is also passive. It reuses the latest discovered site map
+and only requests in-scope HTML/auth-like URLs. It checks the live target for
+OWASP-style response header coverage, `Cache-Control: no-store` on
+authentication-like pages, defensive cookie attributes, and password-manager
+autocomplete hints. It does not submit forms or send attack payloads.

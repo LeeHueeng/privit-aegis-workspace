@@ -50,10 +50,16 @@
     "hstsWhenTlsOnly": true
   },
   "frontendAdvisory": {
+    "maxHeaderAuditPages": 20,
     "authFormsMustUsePost": true,
     "csrfRequiredForStateChangingForms": true,
     "passwordAutocompleteRecommended": true,
     "sensitiveResponsesNoStore": true,
+    "sessionCookiesRequireFlags": [
+      "HttpOnly",
+      "SameSite",
+      "Secure when applicable"
+    ],
     "recommendedHeaders": [
       "content-security-policy",
       "strict-transport-security",
