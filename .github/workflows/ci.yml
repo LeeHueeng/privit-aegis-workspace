@@ -19,7 +19,7 @@ jobs:
     name: AIGate
     runs-on: ubuntu-latest
     env:
-      AEGIS_CLI_REF: 14900fab69833f13f3839d36291bb80c8dd67df2
+      AEGIS_CLI_REF: 03e3fb5310ee80f4915cc37bd14a1e3dc31610f3
       AIGATE_CLI_VERSION: 0.1.7
     steps:
       - uses: actions/checkout@v4

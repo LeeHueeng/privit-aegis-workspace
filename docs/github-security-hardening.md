@@ -21,7 +21,7 @@ or if the Aegis CLI repository access changes.
 The workflow pins:
 
 - Aegis CLI source commit:
-  `14900fab69833f13f3839d36291bb80c8dd67df2`
+  `03e3fb5310ee80f4915cc37bd14a1e3dc31610f3`
 - AIGate CLI package: `aigate-cli@0.1.7`
 
 Update both intentionally after reviewing release notes and rerunning:

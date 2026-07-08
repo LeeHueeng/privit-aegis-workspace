@@ -6,8 +6,8 @@ const steps = [
   ["aegis", ["catalog", "generate"]],
   ["aegis", ["docs", "generate", "--lang", "all"]],
   ["aegis", ["scope", "verify", "--mode", "passive"]],
-  ["aegis", ["plan", "--mode", "passive", "--target", "frontend", "--limit", "25"]],
-  ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--dry-run"]],
+  ["aegis", ["plan", "--mode", "passive", "--target", "frontend", "--limit", "50"]],
+  ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true", "--max-depth", "2", "--max-pages", "50"]],
   ["aegis", ["report", "--format", "html"]],
   ["aigate", ["test", "--language", "ko"]]
 ].filter(Boolean);

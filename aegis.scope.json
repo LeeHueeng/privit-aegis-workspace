@@ -15,7 +15,27 @@
       "denied_paths": [
         "/payments/live/*",
         "/admin/delete/*"
-      ]
+      ],
+      "discovery": {
+        "enabled": true,
+        "max_depth": 2,
+        "max_pages": 50,
+        "include_forms": true,
+        "follow_redirects": true,
+        "sitemap_paths": [
+          "/robots.txt",
+          "/sitemap.xml"
+        ],
+        "login_indicators": [
+          "login",
+          "signin",
+          "sign-in",
+          "auth",
+          "session",
+          "admin",
+          "account"
+        ]
+      }
     },
     "backend_api": {
       "enabled": false,

@@ -44,6 +44,15 @@ try {
   scope.targets.frontend.allowed_hosts = [...new Set([hostFromUrl(frontendUrl), ...(scope.targets.frontend.allowed_hosts || [])])];
   scope.targets.frontend.allowed_paths ||= ["/*"];
   scope.targets.frontend.denied_paths ||= ["/payments/live/*", "/admin/delete/*"];
+  scope.targets.frontend.discovery ||= {};
+  scope.targets.frontend.discovery.enabled = true;
+  scope.targets.frontend.discovery.max_depth ||= 2;
+  scope.targets.frontend.discovery.max_pages ||= 50;
+  scope.targets.frontend.discovery.include_forms = scope.targets.frontend.discovery.include_forms !== false;
+  scope.targets.frontend.discovery.follow_redirects = scope.targets.frontend.discovery.follow_redirects !== false;
+  scope.targets.frontend.discovery.sitemap_paths ||= ["/robots.txt", "/sitemap.xml"];
+  scope.targets.frontend.discovery.login_indicators ||= ["login", "signin", "sign-in", "auth", "session", "admin", "account"];
+  delete scope.targets.frontend.discovery.submit_forms;
   scope.authorization ||= {};
   scope.authorization.owner = owner;
 

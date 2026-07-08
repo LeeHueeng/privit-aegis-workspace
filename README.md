@@ -2,7 +2,14 @@
 
 Local security testing workspace for the Privit web app. It wraps the Aegis CLI
 and AIGate so a developer can generate the check catalog, verify scope, run a
-passive dry run, and open an HTML report from one local console.
+passive frontend site map, and open an HTML report from one local console.
+
+## Repository Layout
+
+- `LeeHueeng/privit-project`: Aegis CLI engine source. This is where scanner
+  logic, reports, scope guards, and multilingual CLI behavior live.
+- `LeeHueeng/privit-aegis-workspace`: Privit-specific workspace. This repo keeps
+  local scope, web console wiring, AI integration, GitHub workflow, and reports.
 
 ## Start
 
@@ -14,6 +21,10 @@ npm run web
 Open `http://127.0.0.1:4317` to review scope settings, run checks, and view the
 latest HTML report.
 
+The console supports Korean, English, Japanese, and Chinese. The Discovery tab
+controls same-scope passive crawling depth, page limits, sitemap paths, and
+login-route indicators.
+
 ## Quality Gate
 
 ```sh
@@ -22,8 +33,9 @@ npm run ci:aegis
 npm run gate:ready
 ```
 
-All configured checks are passive by default. Active or destructive tests must
-be approved in scope before they are added.
+All configured checks are passive by default. Discovery follows only allowlisted
+hosts and paths, does not submit forms, and does not run brute-force tests.
+Active or destructive tests must be approved in scope before they are added.
 
 ## AI Assistants
 

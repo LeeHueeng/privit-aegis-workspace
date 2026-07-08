@@ -12,7 +12,7 @@ The gate performs:
 - Aegis catalog generation
 - Scope verification
 - Passive frontend plan generation
-- Passive dry-run execution
+- Passive frontend site discovery
 - HTML report generation
 - AIGate upload readiness check
 
@@ -28,3 +28,7 @@ npm run web
 ```
 
 Then open `http://127.0.0.1:4317`.
+
+Frontend discovery starts from the configured base URL, follows only in-scope
+links, reads `robots.txt` and `sitemap.xml` when present, inventories forms, and
+records login-like routes without submitting credentials.

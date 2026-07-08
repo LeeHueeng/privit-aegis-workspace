@@ -1,8 +1,8 @@
 import { createServer } from "node:http";
-import { readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
-import { extname, resolve } from "node:path";
+import { dirname, extname, resolve } from "node:path";
 
 const cwd = process.cwd();
 const port = Number(process.env.AEGIS_WEB_PORT || process.env.PORT || 4317);
@@ -12,13 +12,19 @@ const actions = {
   catalog: ["aegis", ["catalog", "generate"]],
   docs: ["aegis", ["docs", "generate", "--lang", "all"]],
   verify: ["aegis", ["scope", "verify", "--mode", "passive"]],
-  plan: ["aegis", ["plan", "--mode", "passive", "--target", "frontend", "--limit", "25"]],
-  scan: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--dry-run"]],
+  plan: ["aegis", ["plan", "--mode", "passive", "--target", "frontend", "--limit", "50"]],
+  map: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true", "--max-depth", "2", "--max-pages", "50"]],
+  scan: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true"]],
+  dryRun: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--dry-run"]],
   report: ["aegis", ["report", "--format", "html"]],
+  audit: ["npm", ["run", "security:audit"]],
   gate: ["aigate", ["test", "--language", "ko"]],
+  gateReady: ["aigate", ["git-ready", "--language", "ko"]],
   ai: ["npm", ["run", "ai:integrate"]],
   aiDoctor: ["npm", ["run", "ai:doctor"]],
   aiReport: ["npm", ["run", "ai:report"]],
+  ciSecurity: ["npm", ["run", "ci:security"]],
+  gitStatus: ["git", ["status", "--short", "--branch"]],
   start: ["npm", ["run", "start:aegis"]]
 };
 
@@ -35,7 +41,8 @@ const contentTypes = {
 function send(res, status, body, type = "application/json; charset=utf-8") {
   res.writeHead(status, {
     "content-type": type,
-    "cache-control": "no-store"
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff"
   });
   res.end(body);
 }
@@ -50,6 +57,12 @@ async function readJsonFile(file, fallback) {
   } catch {
     return fallback;
   }
+}
+
+async function writeJsonFile(file, value) {
+  const absolute = resolve(cwd, file);
+  await mkdir(dirname(absolute), { recursive: true });
+  await writeFile(absolute, `${JSON.stringify(value, null, 2)}\n`, "utf8");
 }
 
 function countCatalogLines() {
@@ -68,6 +81,25 @@ function hostFromUrl(value) {
   } catch {
     return "localhost";
   }
+}
+
+function splitList(value, fallback = []) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item).trim()).filter(Boolean);
+  }
+  if (typeof value !== "string") {
+    return fallback;
+  }
+  const items = value.split(",").map((item) => item.trim()).filter(Boolean);
+  return items.length ? items : fallback;
+}
+
+function boundedNumber(value, fallback, min, max) {
+  const number = Number(value ?? fallback);
+  if (!Number.isFinite(number)) {
+    return fallback;
+  }
+  return Math.min(Math.max(Math.trunc(number), min), max);
 }
 
 function commandInfo(command) {
@@ -91,6 +123,22 @@ function commandInfo(command) {
     installed: true,
     path: commandPath,
     version
+  };
+}
+
+function gitInfo() {
+  const status = spawnSync("git", ["status", "--short", "--branch"], { cwd, encoding: "utf8", timeout: 5000 });
+  const branch = spawnSync("git", ["branch", "--show-current"], { cwd, encoding: "utf8", timeout: 5000 });
+  const remote = spawnSync("git", ["remote", "get-url", "origin"], { cwd, encoding: "utf8", timeout: 5000 });
+  const statusText = status.status === 0 ? status.stdout.trim() : "";
+  return {
+    branch: branch.status === 0 ? branch.stdout.trim() : "",
+    remote: remote.status === 0 ? remote.stdout.trim() : "",
+    status: statusText,
+    changedFiles: statusText
+      .split(/\r?\n/)
+      .filter((line) => line && !line.startsWith("##"))
+      .length
   };
 }
 
@@ -137,6 +185,7 @@ async function state() {
   const findings = await readJsonFile(".aegis/findings.json", []);
   const integrations = await readJsonFile(".aigate/integrations.json", null);
   const aiSettings = await readJsonFile(".aigate/settings.json", null);
+  const webSettings = await readJsonFile(".aegis/web-settings.json", { language: "ko" });
   const reportPath = resolve(cwd, ".aegis/reports/aegis-report.html");
   return {
     scope,
@@ -145,6 +194,24 @@ async function state() {
     ai: buildAiState(integrations, aiSettings),
     catalogCount: countCatalogLines(),
     reportExists: existsSync(reportPath),
+    reports: {
+      html: existsSync(reportPath),
+      json: existsSync(resolve(cwd, ".aegis/reports/aegis-report.json")),
+      sarif: existsSync(resolve(cwd, ".aegis/reports/aegis-report.sarif")),
+      junit: existsSync(resolve(cwd, ".aegis/reports/aegis-report.junit.xml"))
+    },
+    tools: {
+      aegis: commandInfo("aegis"),
+      aigate: commandInfo("aigate"),
+      npm: commandInfo("npm"),
+      gh: commandInfo("gh")
+    },
+    git: gitInfo(),
+    webSettings,
+    repoRoles: {
+      engine: "/Users/hwlee/Documents/privit project",
+      workspace: cwd
+    },
     reportUrl: "/report",
     generatedAt: new Date().toISOString()
   };
@@ -171,8 +238,21 @@ async function saveScope(payload) {
   scope.targets.frontend.enabled = true;
   scope.targets.frontend.base_url = frontendUrl;
   scope.targets.frontend.allowed_hosts = [...new Set([hostFromUrl(frontendUrl), ...(scope.targets.frontend.allowed_hosts || [])])];
-  scope.targets.frontend.allowed_paths = payload.allowedPaths?.split(",").map((item) => item.trim()).filter(Boolean) || scope.targets.frontend.allowed_paths || ["/*"];
-  scope.targets.frontend.denied_paths = payload.deniedPaths?.split(",").map((item) => item.trim()).filter(Boolean) || scope.targets.frontend.denied_paths || ["/payments/live/*", "/admin/delete/*"];
+  scope.targets.frontend.allowed_paths = splitList(payload.allowedPaths, scope.targets.frontend.allowed_paths || ["/*"]);
+  scope.targets.frontend.denied_paths = splitList(payload.deniedPaths, scope.targets.frontend.denied_paths || ["/payments/live/*", "/admin/delete/*"]);
+  scope.targets.frontend.discovery ||= {};
+  scope.targets.frontend.discovery.enabled = payload.discoveryEnabled !== false;
+  scope.targets.frontend.discovery.max_depth = boundedNumber(payload.maxDepth, scope.targets.frontend.discovery.max_depth || 2, 0, 5);
+  scope.targets.frontend.discovery.max_pages = boundedNumber(payload.maxPages, scope.targets.frontend.discovery.max_pages || 30, 1, 200);
+  scope.targets.frontend.discovery.include_forms = payload.includeForms !== false;
+  scope.targets.frontend.discovery.follow_redirects = payload.followRedirects !== false;
+  scope.targets.frontend.discovery.sitemap_paths = splitList(payload.sitemapPaths, scope.targets.frontend.discovery.sitemap_paths || ["/robots.txt", "/sitemap.xml"]);
+  scope.targets.frontend.discovery.login_indicators = splitList(
+    payload.loginIndicators,
+    scope.targets.frontend.discovery.login_indicators || ["login", "signin", "sign-in", "auth", "session", "admin", "account"]
+  );
+  delete scope.targets.frontend.discovery.submit_forms;
+
   scope.targets.backend_api ||= {};
   scope.targets.backend_api.enabled = Boolean(payload.backendEnabled);
   scope.targets.backend_api.base_url = backendUrl;
@@ -182,12 +262,20 @@ async function saveScope(payload) {
   scope.targets.ci_cd.enabled = payload.ciEnabled !== false;
   scope.authorization ||= {};
   scope.authorization.owner = payload.owner || scope.authorization.owner || "security@example.com";
+  scope.authorization.expires_at = payload.expiresAt || scope.authorization.expires_at;
   scope.safety ||= {};
-  scope.safety.max_rps = Number(payload.maxRps || scope.safety.max_rps || 2);
-  scope.safety.max_concurrency = Number(payload.maxConcurrency || scope.safety.max_concurrency || 3);
+  scope.safety.max_rps = boundedNumber(payload.maxRps, scope.safety.max_rps || 2, 1, 20);
+  scope.safety.max_concurrency = boundedNumber(payload.maxConcurrency, scope.safety.max_concurrency || 3, 1, 20);
 
-  await writeFile(resolve(cwd, "aegis.scope.json"), `${JSON.stringify(scope, null, 2)}\n`, "utf8");
+  await writeJsonFile("aegis.scope.json", scope);
   return scope;
+}
+
+async function saveSettings(payload) {
+  const language = ["ko", "en", "ja", "zh"].includes(payload.language) ? payload.language : "ko";
+  const settings = { language, updatedAt: new Date().toISOString() };
+  await writeJsonFile(".aegis/web-settings.json", settings);
+  return settings;
 }
 
 function runAction(action) {
@@ -207,7 +295,7 @@ function runAction(action) {
       stderr += chunk.toString();
     });
     child.on("close", (code) => {
-      resolveRun({ ok: code === 0, code, stdout, stderr, action });
+      resolveRun({ ok: code === 0, code, stdout, stderr, action, command: [command, ...args].join(" ") });
     });
   });
 }
@@ -231,14 +319,15 @@ function page() {
       --warn: #b7791f;
       --danger: #c2410c;
       --ink: #0f172a;
+      --side: #111827;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     button, input, select { font: inherit; }
     .shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
-    aside { background: #111827; color: #e5edf7; padding: 22px 18px; }
+    aside { background: var(--side); color: #e5edf7; padding: 22px 18px; }
     .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-    .brand svg { width: 42px; height: 42px; flex: 0 0 auto; }
+    .mark { width: 42px; height: 42px; border-radius: 8px; background: #2563eb; display: grid; place-items: center; color: #eff6ff; font-weight: 900; }
     .brand strong { display: block; font-size: 18px; }
     .brand span { color: #9fb0c7; font-size: 12px; }
     nav { display: grid; gap: 8px; }
@@ -248,14 +337,17 @@ function page() {
     header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }
     h1 { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: 0; }
     h2 { margin: 0 0 12px; font-size: 17px; letter-spacing: 0; }
+    h3 { margin: 0 0 10px; font-size: 14px; letter-spacing: 0; }
     p { margin: 0; }
     .muted { color: var(--muted); font-size: 13px; }
+    .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
     .status { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 13px; }
-    .grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+    .language { width: auto; min-width: 132px; padding: 7px 10px; border-radius: 999px; }
+    .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
     .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
-    .card { padding: 14px; }
+    .card { padding: 14px; min-width: 0; }
     .card span { color: var(--muted); font-size: 12px; text-transform: uppercase; }
-    .card strong { display: block; font-size: 26px; margin-top: 4px; }
+    .card strong { display: block; font-size: 25px; margin-top: 4px; overflow-wrap: anywhere; }
     .layout { display: grid; grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); gap: 14px; align-items: start; }
     .panel { padding: 16px; margin-bottom: 14px; }
     form { display: grid; gap: 12px; }
@@ -265,31 +357,38 @@ function page() {
     .switch { display: flex; align-items: center; gap: 8px; font-weight: 700; }
     .switch input { width: auto; }
     .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
-    .actions button, .primary { border: 0; border-radius: 7px; padding: 10px 11px; cursor: pointer; background: #e8eef8; color: var(--ink); font-weight: 800; }
+    .actions button, .primary { border: 0; border-radius: 7px; padding: 10px 11px; cursor: pointer; background: #e8eef8; color: var(--ink); font-weight: 800; min-height: 42px; }
     .primary { background: var(--accent); color: #ffffff; }
     .actions button:hover, .primary:hover { filter: brightness(0.97); }
-    iframe { width: 100%; height: 620px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }
-    pre { min-height: 190px; max-height: 340px; overflow: auto; background: #0f172a; color: #dbeafe; border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: 13px; }
-    .ai-list { display: grid; gap: 10px; }
-    .ai-provider { display: grid; grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-    .ai-provider strong { font-size: 14px; }
-    .ai-provider span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-    .pill { border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 800; background: #eef2f7; }
+    iframe { width: 100%; height: 650px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }
+    pre { min-height: 190px; max-height: 380px; overflow: auto; background: #0f172a; color: #dbeafe; border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: 13px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 9px 7px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
+    th { color: var(--muted); background: #f8fafc; }
+    .ai-list, .list { display: grid; gap: 10px; }
+    .line-item { display: grid; grid-template-columns: 112px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
+    .line-item strong { font-size: 14px; }
+    .line-item span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .pill { border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 800; background: #eef2f7; white-space: nowrap; }
     .pill.ok { background: #e5f7ef; color: var(--ok); }
     .pill.warn { background: #fff7e6; color: var(--warn); }
     .hidden { display: none; }
     .ok { color: var(--ok); }
     .warn { color: var(--warn); }
     .danger { color: var(--danger); }
+    @media (max-width: 1120px) {
+      .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
     @media (max-width: 980px) {
-      .shell, .layout, .grid { grid-template-columns: 1fr; }
+      .shell, .layout { grid-template-columns: 1fr; }
       aside { position: static; }
       .actions { grid-template-columns: 1fr 1fr; }
     }
-    @media (max-width: 560px) {
+    @media (max-width: 620px) {
       main { padding: 14px; }
       header { align-items: flex-start; flex-direction: column; }
-      .row, .actions { grid-template-columns: 1fr; }
+      .topbar { justify-content: flex-start; }
+      .grid, .row, .actions, .line-item { grid-template-columns: 1fr; }
       iframe { height: 520px; }
     }
   </style>
@@ -298,69 +397,75 @@ function page() {
   <div class="shell">
     <aside>
       <div class="brand">
-        <svg viewBox="0 0 64 64" role="img" aria-label="Aegis mark">
-          <rect x="8" y="8" width="48" height="48" rx="12" fill="#2563eb"/>
-          <path d="M32 16l16 7v10c0 10-6.5 18-16 21-9.5-3-16-11-16-21V23l16-7z" fill="#eff6ff"/>
-          <path d="M32 22l10 4v7c0 6-3.8 11.5-10 14-6.2-2.5-10-8-10-14v-7l10-4z" fill="#15805f"/>
-        </svg>
+        <div class="mark">A</div>
         <div><strong>Aegis Console</strong><span>Privit local security</span></div>
       </div>
       <nav>
-        <button class="active" data-view="dashboard">Dashboard</button>
-        <button data-view="settings">Settings</button>
-        <button data-view="ai">AI</button>
-        <button data-view="report">Report</button>
-        <button data-view="logs">Logs</button>
+        <button class="active" data-view="dashboard" data-i18n="navDashboard">Dashboard</button>
+        <button data-view="scope" data-i18n="navScope">Scope</button>
+        <button data-view="discovery" data-i18n="navDiscovery">Discovery</button>
+        <button data-view="ai" data-i18n="navAi">AI</button>
+        <button data-view="updates" data-i18n="navUpdates">Updates</button>
+        <button data-view="report" data-i18n="navReport">Report</button>
+        <button data-view="logs" data-i18n="navLogs">Logs</button>
       </nav>
     </aside>
     <main>
       <header>
         <div>
-          <h1>Privit Aegis Console</h1>
+          <h1 data-i18n="title">Privit Aegis Console</h1>
           <p class="muted" id="subtitle">Loading</p>
         </div>
-        <div class="status" id="status">Ready</div>
+        <div class="topbar">
+          <select id="language-select" class="language" aria-label="Language">
+            <option value="ko">한국어</option>
+            <option value="en">English</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+          </select>
+          <div class="status" id="status">Ready</div>
+        </div>
       </header>
 
       <section id="dashboard-view">
         <div class="grid">
-          <div class="card"><span>Catalog</span><strong id="catalog-count">0</strong></div>
-          <div class="card"><span>Findings</span><strong id="finding-count">0</strong></div>
-          <div class="card"><span>Checks</span><strong id="check-count">0</strong></div>
-          <div class="card"><span>Mode</span><strong id="scan-mode">-</strong></div>
-          <div class="card"><span>AI</span><strong id="ai-count">0/3</strong></div>
+          <div class="card"><span data-i18n="metricCatalog">Catalog</span><strong id="catalog-count">0</strong></div>
+          <div class="card"><span data-i18n="metricFindings">Findings</span><strong id="finding-count">0</strong></div>
+          <div class="card"><span data-i18n="metricRoutes">Routes</span><strong id="route-count">0</strong></div>
+          <div class="card"><span data-i18n="metricForms">Forms</span><strong id="form-count">0</strong></div>
+          <div class="card"><span data-i18n="metricAuth">Auth</span><strong id="auth-count">0</strong></div>
+          <div class="card"><span data-i18n="metricAi">AI</span><strong id="ai-count">0/3</strong></div>
         </div>
         <div class="layout">
           <div class="panel">
-            <h2>Actions</h2>
+            <h2 data-i18n="actions">Actions</h2>
             <div class="actions">
-              <button data-action="catalog">Catalog</button>
-              <button data-action="docs">Docs</button>
-              <button data-action="verify">Verify</button>
-              <button data-action="plan">Plan</button>
-              <button data-action="scan">Scan</button>
-              <button data-action="report">Report</button>
-              <button data-action="gate">AIGate</button>
-              <button data-action="ai">AI Setup</button>
-              <button data-action="aiDoctor">AI Doctor</button>
-              <button data-action="aiReport">AI Report</button>
-              <button class="primary" data-action="start">Start All</button>
+              <button data-action="catalog" data-i18n="actionCatalog">Catalog</button>
+              <button data-action="docs" data-i18n="actionDocs">Docs</button>
+              <button data-action="verify" data-i18n="actionVerify">Verify</button>
+              <button data-action="plan" data-i18n="actionPlan">Plan</button>
+              <button data-action="map" data-i18n="actionMap">Map</button>
+              <button data-action="scan" data-i18n="actionScan">Scan</button>
+              <button data-action="dryRun" data-i18n="actionDryRun">Dry Run</button>
+              <button data-action="report" data-i18n="actionReport">Report</button>
+              <button data-action="gate" data-i18n="actionGate">AIGate</button>
+              <button class="primary" data-action="start" data-i18n="actionStart">Start All</button>
             </div>
           </div>
           <div class="panel">
-            <h2>Latest Run</h2>
+            <h2 data-i18n="latestRun">Latest Run</h2>
             <pre id="latest-summary">No run yet.</pre>
           </div>
         </div>
       </section>
 
-      <section id="settings-view" class="hidden">
+      <section id="scope-view" class="hidden">
         <div class="panel">
-          <h2>Scope Settings</h2>
+          <h2 data-i18n="scopeSettings">Scope Settings</h2>
           <form id="scope-form">
             <div class="row">
-              <label>Project <input name="project"></label>
-              <label>Environment
+              <label><span data-i18n="project">Project</span><input name="project"></label>
+              <label><span data-i18n="environment">Environment</span>
                 <select name="environment">
                   <option value="local">local</option>
                   <option value="development">development</option>
@@ -369,36 +474,95 @@ function page() {
                 </select>
               </label>
             </div>
-            <label>Frontend URL <input name="frontendUrl"></label>
-            <label>Backend API URL <input name="backendUrl"></label>
-            <label>Owner Email <input name="owner"></label>
+            <label><span data-i18n="frontendUrl">Frontend URL</span><input name="frontendUrl"></label>
+            <label><span data-i18n="backendUrl">Backend API URL</span><input name="backendUrl"></label>
             <div class="row">
-              <label>Allowed Paths <input name="allowedPaths"></label>
-              <label>Denied Paths <input name="deniedPaths"></label>
+              <label><span data-i18n="owner">Owner Email</span><input name="owner"></label>
+              <label><span data-i18n="expiresAt">Authorization Expires</span><input name="expiresAt" type="date"></label>
             </div>
             <div class="row">
-              <label>Max RPS <input name="maxRps" type="number" min="1"></label>
-              <label>Max Concurrency <input name="maxConcurrency" type="number" min="1"></label>
+              <label><span data-i18n="allowedPaths">Allowed Paths</span><input name="allowedPaths"></label>
+              <label><span data-i18n="deniedPaths">Denied Paths</span><input name="deniedPaths"></label>
             </div>
             <div class="row">
-              <label class="switch"><input name="backendEnabled" type="checkbox"> Backend API</label>
-              <label class="switch"><input name="ciEnabled" type="checkbox"> CI/CD</label>
+              <label><span data-i18n="maxRps">Max RPS</span><input name="maxRps" type="number" min="1" max="20"></label>
+              <label><span data-i18n="maxConcurrency">Max Concurrency</span><input name="maxConcurrency" type="number" min="1" max="20"></label>
             </div>
-            <button class="primary" type="submit">Save Scope</button>
+            <div class="row">
+              <label class="switch"><input name="backendEnabled" type="checkbox"> <span data-i18n="backendApi">Backend API</span></label>
+              <label class="switch"><input name="ciEnabled" type="checkbox"> <span data-i18n="ciCd">CI/CD</span></label>
+            </div>
+            <button class="primary" type="submit" data-i18n="saveScope">Save Scope</button>
           </form>
+        </div>
+      </section>
+
+      <section id="discovery-view" class="hidden">
+        <div class="layout">
+          <div class="panel">
+            <h2 data-i18n="discoverySettings">Discovery Settings</h2>
+            <form id="discovery-form">
+              <div class="row">
+                <label><span data-i18n="maxDepth">Max Depth</span><input name="maxDepth" type="number" min="0" max="5"></label>
+                <label><span data-i18n="maxPages">Max Pages</span><input name="maxPages" type="number" min="1" max="200"></label>
+              </div>
+              <label><span data-i18n="sitemapPaths">Sitemap Paths</span><input name="sitemapPaths"></label>
+              <label><span data-i18n="loginIndicators">Login Indicators</span><input name="loginIndicators"></label>
+              <div class="row">
+                <label class="switch"><input name="discoveryEnabled" type="checkbox"> <span data-i18n="discoveryEnabled">Discovery</span></label>
+                <label class="switch"><input name="includeForms" type="checkbox"> <span data-i18n="includeForms">Form Inventory</span></label>
+              </div>
+              <label class="switch"><input name="followRedirects" type="checkbox"> <span data-i18n="followRedirects">Follow Redirects</span></label>
+              <button class="primary" type="submit" data-i18n="saveDiscovery">Save Discovery</button>
+            </form>
+          </div>
+          <div class="panel">
+            <h2 data-i18n="siteMap">Site Map</h2>
+            <table>
+              <thead><tr><th>Status</th><th>Path</th><th>Depth</th><th>Source</th></tr></thead>
+              <tbody id="route-table"></tbody>
+            </table>
+          </div>
         </div>
       </section>
 
       <section id="ai-view" class="hidden">
         <div class="layout">
           <div class="panel">
-            <h2>Providers</h2>
+            <h2 data-i18n="providers">Providers</h2>
             <div id="ai-providers" class="ai-list"></div>
           </div>
           <div class="panel">
-            <h2>AI Gate</h2>
+            <h2 data-i18n="aiGate">AI Gate</h2>
+            <div class="actions">
+              <button data-action="ai" data-i18n="actionAiSetup">AI Setup</button>
+              <button data-action="aiDoctor" data-i18n="actionAiDoctor">AI Doctor</button>
+              <button data-action="aiReport" data-i18n="actionAiReport">AI Report</button>
+            </div>
             <pre id="ai-summary">Loading</pre>
           </div>
+        </div>
+      </section>
+
+      <section id="updates-view" class="hidden">
+        <div class="layout">
+          <div class="panel">
+            <h2 data-i18n="updates">Updates</h2>
+            <div class="actions">
+              <button data-action="audit" data-i18n="actionAudit">npm audit</button>
+              <button data-action="gateReady" data-i18n="actionGateReady">Gate Ready</button>
+              <button data-action="gitStatus" data-i18n="actionGitStatus">Git Status</button>
+              <button data-action="ciSecurity" data-i18n="actionCiSecurity">CI Security</button>
+            </div>
+          </div>
+          <div class="panel">
+            <h2 data-i18n="repositoryRoles">Repository Roles</h2>
+            <pre id="repo-summary">Loading</pre>
+          </div>
+        </div>
+        <div class="panel">
+          <h2 data-i18n="toolchain">Toolchain</h2>
+          <div id="toolchain-list" class="list"></div>
         </div>
       </section>
 
@@ -408,7 +572,7 @@ function page() {
 
       <section id="logs-view" class="hidden">
         <div class="panel">
-          <h2>Command Output</h2>
+          <h2 data-i18n="commandOutput">Command Output</h2>
           <pre id="log-output">No command output yet.</pre>
         </div>
       </section>
@@ -417,8 +581,58 @@ function page() {
 
   <script>
     const stateUrl = "/api/state";
-    const form = document.querySelector("#scope-form");
+    const scopeForm = document.querySelector("#scope-form");
+    const discoveryForm = document.querySelector("#discovery-form");
+    const languageSelect = document.querySelector("#language-select");
     let currentState = null;
+    let language = localStorage.getItem("aegis.language") || "ko";
+
+    const messages = {
+      ko: {
+        navDashboard: "대시보드", navScope: "범위", navDiscovery: "탐색", navAi: "AI", navUpdates: "업데이트", navReport: "보고서", navLogs: "로그",
+        title: "Privit Aegis 콘솔", metricCatalog: "카탈로그", metricFindings: "취약점", metricRoutes: "경로", metricForms: "폼", metricAuth: "인증", metricAi: "AI",
+        actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionGate: "AIGate", actionStart: "전체 실행",
+        latestRun: "최근 실행", scopeSettings: "범위 설정", project: "프로젝트", environment: "환경", frontendUrl: "프론트 URL", backendUrl: "백엔드 API URL", owner: "소유자 이메일", expiresAt: "승인 만료일", allowedPaths: "허용 경로", deniedPaths: "차단 경로", maxRps: "최대 RPS", maxConcurrency: "최대 동시성", backendApi: "백엔드 API", ciCd: "CI/CD", saveScope: "범위 저장",
+        discoverySettings: "탐색 설정", maxDepth: "최대 깊이", maxPages: "최대 페이지", sitemapPaths: "사이트맵 경로", loginIndicators: "로그인 지표", discoveryEnabled: "탐색", includeForms: "폼 수집", followRedirects: "리다이렉트 추적", saveDiscovery: "탐색 저장", siteMap: "사이트맵",
+        providers: "프로바이더", aiGate: "AI 게이트", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서",
+        updates: "업데이트", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git 상태", actionCiSecurity: "CI 보안", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
+        ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
+      },
+      en: {
+        navDashboard: "Dashboard", navScope: "Scope", navDiscovery: "Discovery", navAi: "AI", navUpdates: "Updates", navReport: "Report", navLogs: "Logs",
+        title: "Privit Aegis Console", metricCatalog: "Catalog", metricFindings: "Findings", metricRoutes: "Routes", metricForms: "Forms", metricAuth: "Auth", metricAi: "AI",
+        actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionGate: "AIGate", actionStart: "Start All",
+        latestRun: "Latest Run", scopeSettings: "Scope Settings", project: "Project", environment: "Environment", frontendUrl: "Frontend URL", backendUrl: "Backend API URL", owner: "Owner Email", expiresAt: "Authorization Expires", allowedPaths: "Allowed Paths", deniedPaths: "Denied Paths", maxRps: "Max RPS", maxConcurrency: "Max Concurrency", backendApi: "Backend API", ciCd: "CI/CD", saveScope: "Save Scope",
+        discoverySettings: "Discovery Settings", maxDepth: "Max Depth", maxPages: "Max Pages", sitemapPaths: "Sitemap Paths", loginIndicators: "Login Indicators", discoveryEnabled: "Discovery", includeForms: "Form Inventory", followRedirects: "Follow Redirects", saveDiscovery: "Save Discovery", siteMap: "Site Map",
+        providers: "Providers", aiGate: "AI Gate", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report",
+        updates: "Updates", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git Status", actionCiSecurity: "CI Security", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
+        ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
+      },
+      ja: {
+        navDashboard: "ダッシュボード", navScope: "スコープ", navDiscovery: "探索", navAi: "AI", navUpdates: "更新", navReport: "レポート", navLogs: "ログ",
+        title: "Privit Aegis コンソール", metricCatalog: "カタログ", metricFindings: "検出", metricRoutes: "経路", metricForms: "フォーム", metricAuth: "認証", metricAi: "AI",
+        actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionGate: "AIGate", actionStart: "全実行",
+        latestRun: "最新実行", scopeSettings: "スコープ設定", project: "プロジェクト", environment: "環境", frontendUrl: "フロントURL", backendUrl: "バックエンドAPI URL", owner: "所有者メール", expiresAt: "承認期限", allowedPaths: "許可パス", deniedPaths: "拒否パス", maxRps: "最大RPS", maxConcurrency: "最大同時実行", backendApi: "バックエンドAPI", ciCd: "CI/CD", saveScope: "スコープ保存",
+        discoverySettings: "探索設定", maxDepth: "最大深度", maxPages: "最大ページ", sitemapPaths: "サイトマップパス", loginIndicators: "ログイン指標", discoveryEnabled: "探索", includeForms: "フォーム収集", followRedirects: "リダイレクト追跡", saveDiscovery: "探索保存", siteMap: "サイトマップ",
+        providers: "プロバイダー", aiGate: "AIゲート", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート",
+        updates: "更新", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git状態", actionCiSecurity: "CIセキュリティ", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
+        ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
+      },
+      zh: {
+        navDashboard: "仪表盘", navScope: "范围", navDiscovery: "发现", navAi: "AI", navUpdates: "更新", navReport: "报告", navLogs: "日志",
+        title: "Privit Aegis 控制台", metricCatalog: "目录", metricFindings: "发现项", metricRoutes: "路由", metricForms: "表单", metricAuth: "认证", metricAi: "AI",
+        actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionGate: "AIGate", actionStart: "全部运行",
+        latestRun: "最近运行", scopeSettings: "范围设置", project: "项目", environment: "环境", frontendUrl: "前端 URL", backendUrl: "后端 API URL", owner: "所有者邮箱", expiresAt: "授权到期", allowedPaths: "允许路径", deniedPaths: "拒绝路径", maxRps: "最大 RPS", maxConcurrency: "最大并发", backendApi: "后端 API", ciCd: "CI/CD", saveScope: "保存范围",
+        discoverySettings: "发现设置", maxDepth: "最大深度", maxPages: "最大页面", sitemapPaths: "站点图路径", loginIndicators: "登录指标", discoveryEnabled: "发现", includeForms: "表单清单", followRedirects: "跟随重定向", saveDiscovery: "保存发现", siteMap: "站点图",
+        providers: "提供方", aiGate: "AI 网关", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告",
+        updates: "更新", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git 状态", actionCiSecurity: "CI 安全", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
+        ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
+      }
+    };
+
+    function t(key) {
+      return messages[language]?.[key] || messages.en[key] || key;
+    }
 
     function escapeHtml(value) {
       return String(value ?? "")
@@ -426,6 +640,15 @@ function page() {
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
         .replace(/"/g, "&quot;");
+    }
+
+    function applyI18n() {
+      document.documentElement.lang = language;
+      languageSelect.value = language;
+      for (const el of document.querySelectorAll("[data-i18n]")) {
+        el.textContent = t(el.dataset.i18n);
+      }
+      setStatus(currentState?.reportExists ? t("reportReady") : t("ready"), currentState?.reportExists ? "ok" : "");
     }
 
     function view(name) {
@@ -441,26 +664,46 @@ function page() {
       el.className = "status " + (tone || "");
     }
 
-    function fillForm(scope) {
+    function payloadFromForms() {
+      const payload = Object.fromEntries(new FormData(scopeForm).entries());
+      Object.assign(payload, Object.fromEntries(new FormData(discoveryForm).entries()));
+      payload.backendEnabled = scopeForm.backendEnabled.checked;
+      payload.ciEnabled = scopeForm.ciEnabled.checked;
+      payload.discoveryEnabled = discoveryForm.discoveryEnabled.checked;
+      payload.includeForms = discoveryForm.includeForms.checked;
+      payload.followRedirects = discoveryForm.followRedirects.checked;
+      return payload;
+    }
+
+    function fillForms(scope) {
       if (!scope) return;
-      form.project.value = scope.project || "";
-      form.environment.value = scope.environment || "local";
-      form.frontendUrl.value = scope.targets?.frontend?.base_url || "";
-      form.backendUrl.value = scope.targets?.backend_api?.base_url || "";
-      form.owner.value = scope.authorization?.owner || "";
-      form.allowedPaths.value = (scope.targets?.frontend?.allowed_paths || ["/*"]).join(", ");
-      form.deniedPaths.value = (scope.targets?.frontend?.denied_paths || []).join(", ");
-      form.maxRps.value = scope.safety?.max_rps || 2;
-      form.maxConcurrency.value = scope.safety?.max_concurrency || 3;
-      form.backendEnabled.checked = Boolean(scope.targets?.backend_api?.enabled);
-      form.ciEnabled.checked = Boolean(scope.targets?.ci_cd?.enabled);
+      const discovery = scope.targets?.frontend?.discovery || {};
+      scopeForm.project.value = scope.project || "";
+      scopeForm.environment.value = scope.environment || "local";
+      scopeForm.frontendUrl.value = scope.targets?.frontend?.base_url || "";
+      scopeForm.backendUrl.value = scope.targets?.backend_api?.base_url || "";
+      scopeForm.owner.value = scope.authorization?.owner || "";
+      scopeForm.expiresAt.value = scope.authorization?.expires_at || "";
+      scopeForm.allowedPaths.value = (scope.targets?.frontend?.allowed_paths || ["/*"]).join(", ");
+      scopeForm.deniedPaths.value = (scope.targets?.frontend?.denied_paths || []).join(", ");
+      scopeForm.maxRps.value = scope.safety?.max_rps || 2;
+      scopeForm.maxConcurrency.value = scope.safety?.max_concurrency || 3;
+      scopeForm.backendEnabled.checked = Boolean(scope.targets?.backend_api?.enabled);
+      scopeForm.ciEnabled.checked = Boolean(scope.targets?.ci_cd?.enabled);
+      discoveryForm.discoveryEnabled.checked = discovery.enabled !== false;
+      discoveryForm.maxDepth.value = discovery.max_depth ?? 2;
+      discoveryForm.maxPages.value = discovery.max_pages ?? 30;
+      discoveryForm.includeForms.checked = discovery.include_forms !== false;
+      discoveryForm.followRedirects.checked = discovery.follow_redirects !== false;
+      discoveryForm.sitemapPaths.value = (discovery.sitemap_paths || ["/robots.txt", "/sitemap.xml"]).join(", ");
+      discoveryForm.loginIndicators.value = (discovery.login_indicators || ["login", "signin", "sign-in", "auth", "session", "admin", "account"]).join(", ");
     }
 
     function renderAi(ai) {
       const providers = ai.providers || [];
       document.querySelector("#ai-count").textContent = (ai.readyCount || 0) + "/" + (ai.totalCount || 3);
       document.querySelector("#ai-providers").innerHTML = providers.map((provider) => \`
-        <div class="ai-provider">
+        <div class="line-item">
           <strong>\${escapeHtml(provider.label)}</strong>
           <span>\${escapeHtml(provider.rootFile)} / \${escapeHtml(provider.sidecarFile)} / \${escapeHtml(provider.command)} \${escapeHtml(provider.version || "missing")}</span>
           <span class="pill \${provider.ready ? "ok" : "warn"}">\${provider.ready ? "Ready" : "Check"}</span>
@@ -470,32 +713,67 @@ function page() {
         manifest: ai.manifestReady ? "ready" : "missing",
         settings: ai.settingsReady ? "ready" : "missing",
         providers: providers.filter((provider) => provider.enabled).map((provider) => provider.id),
-        cli: providers.reduce((acc, provider) => ({ ...acc, [provider.id]: provider.commandReady ? provider.version : "missing" }), {}),
         validation: ai.validationCommands || [],
         required: ai.requiredCommands || []
       }, null, 2);
+    }
+
+    function renderToolchain(data) {
+      const tools = data.tools || {};
+      document.querySelector("#toolchain-list").innerHTML = Object.entries(tools).map(([name, tool]) => \`
+        <div class="line-item">
+          <strong>\${escapeHtml(name)}</strong>
+          <span>\${escapeHtml(tool.version || tool.path || "missing")}</span>
+          <span class="pill \${tool.installed ? "ok" : "warn"}">\${tool.installed ? "Ready" : "Missing"}</span>
+        </div>
+      \`).join("");
+    }
+
+    function renderRoutes(discovery) {
+      const routes = discovery?.routes || [];
+      document.querySelector("#route-table").innerHTML = routes.length ? routes.slice(0, 40).map((route) => \`
+        <tr><td>\${escapeHtml(route.status)}</td><td>\${escapeHtml(route.path || route.url)}</td><td>\${escapeHtml(route.depth ?? 0)}</td><td>\${escapeHtml(route.source || "")}</td></tr>
+      \`).join("") : '<tr><td colspan="4" class="muted">No routes</td></tr>';
     }
 
     function renderState(data) {
       currentState = data;
       const scope = data.scope || {};
       const scan = data.latestScan || {};
+      const discovery = scan.discovery || {};
       document.querySelector("#subtitle").textContent = [scope.project || "privit", scope.environment || "local", scope.targets?.frontend?.base_url || ""].filter(Boolean).join(" / ");
       document.querySelector("#catalog-count").textContent = data.catalogCount || 0;
       document.querySelector("#finding-count").textContent = (data.findings || []).length;
-      document.querySelector("#check-count").textContent = scan.selected_check_count || 0;
-      document.querySelector("#scan-mode").textContent = scan.mode || "passive";
+      document.querySelector("#route-count").textContent = discovery.routes?.length || 0;
+      document.querySelector("#form-count").textContent = discovery.forms?.length || 0;
+      document.querySelector("#auth-count").textContent = discovery.auth_surfaces?.length || 0;
       document.querySelector("#latest-summary").textContent = JSON.stringify({
         scan_id: scan.scan_id || "not run",
         target: scan.target || "frontend",
+        mode: scan.mode || "passive",
         selected_checks: scan.selected_check_count || 0,
         executed_checks: scan.executed_check_count || 0,
         findings: (data.findings || []).length,
-        ai: (data.ai?.providers || []).filter((provider) => provider.ready).map((provider) => provider.id)
+        discovery: {
+          routes: discovery.routes?.length || 0,
+          forms: discovery.forms?.length || 0,
+          auth_surfaces: discovery.auth_surfaces?.length || 0,
+          blocked_urls: discovery.blocked_urls?.length || 0
+        }
       }, null, 2);
-      fillForm(scope);
+      document.querySelector("#repo-summary").textContent = JSON.stringify({
+        engine_repo: data.repoRoles?.engine,
+        workspace_repo: data.repoRoles?.workspace,
+        current_remote: data.git?.remote,
+        current_branch: data.git?.branch,
+        changed_files: data.git?.changedFiles
+      }, null, 2);
+      fillForms(scope);
       renderAi(data.ai || {});
-      setStatus(data.reportExists ? "Report ready" : "Ready", data.reportExists ? "ok" : "");
+      renderToolchain(data);
+      renderRoutes(discovery);
+      language = localStorage.getItem("aegis.language") || data.webSettings?.language || language;
+      applyI18n();
     }
 
     async function refresh() {
@@ -504,35 +782,51 @@ function page() {
     }
 
     async function run(action) {
-      setStatus("Running " + action, "warn");
+      setStatus(t("running") + " " + action, "warn");
       const res = await fetch("/api/action", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ action })
       });
       const data = await res.json();
-      document.querySelector("#log-output").textContent = "$ " + action + "\\n\\n" + (data.stdout || "") + (data.stderr ? "\\n[stderr]\\n" + data.stderr : "");
-      setStatus(data.ok ? "Passed" : "Failed", data.ok ? "ok" : "danger");
+      document.querySelector("#log-output").textContent = "$ " + (data.command || action) + "\\n\\n" + (data.stdout || "") + (data.stderr ? "\\n[stderr]\\n" + data.stderr : "");
+      setStatus(data.ok ? t("passed") : t("failed"), data.ok ? "ok" : "danger");
       await refresh();
-      if (action === "report" || action === "start") document.querySelector("#report-frame").src = "/report?ts=" + Date.now();
+      if (["report", "start", "scan", "map"].includes(action)) document.querySelector("#report-frame").src = "/report?ts=" + Date.now();
+    }
+
+    async function saveScope() {
+      await fetch("/api/scope", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payloadFromForms())
+      });
+      setStatus(t("saved"), "ok");
+      await refresh();
     }
 
     document.querySelectorAll("nav button").forEach((button) => button.addEventListener("click", () => view(button.dataset.view)));
     document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => run(button.dataset.action)));
-    form.addEventListener("submit", async (event) => {
+    scopeForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      const payload = Object.fromEntries(new FormData(form).entries());
-      payload.backendEnabled = form.backendEnabled.checked;
-      payload.ciEnabled = form.ciEnabled.checked;
-      await fetch("/api/scope", {
+      await saveScope();
+    });
+    discoveryForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await saveScope();
+    });
+    languageSelect.addEventListener("change", async () => {
+      language = languageSelect.value;
+      localStorage.setItem("aegis.language", language);
+      applyI18n();
+      await fetch("/api/settings", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ language })
       });
-      setStatus("Saved", "ok");
-      await refresh();
     });
 
+    applyI18n();
     refresh();
   </script>
 </body>
@@ -545,6 +839,7 @@ async function handle(req, res) {
     if (req.method === "GET" && url.pathname === "/") return send(res, 200, page(), "text/html; charset=utf-8");
     if (req.method === "GET" && url.pathname === "/api/state") return json(res, 200, await state());
     if (req.method === "POST" && url.pathname === "/api/scope") return json(res, 200, await saveScope(await readRequest(req)));
+    if (req.method === "POST" && url.pathname === "/api/settings") return json(res, 200, await saveSettings(await readRequest(req)));
     if (req.method === "POST" && url.pathname === "/api/action") {
       const body = await readRequest(req);
       return json(res, 200, await runAction(body.action));
