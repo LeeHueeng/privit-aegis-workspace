@@ -2,8 +2,8 @@
   "version": 1,
   "language": "ko",
   "projectType": "app",
-  "hosting": "gitlab",
-  "ciProvider": "gitlab",
+  "hosting": "github",
+  "ciProvider": "github",
   "packageManager": "npm",
   "distribution": "auto",
   "defaultBranch": "main",
@@ -22,7 +22,7 @@
     "chore/*"
   ],
   "requiredChecks": [
-    "GitLab CI pipeline",
+    "AIGate",
     "aigate git-ready"
   ],
   "qualityCommands": [

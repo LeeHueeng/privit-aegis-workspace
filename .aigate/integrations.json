@@ -7,8 +7,8 @@
   },
   "profile": {
     "type": "app",
-    "hosting": "gitlab",
-    "ciProvider": "gitlab",
+    "hosting": "github",
+    "ciProvider": "github",
     "packageManager": "npm"
   },
   "workflow": {
@@ -46,7 +46,7 @@
   ],
   "branchStrategy": "Git Flow",
   "requiredChecks": [
-    "GitLab CI pipeline",
+    "AIGate",
     "aigate git-ready"
   ]
 }

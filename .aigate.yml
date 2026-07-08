@@ -7,8 +7,8 @@ project:
   defaultBranch: "main"
   targetBranch: "main"
   type: app
-  hosting: gitlab
-  ciProvider: gitlab
+  hosting: github
+  ciProvider: github
   packageManager: npm
 
 reports:
@@ -48,7 +48,7 @@ aiIntegrations:
     - gemini
     - claude
   requiredChecks:
-    - GitLab CI pipeline
+    - AIGate
     - aigate git-ready
 
 qualityGates:

@@ -1,0 +1,26 @@
+name: Privit Aegis
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  aigate:
+    name: AIGate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Aegis and AIGate
+        env:
+          AEGIS_CLI_TOKEN: ${{ secrets.AEGIS_CLI_TOKEN }}
+        run: |
+          if [ -n "$AEGIS_CLI_TOKEN" ]; then
+            npm install -g "git+https://x-access-token:${AEGIS_CLI_TOKEN}@github.com/LeeHueeng/privit-project.git" aigate-cli
+          else
+            npm install -g "git+https://github.com/LeeHueeng/privit-project.git" aigate-cli
+          fi
+      - run: npm run ci:aegis
+      - run: npm run gate:ready

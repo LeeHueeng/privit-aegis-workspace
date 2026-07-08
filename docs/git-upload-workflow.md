@@ -6,7 +6,7 @@ Use this flow for Privit Aegis changes.
 2. Run `npm run ci:aegis`.
 3. Run `npm run gate:ready`.
 4. Commit only the focused workspace files.
-5. Push to a work branch and open a merge request.
+5. Push to a work branch and open a pull request.
 
 If a push fails because workflow files are included, refresh the GitHub token
 with workflow permission before retrying:
