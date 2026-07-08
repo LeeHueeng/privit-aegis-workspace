@@ -43,10 +43,13 @@ Active or destructive tests must be approved in scope before they are added.
 npm run ai:integrate
 npm run ai:doctor
 npm run ai:report
+npm run ai:model:show
 ```
 
 Codex, Gemini, and Claude share the same Aegis scope, AIGate quality gate, and
-upload workflow. See `docs/ai-integration.md`.
+upload workflow. Their model settings can be changed from the AI tab or with
+`npm run ai:model:set -- --provider codex --model gpt-5.5`. See
+`docs/ai-integration.md`.
 
 ## GitHub Security
 

@@ -34,6 +34,80 @@
     "gemini",
     "claude"
   ],
+  "aiModelSettings": {
+    "version": 1,
+    "defaultProvider": "codex",
+    "providers": {
+      "codex": {
+        "label": "Codex",
+        "command": "codex",
+        "model": "gpt-5.5",
+        "modelFlag": "--model",
+        "effort": "high",
+        "approvalMode": "on-request",
+        "permissionMode": "",
+        "sandbox": "workspace-write",
+        "outputFormat": "text",
+        "fallbackModel": "",
+        "extraArgs": "",
+        "apiKeyEnv": "OPENAI_API_KEY",
+        "docsUrl": "https://developers.openai.com/codex/models",
+        "presets": [
+          "gpt-5.5",
+          "gpt-5.3-codex-spark",
+          "gpt-5",
+          "o3"
+        ]
+      },
+      "gemini": {
+        "label": "Gemini",
+        "command": "gemini",
+        "model": "gemini-3.1-pro-preview",
+        "modelFlag": "--model",
+        "effort": "",
+        "approvalMode": "default",
+        "permissionMode": "",
+        "sandbox": "",
+        "outputFormat": "text",
+        "fallbackModel": "",
+        "extraArgs": "",
+        "apiKeyEnv": "GEMINI_API_KEY",
+        "docsUrl": "https://ai.google.dev/gemini-api/docs/models",
+        "presets": [
+          "gemini-3.1-pro-preview",
+          "gemini-3.1-flash-lite",
+          "gemini-2.5-pro",
+          "gemini-2.5-flash"
+        ]
+      },
+      "claude": {
+        "label": "Claude",
+        "command": "claude",
+        "model": "sonnet",
+        "modelFlag": "--model",
+        "effort": "high",
+        "approvalMode": "",
+        "permissionMode": "manual",
+        "sandbox": "",
+        "outputFormat": "text",
+        "fallbackModel": "",
+        "extraArgs": "",
+        "apiKeyEnv": "ANTHROPIC_API_KEY",
+        "docsUrl": "https://docs.anthropic.com/en/docs/claude-code/model-config",
+        "presets": [
+          "sonnet",
+          "opus",
+          "haiku",
+          "fable",
+          "claude-fable-5",
+          "claude-opus-4-8",
+          "claude-sonnet-5",
+          "claude-haiku-4-5"
+        ]
+      }
+    },
+    "updatedAt": "2026-07-08T10:15:27.540Z"
+  },
   "aiRootFiles": "protect",
   "serverEnforcement": {
     "gitlab": {
