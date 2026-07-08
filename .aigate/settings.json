@@ -183,7 +183,7 @@
         ]
       }
     },
-    "updatedAt": "2026-07-08T10:23:19.892Z"
+    "updatedAt": "2026-07-08T10:31:01.320Z"
   },
   "aiRootFiles": "protect",
   "serverEnforcement": {
@@ -193,5 +193,131 @@
     "github": {
       "requiredChecksEnforced": "auto"
     }
+  },
+  "aiRuntimeSettings": {
+    "version": 1,
+    "profile": "secure-balanced",
+    "locale": "ko",
+    "response": {
+      "temperature": 0.2,
+      "topP": 0.95,
+      "maxOutputTokens": 8192,
+      "seed": "",
+      "stopSequences": [],
+      "outputFormat": "markdown",
+      "structuredJson": false,
+      "citeSources": true
+    },
+    "context": {
+      "maxInputTokens": 128000,
+      "fileBudgetTokens": 64000,
+      "includeGitDiff": true,
+      "includeAegisScope": true,
+      "includeFindings": true,
+      "includeReports": true,
+      "includeRouteMap": true,
+      "includeDependencyAudit": true,
+      "memoryMode": "project",
+      "memoryFiles": [
+        "AGENTS.md",
+        "GEMINI.md",
+        "CLAUDE.md",
+        ".aigate/integrations/*.md"
+      ],
+      "ignoredGlobs": [
+        "node_modules/**",
+        ".git/**",
+        ".next/**",
+        "dist/**",
+        "coverage/**",
+        ".aegis/reports/**"
+      ]
+    },
+    "execution": {
+      "mode": "assist",
+      "maxTurns": 20,
+      "timeoutMs": 120000,
+      "retryCount": 2,
+      "retryBackoffMs": 1500,
+      "parallelism": 3,
+      "stream": true,
+      "dryRun": false
+    },
+    "tools": {
+      "allowShell": true,
+      "allowNetwork": false,
+      "allowBrowser": true,
+      "allowFileWrite": true,
+      "allowGit": true,
+      "allowPackageInstall": false,
+      "allowMcp": true,
+      "requireApprovalFor": [
+        "destructive_shell",
+        "external_network",
+        "secret_access",
+        "production_target",
+        "git_push"
+      ],
+      "allowedCommands": [
+        "npm test",
+        "npm run ci:aegis",
+        "npm run gate:ready",
+        "npm run ai:doctor"
+      ],
+      "deniedCommands": [
+        "rm -rf /",
+        "git reset --hard",
+        "git push --force"
+      ]
+    },
+    "security": {
+      "promptInjectionGuard": true,
+      "redactSecrets": true,
+      "secretEnvAllowlist": [
+        "OPENAI_API_KEY",
+        "GEMINI_API_KEY",
+        "ANTHROPIC_API_KEY"
+      ],
+      "secretMask": "[REDACTED]",
+      "piiRedaction": true,
+      "storePrompts": false,
+      "storeResponses": false,
+      "evidenceRedaction": true,
+      "blockDestructiveRequests": true
+    },
+    "cost": {
+      "budgetUsdPerRun": 2,
+      "dailyBudgetUsd": 10,
+      "warnAtPercent": 80,
+      "logTokenUsage": true,
+      "preferLocalWhenAvailable": false,
+      "fallbackOrder": [
+        "codex",
+        "local",
+        "api",
+        "gemini",
+        "claude"
+      ]
+    },
+    "logging": {
+      "auditLog": true,
+      "logFile": ".aigate/logs/ai-runtime.jsonl",
+      "retentionDays": 14,
+      "reportArtifacts": true
+    },
+    "quality": {
+      "requireAigate": true,
+      "minAigateScore": 89,
+      "requireTests": true,
+      "autoFixLint": false
+    },
+    "handoff": {
+      "defaultLanguage": "ko",
+      "includeSummary": true,
+      "includeCommands": true,
+      "includeSources": true,
+      "includeNextSteps": true
+    },
+    "updatedAt": "2026-07-08T10:31:01.320Z"
   }
 }

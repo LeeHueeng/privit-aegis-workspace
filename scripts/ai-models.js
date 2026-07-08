@@ -127,6 +127,95 @@ export const DEFAULT_AI_MODEL_SETTINGS = {
   }
 };
 
+export const DEFAULT_AI_RUNTIME_SETTINGS = {
+  version: 1,
+  profile: "secure-balanced",
+  locale: "ko",
+  response: {
+    temperature: 0.2,
+    topP: 0.95,
+    maxOutputTokens: 8192,
+    seed: "",
+    stopSequences: [],
+    outputFormat: "markdown",
+    structuredJson: false,
+    citeSources: true
+  },
+  context: {
+    maxInputTokens: 128000,
+    fileBudgetTokens: 64000,
+    includeGitDiff: true,
+    includeAegisScope: true,
+    includeFindings: true,
+    includeReports: true,
+    includeRouteMap: true,
+    includeDependencyAudit: true,
+    memoryMode: "project",
+    memoryFiles: ["AGENTS.md", "GEMINI.md", "CLAUDE.md", ".aigate/integrations/*.md"],
+    ignoredGlobs: ["node_modules/**", ".git/**", ".next/**", "dist/**", "coverage/**", ".aegis/reports/**"]
+  },
+  execution: {
+    mode: "assist",
+    maxTurns: 20,
+    timeoutMs: 120000,
+    retryCount: 2,
+    retryBackoffMs: 1500,
+    parallelism: 3,
+    stream: true,
+    dryRun: false
+  },
+  tools: {
+    allowShell: true,
+    allowNetwork: false,
+    allowBrowser: true,
+    allowFileWrite: true,
+    allowGit: true,
+    allowPackageInstall: false,
+    allowMcp: true,
+    requireApprovalFor: ["destructive_shell", "external_network", "secret_access", "production_target", "git_push"],
+    allowedCommands: ["npm test", "npm run ci:aegis", "npm run gate:ready", "npm run ai:doctor"],
+    deniedCommands: ["rm -rf /", "git reset --hard", "git push --force"]
+  },
+  security: {
+    promptInjectionGuard: true,
+    redactSecrets: true,
+    secretEnvAllowlist: ["OPENAI_API_KEY", "GEMINI_API_KEY", "ANTHROPIC_API_KEY"],
+    secretMask: "[REDACTED]",
+    piiRedaction: true,
+    storePrompts: false,
+    storeResponses: false,
+    evidenceRedaction: true,
+    blockDestructiveRequests: true
+  },
+  cost: {
+    budgetUsdPerRun: 2,
+    dailyBudgetUsd: 10,
+    warnAtPercent: 80,
+    logTokenUsage: true,
+    preferLocalWhenAvailable: false,
+    fallbackOrder: ["codex", "local", "api", "gemini", "claude"]
+  },
+  logging: {
+    auditLog: true,
+    logFile: ".aigate/logs/ai-runtime.jsonl",
+    retentionDays: 14,
+    reportArtifacts: true
+  },
+  quality: {
+    requireAigate: true,
+    minAigateScore: 89,
+    requireTests: true,
+    autoFixLint: false
+  },
+  handoff: {
+    defaultLanguage: "ko",
+    includeSummary: true,
+    includeCommands: true,
+    includeSources: true,
+    includeNextSteps: true
+  }
+};
+
 function cleanString(value, fallback = "") {
   if (value === undefined || value === null) {
     return fallback;
@@ -149,6 +238,24 @@ function cleanBoolean(value, fallback = false) {
     return false;
   }
   return fallback;
+}
+
+function cleanNumber(value, fallback, min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY) {
+  const next = Number(value);
+  if (!Number.isFinite(next)) {
+    return fallback;
+  }
+  return Math.min(Math.max(next, min), max);
+}
+
+function cleanArray(value, fallback = []) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanString(item)).filter(Boolean);
+  }
+  if (typeof value === "string") {
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+  return [...fallback];
 }
 
 function shellQuote(value) {
@@ -236,6 +343,109 @@ export function normalizeAiModelSettings(input = {}) {
   };
 }
 
+export function normalizeAiRuntimeSettings(input = {}) {
+  const defaults = DEFAULT_AI_RUNTIME_SETTINGS;
+  const response = input.response || {};
+  const context = input.context || {};
+  const execution = input.execution || {};
+  const tools = input.tools || {};
+  const security = input.security || {};
+  const cost = input.cost || {};
+  const logging = input.logging || {};
+  const quality = input.quality || {};
+  const handoff = input.handoff || {};
+
+  return {
+    version: 1,
+    profile: cleanString(input.profile, defaults.profile),
+    locale: cleanString(input.locale, defaults.locale),
+    response: {
+      temperature: cleanNumber(response.temperature, defaults.response.temperature, 0, 2),
+      topP: cleanNumber(response.topP, defaults.response.topP, 0, 1),
+      maxOutputTokens: cleanNumber(response.maxOutputTokens, defaults.response.maxOutputTokens, 1, 262144),
+      seed: cleanString(response.seed, defaults.response.seed),
+      stopSequences: cleanArray(response.stopSequences, defaults.response.stopSequences),
+      outputFormat: cleanString(response.outputFormat, defaults.response.outputFormat),
+      structuredJson: cleanBoolean(response.structuredJson, defaults.response.structuredJson),
+      citeSources: cleanBoolean(response.citeSources, defaults.response.citeSources)
+    },
+    context: {
+      maxInputTokens: cleanNumber(context.maxInputTokens, defaults.context.maxInputTokens, 1, 2000000),
+      fileBudgetTokens: cleanNumber(context.fileBudgetTokens, defaults.context.fileBudgetTokens, 1, 2000000),
+      includeGitDiff: cleanBoolean(context.includeGitDiff, defaults.context.includeGitDiff),
+      includeAegisScope: cleanBoolean(context.includeAegisScope, defaults.context.includeAegisScope),
+      includeFindings: cleanBoolean(context.includeFindings, defaults.context.includeFindings),
+      includeReports: cleanBoolean(context.includeReports, defaults.context.includeReports),
+      includeRouteMap: cleanBoolean(context.includeRouteMap, defaults.context.includeRouteMap),
+      includeDependencyAudit: cleanBoolean(context.includeDependencyAudit, defaults.context.includeDependencyAudit),
+      memoryMode: cleanString(context.memoryMode, defaults.context.memoryMode),
+      memoryFiles: cleanArray(context.memoryFiles, defaults.context.memoryFiles),
+      ignoredGlobs: cleanArray(context.ignoredGlobs, defaults.context.ignoredGlobs)
+    },
+    execution: {
+      mode: cleanString(execution.mode, defaults.execution.mode),
+      maxTurns: cleanNumber(execution.maxTurns, defaults.execution.maxTurns, 1, 200),
+      timeoutMs: cleanNumber(execution.timeoutMs, defaults.execution.timeoutMs, 1000, 3600000),
+      retryCount: cleanNumber(execution.retryCount, defaults.execution.retryCount, 0, 10),
+      retryBackoffMs: cleanNumber(execution.retryBackoffMs, defaults.execution.retryBackoffMs, 0, 60000),
+      parallelism: cleanNumber(execution.parallelism, defaults.execution.parallelism, 1, 20),
+      stream: cleanBoolean(execution.stream, defaults.execution.stream),
+      dryRun: cleanBoolean(execution.dryRun, defaults.execution.dryRun)
+    },
+    tools: {
+      allowShell: cleanBoolean(tools.allowShell, defaults.tools.allowShell),
+      allowNetwork: cleanBoolean(tools.allowNetwork, defaults.tools.allowNetwork),
+      allowBrowser: cleanBoolean(tools.allowBrowser, defaults.tools.allowBrowser),
+      allowFileWrite: cleanBoolean(tools.allowFileWrite, defaults.tools.allowFileWrite),
+      allowGit: cleanBoolean(tools.allowGit, defaults.tools.allowGit),
+      allowPackageInstall: cleanBoolean(tools.allowPackageInstall, defaults.tools.allowPackageInstall),
+      allowMcp: cleanBoolean(tools.allowMcp, defaults.tools.allowMcp),
+      requireApprovalFor: cleanArray(tools.requireApprovalFor, defaults.tools.requireApprovalFor),
+      allowedCommands: cleanArray(tools.allowedCommands, defaults.tools.allowedCommands),
+      deniedCommands: cleanArray(tools.deniedCommands, defaults.tools.deniedCommands)
+    },
+    security: {
+      promptInjectionGuard: cleanBoolean(security.promptInjectionGuard, defaults.security.promptInjectionGuard),
+      redactSecrets: cleanBoolean(security.redactSecrets, defaults.security.redactSecrets),
+      secretEnvAllowlist: cleanArray(security.secretEnvAllowlist, defaults.security.secretEnvAllowlist),
+      secretMask: cleanString(security.secretMask, defaults.security.secretMask),
+      piiRedaction: cleanBoolean(security.piiRedaction, defaults.security.piiRedaction),
+      storePrompts: cleanBoolean(security.storePrompts, defaults.security.storePrompts),
+      storeResponses: cleanBoolean(security.storeResponses, defaults.security.storeResponses),
+      evidenceRedaction: cleanBoolean(security.evidenceRedaction, defaults.security.evidenceRedaction),
+      blockDestructiveRequests: cleanBoolean(security.blockDestructiveRequests, defaults.security.blockDestructiveRequests)
+    },
+    cost: {
+      budgetUsdPerRun: cleanNumber(cost.budgetUsdPerRun, defaults.cost.budgetUsdPerRun, 0, 1000000),
+      dailyBudgetUsd: cleanNumber(cost.dailyBudgetUsd, defaults.cost.dailyBudgetUsd, 0, 1000000),
+      warnAtPercent: cleanNumber(cost.warnAtPercent, defaults.cost.warnAtPercent, 1, 100),
+      logTokenUsage: cleanBoolean(cost.logTokenUsage, defaults.cost.logTokenUsage),
+      preferLocalWhenAvailable: cleanBoolean(cost.preferLocalWhenAvailable, defaults.cost.preferLocalWhenAvailable),
+      fallbackOrder: cleanArray(cost.fallbackOrder, defaults.cost.fallbackOrder).filter((id) => AI_PROVIDER_IDS.includes(id))
+    },
+    logging: {
+      auditLog: cleanBoolean(logging.auditLog, defaults.logging.auditLog),
+      logFile: cleanString(logging.logFile, defaults.logging.logFile),
+      retentionDays: cleanNumber(logging.retentionDays, defaults.logging.retentionDays, 1, 3650),
+      reportArtifacts: cleanBoolean(logging.reportArtifacts, defaults.logging.reportArtifacts)
+    },
+    quality: {
+      requireAigate: cleanBoolean(quality.requireAigate, defaults.quality.requireAigate),
+      minAigateScore: cleanNumber(quality.minAigateScore, defaults.quality.minAigateScore, 0, 100),
+      requireTests: cleanBoolean(quality.requireTests, defaults.quality.requireTests),
+      autoFixLint: cleanBoolean(quality.autoFixLint, defaults.quality.autoFixLint)
+    },
+    handoff: {
+      defaultLanguage: cleanString(handoff.defaultLanguage, defaults.handoff.defaultLanguage),
+      includeSummary: cleanBoolean(handoff.includeSummary, defaults.handoff.includeSummary),
+      includeCommands: cleanBoolean(handoff.includeCommands, defaults.handoff.includeCommands),
+      includeSources: cleanBoolean(handoff.includeSources, defaults.handoff.includeSources),
+      includeNextSteps: cleanBoolean(handoff.includeNextSteps, defaults.handoff.includeNextSteps)
+    },
+    updatedAt: input.updatedAt || null
+  };
+}
+
 export function buildProviderCommandReference(providerId, provider) {
   if (provider.providerType === "local" || provider.providerType === "api") {
     return {
@@ -291,6 +501,14 @@ export function buildAiModelReport(aiModelSettings) {
     commands: Object.fromEntries(
       AI_PROVIDER_IDS.map((id) => [id, buildProviderCommandReference(id, normalized.providers[id])])
     )
+  };
+}
+
+export function buildAiSettingsReport(aiModelSettings, aiRuntimeSettings) {
+  const modelReport = buildAiModelReport(aiModelSettings);
+  return {
+    ...modelReport,
+    runtime: normalizeAiRuntimeSettings(aiRuntimeSettings)
   };
 }
 
@@ -393,9 +611,78 @@ async function main(argv = process.argv, cwd = process.cwd()) {
   const command = positionals[0] || "show";
   const settings = await readSettings(cwd);
   const current = normalizeAiModelSettings(settings.aiModelSettings);
+  const runtime = normalizeAiRuntimeSettings(settings.aiRuntimeSettings);
 
   if (command === "commands") {
     console.log(JSON.stringify(buildAiModelReport(current).commands, null, 2));
+    return;
+  }
+
+  if (command === "settings") {
+    const mode = positionals[1] || "show";
+    if (mode === "set") {
+      const nextRuntime = normalizeAiRuntimeSettings({
+        ...runtime,
+        profile: cleanString(flags.profile, runtime.profile),
+        locale: cleanString(flags.locale, runtime.locale),
+        response: {
+          ...runtime.response,
+          temperature: flags.temperature ?? runtime.response.temperature,
+          topP: flags["top-p"] ?? runtime.response.topP,
+          maxOutputTokens: flags["max-output-tokens"] ?? runtime.response.maxOutputTokens,
+          outputFormat: cleanString(flags["output-format"], runtime.response.outputFormat),
+          structuredJson: cleanBoolean(flags["structured-json"], runtime.response.structuredJson),
+          citeSources: cleanBoolean(flags["cite-sources"], runtime.response.citeSources)
+        },
+        context: {
+          ...runtime.context,
+          maxInputTokens: flags["max-input-tokens"] ?? runtime.context.maxInputTokens,
+          fileBudgetTokens: flags["file-budget-tokens"] ?? runtime.context.fileBudgetTokens,
+          memoryMode: cleanString(flags["memory-mode"], runtime.context.memoryMode)
+        },
+        execution: {
+          ...runtime.execution,
+          maxTurns: flags["max-turns"] ?? runtime.execution.maxTurns,
+          timeoutMs: flags["timeout-ms"] ?? runtime.execution.timeoutMs,
+          retryCount: flags["retry-count"] ?? runtime.execution.retryCount,
+          parallelism: flags.parallelism ?? runtime.execution.parallelism,
+          dryRun: cleanBoolean(flags["dry-run"], runtime.execution.dryRun)
+        },
+        tools: {
+          ...runtime.tools,
+          allowNetwork: cleanBoolean(flags["allow-network"], runtime.tools.allowNetwork),
+          allowPackageInstall: cleanBoolean(flags["allow-package-install"], runtime.tools.allowPackageInstall)
+        },
+        security: {
+          ...runtime.security,
+          promptInjectionGuard: cleanBoolean(flags["prompt-injection-guard"], runtime.security.promptInjectionGuard),
+          redactSecrets: cleanBoolean(flags["redact-secrets"], runtime.security.redactSecrets),
+          storePrompts: cleanBoolean(flags["store-prompts"], runtime.security.storePrompts),
+          storeResponses: cleanBoolean(flags["store-responses"], runtime.security.storeResponses)
+        },
+        cost: {
+          ...runtime.cost,
+          budgetUsdPerRun: flags["budget-usd"] ?? runtime.cost.budgetUsdPerRun,
+          dailyBudgetUsd: flags["daily-budget-usd"] ?? runtime.cost.dailyBudgetUsd,
+          preferLocalWhenAvailable: cleanBoolean(flags["prefer-local"], runtime.cost.preferLocalWhenAvailable)
+        },
+        quality: {
+          ...runtime.quality,
+          minAigateScore: flags["min-aigate-score"] ?? runtime.quality.minAigateScore,
+          requireTests: cleanBoolean(flags["require-tests"], runtime.quality.requireTests)
+        },
+        handoff: {
+          ...runtime.handoff,
+          defaultLanguage: cleanString(flags.language, runtime.handoff.defaultLanguage)
+        },
+        updatedAt: new Date().toISOString()
+      });
+      settings.aiRuntimeSettings = nextRuntime;
+      await writeSettings(cwd, settings);
+      console.log(JSON.stringify(nextRuntime, null, 2));
+      return;
+    }
+    console.log(JSON.stringify(runtime, null, 2));
     return;
   }
 
@@ -439,7 +726,7 @@ async function main(argv = process.argv, cwd = process.cwd()) {
     return;
   }
 
-  console.log(JSON.stringify(buildAiModelReport(current), null, 2));
+  console.log(JSON.stringify(buildAiSettingsReport(current, runtime), null, 2));
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

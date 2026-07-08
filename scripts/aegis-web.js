@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
 import { dirname, extname, resolve } from "node:path";
-import { AI_PROVIDER_IDS, buildAiModelReport, normalizeAiModelSettings } from "./ai-models.js";
+import { AI_PROVIDER_IDS, buildAiModelReport, normalizeAiModelSettings, normalizeAiRuntimeSettings } from "./ai-models.js";
 
 const cwd = process.cwd();
 const port = Number(process.env.AEGIS_WEB_PORT || process.env.PORT || 4317);
@@ -148,6 +148,7 @@ function gitInfo() {
 function buildAiState(integrations, settings) {
   const configured = new Set([...(integrations?.providers || []), ...(settings?.aiProviders || [])]);
   const modelReport = buildAiModelReport(settings?.aiModelSettings);
+  const runtimeSettings = normalizeAiRuntimeSettings(settings?.aiRuntimeSettings);
   const providers = AI_PROVIDER_IDS.map((id) => {
     const config = modelReport.providers[id];
     const provider = {
@@ -194,6 +195,7 @@ function buildAiState(integrations, settings) {
   return {
     providers,
     modelSettings: modelReport,
+    runtimeSettings,
     readyCount: enabledProviders.filter((provider) => provider.ready).length,
     totalCount: enabledProviders.length,
     manifestReady: existsSync(resolve(cwd, ".aigate/integrations.json")),
@@ -318,8 +320,15 @@ async function saveAiSettings(payload) {
     providers,
     updatedAt: new Date().toISOString()
   });
+  settings.aiRuntimeSettings = normalizeAiRuntimeSettings({
+    ...(payload.runtimeSettings || settings.aiRuntimeSettings || {}),
+    updatedAt: new Date().toISOString()
+  });
   await writeJsonFile(".aigate/settings.json", settings);
-  return buildAiModelReport(settings.aiModelSettings);
+  return {
+    ...buildAiModelReport(settings.aiModelSettings),
+    runtime: settings.aiRuntimeSettings
+  };
 }
 
 function runAction(action) {
@@ -397,7 +406,10 @@ function page() {
     form { display: grid; gap: 12px; }
     label { display: grid; gap: 5px; font-weight: 700; font-size: 13px; }
     input, select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 10px 11px; color: var(--text); background: #ffffff; }
+    textarea { width: 100%; min-height: 360px; border: 1px solid var(--line); border-radius: 7px; padding: 10px 11px; color: var(--text); background: #ffffff; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; line-height: 1.45; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .runtime-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
+    .runtime-switches { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
     .switch { display: flex; align-items: center; gap: 8px; font-weight: 700; }
     .switch input { width: auto; }
     .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
@@ -430,7 +442,7 @@ function page() {
       .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 980px) {
-      .shell, .layout { grid-template-columns: 1fr; }
+      .shell, .layout, .runtime-grid, .runtime-switches { grid-template-columns: 1fr; }
       aside { position: static; }
       .actions { grid-template-columns: 1fr 1fr; }
     }
@@ -609,6 +621,39 @@ function page() {
             <pre id="ai-summary">Loading</pre>
           </div>
         </div>
+        <div class="panel">
+          <h2 data-i18n="aiRuntimeSettings">AI Runtime Settings</h2>
+          <div class="runtime-grid">
+            <label><span data-i18n="aiProfile">Profile</span><input name="runtime.profile" form="ai-model-form"></label>
+            <label><span data-i18n="aiLocale">Locale</span><input name="runtime.locale" form="ai-model-form"></label>
+            <label><span data-i18n="aiTemperature">Temperature</span><input name="runtime.response.temperature" form="ai-model-form" type="number" min="0" max="2" step="0.01"></label>
+            <label><span data-i18n="aiTopP">Top P</span><input name="runtime.response.topP" form="ai-model-form" type="number" min="0" max="1" step="0.01"></label>
+            <label><span data-i18n="aiMaxOutputTokens">Max Output Tokens</span><input name="runtime.response.maxOutputTokens" form="ai-model-form" type="number" min="1"></label>
+            <label><span data-i18n="aiMaxInputTokens">Max Input Tokens</span><input name="runtime.context.maxInputTokens" form="ai-model-form" type="number" min="1"></label>
+            <label><span data-i18n="aiFileBudgetTokens">File Budget Tokens</span><input name="runtime.context.fileBudgetTokens" form="ai-model-form" type="number" min="1"></label>
+            <label><span data-i18n="aiOutputFormat">Output Format</span><input name="runtime.response.outputFormat" form="ai-model-form"></label>
+            <label><span data-i18n="aiMaxTurns">Max Turns</span><input name="runtime.execution.maxTurns" form="ai-model-form" type="number" min="1" max="200"></label>
+            <label><span data-i18n="aiTimeoutMs">Timeout Ms</span><input name="runtime.execution.timeoutMs" form="ai-model-form" type="number" min="1000"></label>
+            <label><span data-i18n="aiParallelism">Parallelism</span><input name="runtime.execution.parallelism" form="ai-model-form" type="number" min="1" max="20"></label>
+            <label><span data-i18n="aiBudgetPerRun">Budget / Run</span><input name="runtime.cost.budgetUsdPerRun" form="ai-model-form" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="aiDailyBudget">Daily Budget</span><input name="runtime.cost.dailyBudgetUsd" form="ai-model-form" type="number" min="0" step="0.01"></label>
+            <label><span data-i18n="aiMinAigateScore">Min AIGate Score</span><input name="runtime.quality.minAigateScore" form="ai-model-form" type="number" min="0" max="100"></label>
+            <label><span data-i18n="aiMemoryMode">Memory Mode</span><input name="runtime.context.memoryMode" form="ai-model-form"></label>
+            <label><span data-i18n="aiHandoffLanguage">Handoff Language</span><input name="runtime.handoff.defaultLanguage" form="ai-model-form"></label>
+          </div>
+          <div class="runtime-switches">
+            <label class="switch"><input name="runtime.tools.allowNetwork" form="ai-model-form" type="checkbox"> <span data-i18n="aiAllowNetwork">Network</span></label>
+            <label class="switch"><input name="runtime.tools.allowPackageInstall" form="ai-model-form" type="checkbox"> <span data-i18n="aiAllowPackageInstall">Package Install</span></label>
+            <label class="switch"><input name="runtime.cost.preferLocalWhenAvailable" form="ai-model-form" type="checkbox"> <span data-i18n="aiPreferLocal">Prefer Local</span></label>
+            <label class="switch"><input name="runtime.security.promptInjectionGuard" form="ai-model-form" type="checkbox"> <span data-i18n="aiPromptGuard">Prompt Guard</span></label>
+            <label class="switch"><input name="runtime.security.redactSecrets" form="ai-model-form" type="checkbox"> <span data-i18n="aiRedactSecrets">Redact Secrets</span></label>
+            <label class="switch"><input name="runtime.security.storePrompts" form="ai-model-form" type="checkbox"> <span data-i18n="aiStorePrompts">Store Prompts</span></label>
+            <label class="switch"><input name="runtime.security.storeResponses" form="ai-model-form" type="checkbox"> <span data-i18n="aiStoreResponses">Store Responses</span></label>
+            <label class="switch"><input name="runtime.quality.requireTests" form="ai-model-form" type="checkbox"> <span data-i18n="aiRequireTests">Require Tests</span></label>
+          </div>
+          <h3 data-i18n="aiAdvancedJson">Advanced JSON</h3>
+          <textarea id="ai-runtime-json" name="runtimeJson" form="ai-model-form"></textarea>
+        </div>
       </section>
 
       <section id="updates-view" class="hidden">
@@ -662,7 +707,8 @@ function page() {
         actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionGate: "AIGate", actionStart: "전체 실행",
         latestRun: "최근 실행", scopeSettings: "범위 설정", project: "프로젝트", environment: "환경", frontendUrl: "프론트 URL", backendUrl: "백엔드 API URL", owner: "소유자 이메일", expiresAt: "승인 만료일", allowedPaths: "허용 경로", deniedPaths: "차단 경로", maxRps: "최대 RPS", maxConcurrency: "최대 동시성", backendApi: "백엔드 API", ciCd: "CI/CD", saveScope: "범위 저장",
         discoverySettings: "탐색 설정", maxDepth: "최대 깊이", maxPages: "최대 페이지", sitemapPaths: "사이트맵 경로", loginIndicators: "로그인 지표", discoveryEnabled: "탐색", includeForms: "폼 수집", followRedirects: "리다이렉트 추적", saveDiscovery: "탐색 저장", siteMap: "사이트맵",
-        providers: "프로바이더", aiModels: "AI 모델", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiGate: "AI 게이트", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
+        providers: "프로바이더", aiModels: "AI 모델", aiRuntimeSettings: "AI 런타임 설정", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiGate: "AI 게이트", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
+        aiProfile: "프로필", aiLocale: "언어", aiTemperature: "온도", aiTopP: "Top P", aiMaxOutputTokens: "최대 출력 토큰", aiMaxInputTokens: "최대 입력 토큰", aiFileBudgetTokens: "파일 토큰 예산", aiOutputFormat: "출력 형식", aiMaxTurns: "최대 턴", aiTimeoutMs: "타임아웃 ms", aiParallelism: "병렬성", aiBudgetPerRun: "실행당 예산", aiDailyBudget: "일일 예산", aiMinAigateScore: "최소 AIGate 점수", aiMemoryMode: "메모리 모드", aiHandoffLanguage: "전달 언어", aiAllowNetwork: "네트워크", aiAllowPackageInstall: "패키지 설치", aiPreferLocal: "로컬 우선", aiPromptGuard: "프롬프트 방어", aiRedactSecrets: "시크릿 마스킹", aiStorePrompts: "프롬프트 저장", aiStoreResponses: "응답 저장", aiRequireTests: "테스트 필수", aiAdvancedJson: "고급 JSON",
         model: "모델", providerType: "유형", enabledProvider: "사용", endpoint: "API/로컬 엔드포인트", healthUrl: "헬스 URL", apiStyle: "API 방식", apiKeyEnv: "키 환경변수", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자", disabled: "비활성", check: "확인 필요",
         updates: "업데이트", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git 상태", actionCiSecurity: "CI 보안", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
         ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
@@ -673,7 +719,8 @@ function page() {
         actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionGate: "AIGate", actionStart: "Start All",
         latestRun: "Latest Run", scopeSettings: "Scope Settings", project: "Project", environment: "Environment", frontendUrl: "Frontend URL", backendUrl: "Backend API URL", owner: "Owner Email", expiresAt: "Authorization Expires", allowedPaths: "Allowed Paths", deniedPaths: "Denied Paths", maxRps: "Max RPS", maxConcurrency: "Max Concurrency", backendApi: "Backend API", ciCd: "CI/CD", saveScope: "Save Scope",
         discoverySettings: "Discovery Settings", maxDepth: "Max Depth", maxPages: "Max Pages", sitemapPaths: "Sitemap Paths", loginIndicators: "Login Indicators", discoveryEnabled: "Discovery", includeForms: "Form Inventory", followRedirects: "Follow Redirects", saveDiscovery: "Save Discovery", siteMap: "Site Map",
-        providers: "Providers", aiModels: "AI Models", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiGate: "AI Gate", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
+        providers: "Providers", aiModels: "AI Models", aiRuntimeSettings: "AI Runtime Settings", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiGate: "AI Gate", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
+        aiProfile: "Profile", aiLocale: "Locale", aiTemperature: "Temperature", aiTopP: "Top P", aiMaxOutputTokens: "Max Output Tokens", aiMaxInputTokens: "Max Input Tokens", aiFileBudgetTokens: "File Budget Tokens", aiOutputFormat: "Output Format", aiMaxTurns: "Max Turns", aiTimeoutMs: "Timeout Ms", aiParallelism: "Parallelism", aiBudgetPerRun: "Budget / Run", aiDailyBudget: "Daily Budget", aiMinAigateScore: "Min AIGate Score", aiMemoryMode: "Memory Mode", aiHandoffLanguage: "Handoff Language", aiAllowNetwork: "Network", aiAllowPackageInstall: "Package Install", aiPreferLocal: "Prefer Local", aiPromptGuard: "Prompt Guard", aiRedactSecrets: "Redact Secrets", aiStorePrompts: "Store Prompts", aiStoreResponses: "Store Responses", aiRequireTests: "Require Tests", aiAdvancedJson: "Advanced JSON",
         model: "Model", providerType: "Type", enabledProvider: "Enabled", endpoint: "API/Local Endpoint", healthUrl: "Health URL", apiStyle: "API Style", apiKeyEnv: "Key Env", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args", disabled: "Disabled", check: "Check",
         updates: "Updates", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git Status", actionCiSecurity: "CI Security", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
         ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
@@ -684,7 +731,8 @@ function page() {
         actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionGate: "AIGate", actionStart: "全実行",
         latestRun: "最新実行", scopeSettings: "スコープ設定", project: "プロジェクト", environment: "環境", frontendUrl: "フロントURL", backendUrl: "バックエンドAPI URL", owner: "所有者メール", expiresAt: "承認期限", allowedPaths: "許可パス", deniedPaths: "拒否パス", maxRps: "最大RPS", maxConcurrency: "最大同時実行", backendApi: "バックエンドAPI", ciCd: "CI/CD", saveScope: "スコープ保存",
         discoverySettings: "探索設定", maxDepth: "最大深度", maxPages: "最大ページ", sitemapPaths: "サイトマップパス", loginIndicators: "ログイン指標", discoveryEnabled: "探索", includeForms: "フォーム収集", followRedirects: "リダイレクト追跡", saveDiscovery: "探索保存", siteMap: "サイトマップ",
-        providers: "プロバイダー", aiModels: "AIモデル", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiGate: "AIゲート", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
+        providers: "プロバイダー", aiModels: "AIモデル", aiRuntimeSettings: "AIランタイム設定", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiGate: "AIゲート", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
+        aiProfile: "プロファイル", aiLocale: "ロケール", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大出力トークン", aiMaxInputTokens: "最大入力トークン", aiFileBudgetTokens: "ファイルトークン予算", aiOutputFormat: "出力形式", aiMaxTurns: "最大ターン", aiTimeoutMs: "タイムアウト ms", aiParallelism: "並列数", aiBudgetPerRun: "実行予算", aiDailyBudget: "日次予算", aiMinAigateScore: "最小AIGateスコア", aiMemoryMode: "メモリモード", aiHandoffLanguage: "引き継ぎ言語", aiAllowNetwork: "ネットワーク", aiAllowPackageInstall: "パッケージ導入", aiPreferLocal: "ローカル優先", aiPromptGuard: "プロンプト防御", aiRedactSecrets: "秘密マスク", aiStorePrompts: "プロンプト保存", aiStoreResponses: "応答保存", aiRequireTests: "テスト必須", aiAdvancedJson: "詳細JSON",
         model: "モデル", providerType: "種類", enabledProvider: "有効", endpoint: "API/ローカルエンドポイント", healthUrl: "ヘルスURL", apiStyle: "API方式", apiKeyEnv: "キー環境変数", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数", disabled: "無効", check: "確認",
         updates: "更新", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git状態", actionCiSecurity: "CIセキュリティ", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
         ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
@@ -695,7 +743,8 @@ function page() {
         actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionGate: "AIGate", actionStart: "全部运行",
         latestRun: "最近运行", scopeSettings: "范围设置", project: "项目", environment: "环境", frontendUrl: "前端 URL", backendUrl: "后端 API URL", owner: "所有者邮箱", expiresAt: "授权到期", allowedPaths: "允许路径", deniedPaths: "拒绝路径", maxRps: "最大 RPS", maxConcurrency: "最大并发", backendApi: "后端 API", ciCd: "CI/CD", saveScope: "保存范围",
         discoverySettings: "发现设置", maxDepth: "最大深度", maxPages: "最大页面", sitemapPaths: "站点图路径", loginIndicators: "登录指标", discoveryEnabled: "发现", includeForms: "表单清单", followRedirects: "跟随重定向", saveDiscovery: "保存发现", siteMap: "站点图",
-        providers: "提供方", aiModels: "AI 模型", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiGate: "AI 网关", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
+        providers: "提供方", aiModels: "AI 模型", aiRuntimeSettings: "AI 运行时设置", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiGate: "AI 网关", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
+        aiProfile: "配置", aiLocale: "语言", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大输出令牌", aiMaxInputTokens: "最大输入令牌", aiFileBudgetTokens: "文件令牌预算", aiOutputFormat: "输出格式", aiMaxTurns: "最大轮次", aiTimeoutMs: "超时 ms", aiParallelism: "并行数", aiBudgetPerRun: "单次预算", aiDailyBudget: "每日预算", aiMinAigateScore: "最低 AIGate 分数", aiMemoryMode: "记忆模式", aiHandoffLanguage: "交接语言", aiAllowNetwork: "网络", aiAllowPackageInstall: "包安装", aiPreferLocal: "优先本地", aiPromptGuard: "提示防护", aiRedactSecrets: "密钥脱敏", aiStorePrompts: "保存提示", aiStoreResponses: "保存响应", aiRequireTests: "要求测试", aiAdvancedJson: "高级 JSON",
         model: "模型", providerType: "类型", enabledProvider: "启用", endpoint: "API/本地端点", healthUrl: "健康 URL", apiStyle: "API 样式", apiKeyEnv: "密钥环境变量", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数", disabled: "已禁用", check: "需检查",
         updates: "更新", actionAudit: "npm audit", actionGateReady: "Gate Ready", actionGitStatus: "Git 状态", actionCiSecurity: "CI 安全", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
         ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
@@ -771,9 +820,37 @@ function page() {
       discoveryForm.loginIndicators.value = (discovery.login_indicators || ["login", "signin", "sign-in", "auth", "session", "admin", "account"]).join(", ");
     }
 
+    function getPathValue(root, path, fallback = "") {
+      return path.split(".").reduce((current, part) => current?.[part], root) ?? fallback;
+    }
+
+    function setPathValue(root, path, value) {
+      const parts = path.split(".");
+      let target = root;
+      for (const part of parts.slice(0, -1)) {
+        target[part] ||= {};
+        target = target[part];
+      }
+      target[parts.at(-1)] = value;
+    }
+
+    function fillRuntimeControls(runtimeSettings) {
+      for (const input of document.querySelectorAll('[name^="runtime."]')) {
+        const path = input.name.replace(/^runtime\./, "");
+        const value = getPathValue(runtimeSettings, path, input.type === "checkbox" ? false : "");
+        if (input.type === "checkbox") {
+          input.checked = Boolean(value);
+        } else {
+          input.value = value;
+        }
+      }
+      document.querySelector("#ai-runtime-json").value = JSON.stringify(runtimeSettings, null, 2);
+    }
+
     function renderAi(ai) {
       const providers = ai.providers || [];
       const modelSettings = ai.modelSettings || { defaultProvider: "codex", providers: {}, commands: {} };
+      const runtimeSettings = ai.runtimeSettings || {};
       document.querySelector("#ai-count").textContent = (ai.readyCount || 0) + "/" + (ai.totalCount || 3);
       document.querySelector("#ai-providers").innerHTML = providers.map((provider) => \`
         <div class="line-item">
@@ -845,21 +922,37 @@ function page() {
         docs: Object.fromEntries(providers.map((provider) => [provider.id, modelSettings.providers?.[provider.id]?.docsUrl || ""])),
         commands: modelSettings.commands || {},
         validation: ai.validationCommands || [],
-        required: ai.requiredCommands || []
+        required: ai.requiredCommands || [],
+        runtime: {
+          profile: runtimeSettings.profile,
+          locale: runtimeSettings.locale,
+          temperature: runtimeSettings.response?.temperature,
+          maxInputTokens: runtimeSettings.context?.maxInputTokens,
+          maxOutputTokens: runtimeSettings.response?.maxOutputTokens,
+          allowNetwork: runtimeSettings.tools?.allowNetwork,
+          preferLocal: runtimeSettings.cost?.preferLocalWhenAvailable,
+          minAigateScore: runtimeSettings.quality?.minAigateScore
+        }
       }, null, 2);
+      fillRuntimeControls(runtimeSettings);
     }
 
     function aiPayloadFromForm() {
       const formData = new FormData(aiModelForm);
       const providers = {};
+      const runtimeSettings = JSON.parse(document.querySelector("#ai-runtime-json").value || "{}");
       for (const card of document.querySelectorAll(".model-card")) {
         const provider = card.dataset.provider;
         providers[provider] = {
           enabled: Boolean(card.querySelector(\`input[name="\${provider}.enabled"]\`)?.checked)
         };
       }
+      for (const input of document.querySelectorAll('[name^="runtime."]')) {
+        const path = input.name.replace(/^runtime\./, "");
+        setPathValue(runtimeSettings, path, input.type === "checkbox" ? Boolean(input.checked) : input.value);
+      }
       for (const [key, value] of formData.entries()) {
-        if (key === "defaultProvider") continue;
+        if (key === "defaultProvider" || key === "runtimeJson" || key.startsWith("runtime.")) continue;
         const [provider, field] = key.split(".");
         providers[provider] ||= {};
         if (field === "enabled") continue;
@@ -867,7 +960,8 @@ function page() {
       }
       return {
         defaultProvider: formData.get("defaultProvider"),
-        providers
+        providers,
+        runtimeSettings
       };
     }
 
@@ -970,13 +1064,17 @@ function page() {
     });
     aiModelForm.addEventListener("submit", async (event) => {
       event.preventDefault();
-      await fetch("/api/ai-settings", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(aiPayloadFromForm())
-      });
-      setStatus(t("saved"), "ok");
-      await refresh();
+      try {
+        await fetch("/api/ai-settings", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(aiPayloadFromForm())
+        });
+        setStatus(t("saved"), "ok");
+        await refresh();
+      } catch (error) {
+        setStatus(error.message, "danger");
+      }
     });
     languageSelect.addEventListener("change", async () => {
       language = languageSelect.value;

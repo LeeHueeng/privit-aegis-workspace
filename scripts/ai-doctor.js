@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { resolve } from "node:path";
-import { AI_PROVIDER_IDS, buildAiModelReport } from "./ai-models.js";
+import { AI_PROVIDER_IDS, buildAiModelReport, normalizeAiRuntimeSettings } from "./ai-models.js";
 
 const cwd = process.cwd();
 
@@ -39,6 +39,7 @@ function commandInfo(command) {
 const integrations = readJsonFile(".aigate/integrations.json", {});
 const settings = readJsonFile(".aigate/settings.json", {});
 const modelReport = buildAiModelReport(settings.aiModelSettings);
+const runtimeSettings = normalizeAiRuntimeSettings(settings.aiRuntimeSettings);
 const configured = new Set([...(integrations.providers || []), ...(settings.aiProviders || [])]);
 const providers = AI_PROVIDER_IDS.map((id) => {
   const modelConfig = modelReport.providers[id];
@@ -89,6 +90,7 @@ const result = {
   providers,
   defaultProvider: modelReport.defaultProvider,
   modelSettings: modelReport.providers,
+  runtimeSettings,
   commandReference: modelReport.commands,
   validationCommands: settings.qualityCommands || integrations.validationCommands || [],
   next: providers.every((provider) => provider.ready)

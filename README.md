@@ -45,12 +45,15 @@ npm run ai:doctor
 npm run ai:report
 npm run ai:model:show
 npm run ai:model:check
+npm run ai:settings:show
 ```
 
 Codex, Gemini, and Claude share the same Aegis scope, AIGate quality gate, and
 upload workflow. Local AI and direct API providers can also be enabled from the
-AI tab or with `npm run ai:model:set -- --provider local --enable`. See
-`docs/ai-integration.md`.
+AI tab or with `npm run ai:model:set -- --provider local --enable`. The AI tab
+also manages runtime settings for response style, token budgets, tool/network
+permissions, secret redaction, local-first fallback, cost limits, and minimum
+AIGate score. See `docs/ai-integration.md`.
 
 ## GitHub Security
 

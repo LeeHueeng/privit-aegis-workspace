@@ -22,6 +22,7 @@ npm run ai:prompt
 npm run ai:model:show
 npm run ai:model:commands
 npm run ai:model:check
+npm run ai:settings:show
 ```
 
 Provider-specific prompt files:
@@ -40,6 +41,19 @@ npm run ai:model:set -- --provider codex --model gpt-5.5
 npm run ai:model:set -- --provider gemini --model gemini-3.1-pro-preview
 npm run ai:model:set -- --provider claude --model sonnet --effort high
 ```
+
+Runtime settings are stored under `aiRuntimeSettings`. These control shared AI
+behavior across CLI, web console, local AI, and direct API providers:
+
+```sh
+npm run ai:settings:show
+npm run ai:settings:set -- --profile secure-balanced --temperature 0.2 --max-output-tokens 8192 --max-input-tokens 128000 --allow-network false --allow-package-install false --budget-usd 2 --daily-budget-usd 10 --min-aigate-score 89 --language ko
+```
+
+The runtime profile includes response shaping, context budgets, tool permission
+defaults, prompt-injection and secret-redaction guards, cost budgets, audit-log
+retention, AIGate score thresholds, and handoff language. The web console AI tab
+exposes the common fields and keeps the full advanced JSON editable.
 
 Local and direct API providers are available but disabled by default. They store
 only endpoint and environment-variable names, never secret values:

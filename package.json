@@ -29,6 +29,8 @@
     "ai:model:commands": "node ./scripts/ai-models.js commands",
     "ai:model:check": "node ./scripts/ai-models.js check",
     "ai:model:set": "node ./scripts/ai-models.js set",
+    "ai:settings:show": "node ./scripts/ai-models.js settings",
+    "ai:settings:set": "node ./scripts/ai-models.js settings set",
     "ai:prompt": "aigate aitest --language ko --prompt-output .aigate/reports/ai-remediation-prompt.md",
     "ai:prompt:codex": "aigate aitest --language ko --provider codex --prompt-output .aigate/reports/ai-remediation-codex.md",
     "ai:prompt:gemini": "aigate aitest --language ko --provider gemini --prompt-output .aigate/reports/ai-remediation-gemini.md",
