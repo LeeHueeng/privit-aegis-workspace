@@ -25,9 +25,16 @@ npm run github:ready
 To set the secret without printing it in shell history:
 
 ```sh
-read -s AEGIS_CLI_TOKEN
-gh secret set AEGIS_CLI_TOKEN --repo LeeHueeng/privit-aegis-workspace --body "$AEGIS_CLI_TOKEN"
+read -rs AEGIS_CLI_TOKEN
+printf '\n'
+printf '%s' "$AEGIS_CLI_TOKEN" | npm run github:secret:set
 unset AEGIS_CLI_TOKEN
+```
+
+You can also pipe a token from a password manager:
+
+```sh
+printf '%s' "$TOKEN_FROM_PASSWORD_MANAGER" | npm run github:secret:set
 ```
 
 ## Workflow Pinning
