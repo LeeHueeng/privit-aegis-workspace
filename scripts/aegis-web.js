@@ -1272,6 +1272,34 @@ function page() {
       },
       {
         icon: "05",
+        standard: "OWASP CSRF and form handling",
+        title: {
+          ko: "폼 제출, CSRF, 민감 URL",
+          en: "Form submission, CSRF, and sensitive URLs",
+          ja: "フォーム送信、CSRF、機密URL",
+          zh: "表单提交、CSRF 与敏感 URL"
+        },
+        detects: {
+          ko: "인증 form의 GET 제출, 상태 변경 form의 CSRF token 후보, 외부 action, cleartext 제출, 민감 query parameter, 파일 업로드 control을 확인합니다.",
+          en: "Checks auth-form GET submissions, CSRF token candidates on state-changing forms, external actions, cleartext submissions, sensitive query parameters, and file-upload controls.",
+          ja: "認証formのGET送信、状態変更formのCSRF token候補、外部action、cleartext送信、機密query parameter、file upload controlを確認します。",
+          zh: "检查认证表单 GET 提交、状态变更表单的 CSRF token 候选、外部 action、明文提交、敏感 query parameter 和文件上传控件。"
+        },
+        criteria: {
+          ko: "credential/token은 URL에 들어가지 않아야 하고, 상태 변경 form은 CSRF 방어 후보를 가져야 하며, 민감 form은 승인된 HTTPS 대상으로 제출되어야 합니다.",
+          en: "Credentials and tokens should not appear in URLs, state-changing forms should expose CSRF defenses, and sensitive forms should submit to approved HTTPS targets.",
+          ja: "credential/tokenはURLに入れず、状態変更formはCSRF防御候補を持ち、機密formは承認済みHTTPS対象へ送信する必要があります。",
+          zh: "凭证和 token 不应出现在 URL 中，状态变更表单应具备 CSRF 防护候选，敏感表单应提交到授权 HTTPS 目标。"
+        },
+        evidence: {
+          ko: "page, action, method, control 이름/type, 민감 parameter 이름만 기록하고 값은 저장하지 않습니다.",
+          en: "Records page, action, method, control name/type, and sensitive parameter names without storing values.",
+          ja: "page、action、method、control名/type、機密parameter名のみ記録し、値は保存しません。",
+          zh: "仅记录 page、action、method、control 名称/type 和敏感 parameter 名，不保存值。"
+        }
+      },
+      {
+        icon: "06",
         standard: "OWASP TLS and transport",
         title: {
           ko: "전송 계층과 서버 노출",
@@ -1299,7 +1327,7 @@ function page() {
         }
       },
       {
-        icon: "06",
+        icon: "07",
         standard: "OWASP exposure probes",
         title: {
           ko: "민감 파일과 운영 표면",
@@ -1327,7 +1355,7 @@ function page() {
         }
       },
       {
-        icon: "07",
+        icon: "08",
         standard: "OWASP client-side testing",
         title: {
           ko: "클라이언트 코드 위험",
@@ -1355,7 +1383,7 @@ function page() {
         }
       },
       {
-        icon: "08",
+        icon: "09",
         standard: "OWASP API Top 10",
         title: {
           ko: "API 권한과 객체 접근",
@@ -1383,7 +1411,7 @@ function page() {
         }
       },
       {
-        icon: "09",
+        icon: "10",
         standard: "OWASP WSTG input validation",
         title: {
           ko: "입력 검증 공격 표면",
@@ -1411,7 +1439,7 @@ function page() {
         }
       },
       {
-        icon: "10",
+        icon: "11",
         standard: "Aegis reporting and redaction",
         title: {
           ko: "보고서와 증거 마스킹",

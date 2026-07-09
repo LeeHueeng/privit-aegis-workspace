@@ -724,11 +724,71 @@ function evaluateCookies(findings, responses) {
   );
 }
 
-function evaluateForms(findings, discovery) {
-  const authForms = (discovery?.forms || []).filter((form) => form.auth_like);
+function formMethod(form) {
+  return String(form?.method || "get").toUpperCase();
+}
+
+function formControls(form) {
+  return Array.isArray(form?.controls) ? form.controls : [];
+}
+
+function formControlText(control) {
+  return [
+    control?.tag,
+    control?.type,
+    control?.name,
+    control?.id,
+    control?.autocomplete
+  ].filter(Boolean).join(" ");
+}
+
+function isStateChangingForm(form) {
+  return !["GET", "HEAD", "OPTIONS"].includes(formMethod(form));
+}
+
+function isCsrfControl(control) {
+  return /(?:csrf|xsrf|authenticity|requestverificationtoken|anti[-_]?forgery|_token|csrfmiddlewaretoken)/i.test(formControlText(control));
+}
+
+function isSensitiveControl(control) {
+  return /(?:password|passwd|pwd|secret|token|session|auth|jwt|email|phone|tel|credential|otp|mfa)/i.test(formControlText(control));
+}
+
+function normalizeFormAction(form) {
+  const action = form?.action_url || form?.page_url || "";
+  try {
+    return new URL(action, form?.page_url || undefined).toString();
+  } catch {
+    return action;
+  }
+}
+
+function formEvidence(form, extra = {}) {
+  return {
+    page: form.page_url || "",
+    action: normalizeFormAction(form),
+    method: formMethod(form),
+    authLike: Boolean(form.auth_like),
+    controls: formControls(form).slice(0, 12).map((control) => ({
+      tag: control.tag || "",
+      type: control.type || "",
+      name: control.name || "",
+      autocomplete: control.autocomplete || ""
+    })),
+    ...extra
+  };
+}
+
+function isAllowedFormAction(actionUrl, scope) {
+  return isAllowedUrl(actionUrl, scope, "frontend") || isAllowedUrl(actionUrl, scope, "backend_api");
+}
+
+function evaluateForms(findings, discovery, scope) {
+  const forms = discovery?.forms || [];
+  const authForms = forms.filter((form) => form.auth_like);
   const autocompleteIssues = [];
   for (const form of authForms) {
-    for (const control of form.controls || []) {
+    for (const control of formControls(form)) {
       const type = String(control.type || "").toLowerCase();
       const autocomplete = String(control.autocomplete || "").toLowerCase();
       if (type === "password" && !["current-password", "new-password"].includes(autocomplete)) {
@@ -751,6 +811,78 @@ function evaluateForms(findings, discovery) {
     autocompleteIssues.length === 0,
     "Explicit autocomplete values improve password-manager behavior and reduce credential reuse friction.",
     { issues: autocompleteIssues }
+  );
+
+  const authGetForms = authForms.filter((form) => formMethod(form) === "GET");
+  addFinding(
+    findings,
+    "warning",
+    "frontend.forms.auth_get_method",
+    "Authentication-like forms avoid GET submissions",
+    authGetForms.length === 0,
+    "GET form submissions can place credentials, reset data, or tokens into URLs, browser history, proxy logs, and referrer headers.",
+    { forms: authGetForms.map((form) => formEvidence(form)) }
+  );
+
+  const stateChangingForms = forms.filter(isStateChangingForm);
+  const csrfMissing = stateChangingForms.filter((form) => !formControls(form).some(isCsrfControl));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.forms.csrf_tokens",
+    "State-changing forms expose anti-CSRF token candidates",
+    csrfMissing.length === 0,
+    "Passive form inventory checks whether POST/PUT/PATCH/DELETE-like forms contain CSRF token fields before any active submission testing.",
+    { checked: stateChangingForms.length, missing: csrfMissing.map((form) => formEvidence(form)) }
+  );
+
+  const externalActions = forms
+    .map((form) => ({ form, action: normalizeFormAction(form) }))
+    .filter(({ action }) => action && /^https?:\/\//i.test(action) && !isAllowedFormAction(action, scope))
+    .map(({ form, action }) => formEvidence(form, { action }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.forms.external_actions",
+    "Forms submit only to in-scope targets",
+    externalActions.length === 0,
+    "Unexpected external form actions can leak credentials or workflow data to unapproved origins.",
+    { forms: externalActions }
+  );
+
+  const insecureSensitiveActions = forms
+    .filter((form) => form.auth_like || isStateChangingForm(form) || formControls(form).some(isSensitiveControl))
+    .map((form) => ({ form, action: normalizeFormAction(form) }))
+    .filter(({ action }) => {
+      try {
+        const parsed = new URL(action);
+        return parsed.protocol === "http:" && !isLoopback(parsed.hostname);
+      } catch {
+        return false;
+      }
+    })
+    .map(({ form, action }) => formEvidence(form, { action }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.forms.sensitive_cleartext_action",
+    "Sensitive forms avoid cleartext non-loopback submissions",
+    insecureSensitiveActions.length === 0,
+    "Authentication, state-changing, and sensitive forms should not submit over cleartext HTTP outside local loopback environments.",
+    { forms: insecureSensitiveActions }
+  );
+
+  const fileUploadForms = forms
+    .filter((form) => formControls(form).some((control) => String(control.type || "").toLowerCase() === "file"))
+    .map((form) => formEvidence(form));
+  addFinding(
+    findings,
+    "info",
+    "frontend.forms.file_upload_inventory",
+    "File upload forms are inventoried for controlled testing",
+    true,
+    "Upload controls are recorded so authorized testers can review file type validation, malware scanning, storage paths, and authorization.",
+    { count: fileUploadForms.length, forms: fileUploadForms }
   );
 }
 
@@ -1225,6 +1357,32 @@ function duplicateParameterEvidence(discovery) {
       }
     } catch {
       // Ignore malformed discovery URLs in passive HPP inventory.
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status);
+  }
+  for (const form of discovery?.forms || []) {
+    inspectUrl("form_page", form.page_url);
+    inspectUrl("form_action", form.action_url);
+  }
+  return candidates.slice(0, 30);
+}
+
+function sensitiveUrlParameterEvidence(discovery) {
+  const sensitiveParam = /^(?:access[_-]?token|refresh[_-]?token|id[_-]?token|token|jwt|session|sid|auth|authorization|password|passwd|pwd|secret|api[_-]?key|apikey|key|credential|otp|mfa|code)$/i;
+  const candidates = [];
+  const inspectUrl = (source, url, status = undefined) => {
+    if (!url) return;
+    try {
+      const parsed = new URL(url);
+      for (const key of unique([...parsed.searchParams.keys()])) {
+        if (sensitiveParam.test(key)) {
+          candidates.push({ source, path: parsed.pathname, parameter: key, status });
+        }
+      }
+    } catch {
+      // Ignore relative or malformed URLs in passive query-parameter inventory.
     }
   };
   for (const route of discovery?.routes || []) {
@@ -2220,6 +2378,17 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     { candidates: duplicateParams, count: duplicateParams.length }
   );
 
+  const sensitiveUrlParams = sensitiveUrlParameterEvidence(discovery);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.discovery.sensitive_url_parameters",
+    "Sensitive values are not passed through URL query parameters",
+    sensitiveUrlParams.length === 0,
+    "Tokens, passwords, API keys, and session identifiers in URLs can leak through logs, browser history, referrer headers, and shared links.",
+    { candidates: sensitiveUrlParams, count: sensitiveUrlParams.length }
+  );
+
   const attackSurfaces = attackSurfaceEvidence(discovery);
   addFinding(
     findings,
@@ -2264,7 +2433,7 @@ async function main() {
   await evaluateCors(findings, scope);
   await evaluateHostHeader(findings, scope, baseline);
   evaluateCookies(findings, responses);
-  evaluateForms(findings, discovery);
+  evaluateForms(findings, discovery, scope);
   evaluateTransport(findings, scope, discovery);
   await evaluateTls(findings, scope);
   await evaluateDns(findings, scope, baseline);

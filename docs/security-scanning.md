@@ -80,19 +80,22 @@ webserver metafiles
 `clientaccesspolicy.xml`), generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, GraphQL endpoints, upload/import/
 export surfaces, OIDC/OAuth/JWKS metadata, CORS trust decisions, CSP quality,
-client-side bundle leakage signals, DOM XSS source/sink patterns, Web Messaging
-patterns, URL-controlled redirect/resource-loading patterns, client-side
-template sinks, prototype-pollution candidate flows, sensitive browser-storage
-keys, cleartext public WebSocket endpoints, JWT header algorithm signals, XSSI
-JSON candidates, cloud storage references, framework fingerprint markers,
-duplicate URL parameters for HTTP Parameter Pollution review, redirect-like URL
-parameters for open-redirect review, ID-bearing routes that should receive
-BOLA/BFLA review, and an OWASP attack-surface matrix for XSS/HTML injection,
+authentication form GET submissions, state-changing form CSRF token candidates,
+external form actions, sensitive cleartext form submissions, file-upload form
+controls, sensitive URL query parameter names, client-side bundle leakage
+signals, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled
+redirect/resource-loading patterns, client-side template sinks,
+prototype-pollution candidate flows, sensitive browser-storage keys, cleartext
+public WebSocket endpoints, JWT header algorithm signals, XSSI JSON candidates,
+cloud storage references, framework fingerprint markers, duplicate URL
+parameters for HTTP Parameter Pollution review, redirect-like URL parameters
+for open-redirect review, ID-bearing routes that should receive BOLA/BFLA
+review, and an OWASP attack-surface matrix for XSS/HTML injection,
 SQL/NoSQL/ORM injection, LDAP/XML/XPath parser risks, SSRF, file inclusion,
 command/code/template injection, HTTP splitting/smuggling, mass assignment,
-GraphQL/API review, and upload business logic review. Response bodies are not
-stored in reports; only URL, status, headers, redirect, DNS, and detection
-signals are recorded.
+GraphQL/API review, and upload business logic review. Response bodies and
+sensitive query values are not stored in reports; only URL, status, headers,
+redirect, DNS, field names, parameter names, and detection signals are recorded.
 
 The web console includes a Detection Guide tab that explains each detection
 family, pass criteria, and the evidence retained in reports. The same console is

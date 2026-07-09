@@ -325,6 +325,31 @@ const criteria = {
     criteria: "Authentication fields provide explicit password-manager autocomplete hints.",
     remediation: "Use autocomplete=current-password/new-password for passwords and username/email for login identifiers."
   },
+  "frontend.forms.auth_get_method": {
+    category: "Authentication",
+    criteria: "Authentication-like forms do not submit with GET.",
+    remediation: "Submit authentication and password-reset forms with POST and avoid placing credentials or tokens in URLs."
+  },
+  "frontend.forms.csrf_tokens": {
+    category: "CSRF",
+    criteria: "State-changing forms expose CSRF token candidates for passive inventory.",
+    remediation: "Add anti-CSRF tokens to state-changing forms and validate them server-side for authenticated browser requests."
+  },
+  "frontend.forms.external_actions": {
+    category: "Data leakage",
+    criteria: "Form actions submit only to approved in-scope frontend or backend targets.",
+    remediation: "Replace unexpected external form actions with approved same-site/API endpoints or explicitly document trusted third-party processors."
+  },
+  "frontend.forms.sensitive_cleartext_action": {
+    category: "Transport",
+    criteria: "Authentication, state-changing, and sensitive forms do not submit over cleartext HTTP outside loopback environments.",
+    remediation: "Serve sensitive form pages and action endpoints over HTTPS and redirect cleartext HTTP to HTTPS."
+  },
+  "frontend.forms.file_upload_inventory": {
+    category: "File handling",
+    criteria: "File upload controls are inventoried for controlled upload validation review.",
+    remediation: "Review upload controls for file type validation, malware scanning, storage isolation, authorization, and executable-path restrictions."
+  },
   "frontend.transport.auth_https": {
     category: "Transport",
     criteria: "Authentication surfaces avoid cleartext transport outside loopback hosts.",
@@ -485,6 +510,11 @@ const criteria = {
     criteria: "Observed URLs and form actions are inventoried when they already contain duplicate parameter names.",
     remediation: "Define deterministic server-side behavior for repeated parameters and add tests for validation bypass risks."
   },
+  "frontend.discovery.sensitive_url_parameters": {
+    category: "Data leakage",
+    criteria: "Discovered routes and form actions do not pass tokens, passwords, API keys, or session identifiers through URL query parameters.",
+    remediation: "Move sensitive values to POST bodies or headers, rotate exposed secrets, and avoid logging sensitive request data."
+  },
   "frontend.discovery.attack_surface_matrix": {
     category: "Input validation",
     criteria: "Discovered routes, URL parameters, and form fields are mapped to OWASP WSTG/API review families without sending exploit payloads.",
@@ -625,6 +655,36 @@ const localizedCriteria = {
       category: "인증 UX",
       criteria: "인증 필드는 password manager용 autocomplete 힌트를 명시해야 합니다.",
       remediation: "비밀번호에는 current-password/new-password, 로그인 식별자에는 username/email을 사용하세요."
+    },
+    "frontend.forms.auth_get_method": {
+      title: "인증 유사 form이 GET 제출을 피함",
+      category: "인증",
+      criteria: "인증 유사 form은 GET 방식으로 제출되지 않아야 합니다.",
+      remediation: "로그인/비밀번호 재설정 form은 POST로 제출하고 credential이나 token이 URL에 들어가지 않게 하세요."
+    },
+    "frontend.forms.csrf_tokens": {
+      title: "상태 변경 form이 CSRF token 후보를 포함함",
+      category: "CSRF",
+      criteria: "상태 변경 form은 passive inventory에서 CSRF token 후보 field를 포함해야 합니다.",
+      remediation: "상태 변경 form에 anti-CSRF token을 추가하고 인증된 browser 요청에서 서버 측 검증을 수행하세요."
+    },
+    "frontend.forms.external_actions": {
+      title: "form action이 승인된 범위 안의 대상으로만 제출됨",
+      category: "데이터 유출",
+      criteria: "form action은 승인된 frontend 또는 backend target으로만 제출되어야 합니다.",
+      remediation: "예상치 못한 외부 form action을 승인된 same-site/API endpoint로 교체하거나 신뢰된 제3자 처리자를 명시적으로 문서화하세요."
+    },
+    "frontend.forms.sensitive_cleartext_action": {
+      title: "민감 form이 loopback 외부에서 평문 제출을 피함",
+      category: "전송 보안",
+      criteria: "인증, 상태 변경, 민감 form은 loopback 환경이 아닌 곳에서 cleartext HTTP로 제출되지 않아야 합니다.",
+      remediation: "민감 form 페이지와 action endpoint를 HTTPS로 제공하고 cleartext HTTP는 HTTPS로 리다이렉트하세요."
+    },
+    "frontend.forms.file_upload_inventory": {
+      title: "파일 업로드 form이 통제된 검토 대상으로 인벤토리됨",
+      category: "파일 처리",
+      criteria: "파일 업로드 control은 통제된 업로드 검증 검토 대상으로 기록되어야 합니다.",
+      remediation: "업로드 control의 file type 검증, 악성 파일 검사, 저장소 격리, 권한, 실행 가능 경로 제한을 검토하세요."
     },
     "frontend.transport.auth_https": {
       title: "인증 표면이 loopback 외부에서 평문 전송을 피함",
@@ -817,6 +877,12 @@ const localizedCriteria = {
       category: "입력 검증",
       criteria: "관찰된 URL과 form action에 중복 파라미터 이름이 있으면 기록되어야 합니다.",
       remediation: "반복 파라미터에 대한 서버 측 동작을 명확히 정의하고 validation bypass 위험 테스트를 추가하세요."
+    },
+    "frontend.discovery.sensitive_url_parameters": {
+      title: "민감 값이 URL query parameter로 전달되지 않음",
+      category: "데이터 유출",
+      criteria: "발견된 route와 form action은 token, password, API key, session identifier를 URL query parameter로 전달하지 않아야 합니다.",
+      remediation: "민감 값은 POST body 또는 header로 이동하고, 노출된 secret은 교체하며, 민감 요청 데이터 logging을 피하세요."
     },
     "frontend.discovery.attack_surface_matrix": {
       title: "입력 및 API 공격 표면이 OWASP 검토군으로 분류됨",
