@@ -17,7 +17,7 @@ const actions = {
   map: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true", "--max-depth", "2", "--max-pages", "50"]],
   scan: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true"]],
   dryRun: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--dry-run"]],
-  report: ["aegis", ["report", "--format", "html"]],
+  report: ["npm", ["run", "security:report"]],
   audit: ["npm", ["run", "security:audit"]],
   hardening: ["npm", ["run", "security:hardening"]],
   targetAdvisory: ["npm", ["run", "security:target"]],

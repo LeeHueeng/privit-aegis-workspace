@@ -59,6 +59,8 @@ function main() {
   const targetAdvisory = readJson(".aegis/reports/frontend-advisory.json", null);
   const hardening = readJson(".aegis/reports/security-hardening.json", null);
   const webSource = readText("scripts/aegis-web.js");
+  const webSettings = readJson(".aegis/web-settings.json", { language: "ko" });
+  const reportHtml = readText(".aegis/reports/aegis-report.html");
   const checks = [];
 
   add(
@@ -141,6 +143,14 @@ function main() {
     "reports",
     existsSync(resolve(cwd, ".aegis/reports/aegis-report.html")) && existsSync(resolve(cwd, ".aegis/reports/frontend-advisory.json")),
     "HTML and frontend advisory reports exist."
+  );
+  add(
+    checks,
+    "security",
+    "localized_report",
+    reportHtml.includes('data-aegis-localized="true"') && reportHtml.includes(`lang="${webSettings.language || "ko"}"`),
+    "HTML report is localized with the current web-console language.",
+    { language: webSettings.language || "ko" }
   );
 
   const githubReady = runJson("node", ["./scripts/github-readiness.js", "--format", "json"]);

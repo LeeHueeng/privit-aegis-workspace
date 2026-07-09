@@ -25,6 +25,7 @@ The gate performs:
 Report outputs:
 
 - HTML: `.aegis/reports/aegis-report.html`
+- Localized JSON: `.aegis/reports/aegis-report.json`
 - SARIF: `.aegis/reports/aegis-report.sarif`
 - Hardening: `.aegis/reports/security-hardening.json`
 - Frontend advisory: `.aegis/reports/frontend-advisory.json`
@@ -55,3 +56,9 @@ autocomplete hints. It does not submit forms or send attack payloads.
 Use `npm run completion:audit` when iterating on the workspace. It reports code
 TODO items separately from external GitHub blockers such as repository secrets
 or private-repository branch protection limits.
+
+`npm run security:report` runs the Aegis HTML report first, then rewrites the
+HTML with the current web console language from `.aegis/web-settings.json`.
+Supported report languages are Korean, English, Japanese, and Chinese. Stale
+findings that are no longer reproduced by the latest scan are excluded from the
+localized report.

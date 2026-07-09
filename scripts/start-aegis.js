@@ -9,7 +9,7 @@ const steps = [
   ["aegis", ["plan", "--mode", "passive", "--target", "frontend", "--limit", "50"]],
   ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true", "--max-depth", "2", "--max-pages", "50"]],
   ["node", ["./scripts/frontend-advisory.js"]],
-  ["aegis", ["report", "--format", "html"]],
+  ["npm", ["run", "security:report"]],
   ["aigate", ["test", "--language", "ko"]]
 ].filter(Boolean);
 
