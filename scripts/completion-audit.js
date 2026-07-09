@@ -169,7 +169,7 @@ function main() {
     "github",
     "ci_secret",
     Boolean(githubValue.checks?.aegisCliToken?.ok),
-    "GitHub repository secret AEGIS_CLI_TOKEN is configured.",
+    "GitHub repository secret AEGIS_CLI_SSH_KEY or AEGIS_CLI_TOKEN is configured.",
     { detail: githubValue.checks?.aegisCliToken?.detail },
     true
   );

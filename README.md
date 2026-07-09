@@ -62,5 +62,6 @@ AIGate score. See `docs/ai-integration.md`.
 ## GitHub Security
 
 The GitHub workflow pins Aegis and AIGate versions, runs `npm audit`, and
-requires an `AEGIS_CLI_TOKEN` repository secret because the Aegis CLI source
-repository is private. See `docs/github-security-hardening.md`.
+requires either an `AEGIS_CLI_SSH_KEY` deploy-key secret or an
+`AEGIS_CLI_TOKEN` repository secret because the Aegis CLI source repository is
+private. See `docs/github-security-hardening.md`.

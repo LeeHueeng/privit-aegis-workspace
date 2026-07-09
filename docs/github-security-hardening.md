@@ -5,9 +5,16 @@ This repository is private and installs the private Aegis CLI from
 
 ## Required Secret
 
-Create a fine-grained GitHub token for `LeeHueeng/privit-project` with the
-minimum repository read permissions needed to clone the source repository, then
-store it in this repository as:
+Preferred: create a read-only deploy key on `LeeHueeng/privit-project`, then
+store the private key in this repository as:
+
+```text
+AEGIS_CLI_SSH_KEY
+```
+
+Alternative: create a fine-grained GitHub token for `LeeHueeng/privit-project`
+with the minimum repository read permissions needed to clone the source
+repository, then store it in this repository as:
 
 ```text
 AEGIS_CLI_TOKEN
@@ -22,7 +29,7 @@ Check the remaining GitHub-side readiness items locally with:
 npm run github:ready
 ```
 
-To set the secret without printing it in shell history:
+To set a fine-grained token without printing it in shell history:
 
 ```sh
 read -rs AEGIS_CLI_TOKEN
@@ -36,6 +43,10 @@ You can also pipe a token from a password manager:
 ```sh
 printf '%s' "$TOKEN_FROM_PASSWORD_MANAGER" | npm run github:secret:set
 ```
+
+For the deploy-key path, generate a dedicated Ed25519 key, add the public key
+to `LeeHueeng/privit-project` as read-only, then store the private key as the
+`AEGIS_CLI_SSH_KEY` secret in `LeeHueeng/privit-aegis-workspace`.
 
 ## Workflow Pinning
 
@@ -64,6 +75,9 @@ refresh site-map and form evidence.
 The workflow also sets `permissions: contents: read`, applies a job timeout,
 pins GitHub actions by full commit SHA, and uses `persist-credentials: false` on
 checkout so the workflow token is not left in the local git configuration.
+When the deploy-key path is used, the workflow writes GitHub's documented SSH
+host keys to `known_hosts`, uses the private key only for the install command,
+and removes the key during cleanup.
 `security:hardening` verifies these controls in local and CI runs.
 
 ## Branch Protection

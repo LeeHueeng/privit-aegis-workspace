@@ -75,13 +75,18 @@ function checkSecret(repo) {
     };
   }
 
-  const present = listed.stdout.split(/\r?\n/).some((line) => line.split(/\s+/)[0] === "AEGIS_CLI_TOKEN");
+  const secrets = listed.stdout.split(/\r?\n/).map((line) => line.split(/\s+/)[0]).filter(Boolean);
+  const tokenPresent = secrets.includes("AEGIS_CLI_TOKEN");
+  const sshKeyPresent = secrets.includes("AEGIS_CLI_SSH_KEY");
+  const present = tokenPresent || sshKeyPresent;
   return {
     ok: present,
     present,
+    tokenPresent,
+    sshKeyPresent,
     detail: present
-      ? "AEGIS_CLI_TOKEN exists. Secret values are never readable through this check."
-      : "AEGIS_CLI_TOKEN is missing."
+      ? `Aegis CLI credential exists (${sshKeyPresent ? "AEGIS_CLI_SSH_KEY" : "AEGIS_CLI_TOKEN"}). Secret values are never readable through this check.`
+      : "Aegis CLI credential is missing. Configure AEGIS_CLI_SSH_KEY or AEGIS_CLI_TOKEN."
   };
 }
 
@@ -195,9 +200,22 @@ function buildReport() {
 
   const blockers = [];
   if (!ghAuth.ok) blockers.push("gh authentication is not ready");
-  if (!aegisCliToken.ok) blockers.push("AEGIS_CLI_TOKEN secret is missing or not visible");
+  if (!aegisCliToken.ok) blockers.push("Aegis CLI credential secret is missing or not visible");
   if (!branchProtection.ok) blockers.push("AIGate required status check is not verified");
   if (latestRun.latest && !latestRun.ok) blockers.push("latest GitHub Actions run is not successful");
+  const nextSteps = [];
+  if (!aegisCliToken.ok) {
+    nextSteps.push(
+      "Create either a read-only deploy key for LeeHueeng/privit-project or a fine-grained GitHub token with read access.",
+      "Store it as AEGIS_CLI_SSH_KEY or AEGIS_CLI_TOKEN in this repository."
+    );
+  }
+  if (latestRun.latest && !latestRun.ok) {
+    nextSteps.push("Rerun the latest GitHub Actions workflow after the credential fix is pushed.");
+  }
+  if (!branchProtection.ok) {
+    nextSteps.push("Enable branch protection or a ruleset that requires the AIGate check on main when the GitHub plan allows it.");
+  }
 
   return {
     command: "github-readiness",
@@ -213,13 +231,7 @@ function buildReport() {
       aigate
     },
     blockers,
-    nextSteps: blockers.length
-      ? [
-          "Create a fine-grained GitHub token with read access to LeeHueeng/privit-project.",
-          "Store it as the AEGIS_CLI_TOKEN repository secret.",
-          "Enable branch protection or a ruleset that requires the AIGate check on main when the GitHub plan allows it."
-        ]
-      : []
+    nextSteps
   };
 }
 
