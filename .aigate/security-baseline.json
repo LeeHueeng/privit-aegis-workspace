@@ -155,6 +155,14 @@
       "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
     },
     {
+      "name": "OWASP WSTG Testing GraphQL",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/99-Testing_GraphQL"
+    },
+    {
+      "name": "OWASP WSTG Testing for Mass Assignment",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/20-Testing_for_Mass_Assignment"
+    },
+    {
       "name": "OWASP WSTG Input Validation Testing",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/README"
     },

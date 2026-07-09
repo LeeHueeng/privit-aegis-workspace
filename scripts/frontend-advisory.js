@@ -1986,6 +1986,168 @@ function oauthAuthorizationRequestEvidence(discovery) {
   return candidates.slice(0, 30);
 }
 
+function pathFromUrl(url, baseUrl = undefined) {
+  try {
+    return (baseUrl ? new URL(url, baseUrl) : new URL(url)).pathname;
+  } catch {
+    return String(url || "").split(/[?#]/)[0].slice(0, 160);
+  }
+}
+
+function normalizedInputName(value) {
+  return String(value || "")
+    .replace(/\[\]/g, "")
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/[\[\].:-]+/g, "_")
+    .toLowerCase();
+}
+
+function massAssignmentFieldRisk(name) {
+  const normalized = normalizedInputName(name);
+  const parts = normalized.split(/[_\s-]+/).filter(Boolean);
+  if (!parts.length) return "";
+  if (parts.includes("isadmin") || parts.includes("admin") || parts.includes("superuser") || parts.includes("root")) {
+    return "privilege_escalation_property";
+  }
+  if (parts.some((part) => ["role", "roles", "permission", "permissions", "scope", "scopes", "privilege", "privileges"].includes(part))) {
+    return "authorization_property";
+  }
+  if (parts.some((part) => ["tenant", "tenantid", "organization", "organizationid", "orgid", "owner", "ownerid"].includes(part))) {
+    return "tenancy_or_ownership_property";
+  }
+  if (parts.some((part) => ["enabled", "disabled", "active", "verified", "emailverified", "locked", "status"].includes(part))) {
+    return "account_state_property";
+  }
+  if (parts.some((part) => ["plan", "price", "credit", "balance", "quota", "billing"].includes(part))) {
+    return "billing_or_entitlement_property";
+  }
+  return "";
+}
+
+function massAssignmentFieldEvidence(discovery) {
+  const candidates = [];
+  const inspectName = (source, name, context = {}) => {
+    const risk = massAssignmentFieldRisk(name);
+    if (!risk) return;
+    candidates.push({
+      source,
+      path: context.path || "",
+      action: context.action || "",
+      method: context.method || "GET",
+      field: name,
+      type: context.type || "",
+      risk
+    });
+  };
+  const inspectUrl = (source, url, status = undefined, method = "GET", baseUrl = undefined) => {
+    for (const entry of urlParameterEntries(url, baseUrl)) {
+      const risk = massAssignmentFieldRisk(entry.parameter);
+      if (!risk) continue;
+      candidates.push({
+        source,
+        location: entry.location,
+        path: entry.path,
+        parameter: entry.parameter,
+        method,
+        status,
+        risk
+      });
+    }
+  };
+
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status, "GET");
+  }
+  for (const form of discovery?.forms || []) {
+    const method = String(form.method || "GET").toUpperCase();
+    const pagePath = pathFromUrl(form.page_url);
+    const actionPath = pathFromUrl(form.action_url || form.page_url, form.page_url);
+    inspectUrl("form_page", form.page_url, undefined, method);
+    inspectUrl("form_action", form.action_url, undefined, method, form.page_url);
+    for (const control of form.controls || []) {
+      inspectName("form_field", control.name || control.id || "", {
+        path: pagePath,
+        action: actionPath,
+        method,
+        type: control.type || ""
+      });
+    }
+  }
+  return candidates.slice(0, 40);
+}
+
+function ssrfParameterRisk(name, path = "", method = "GET", type = "") {
+  const normalized = normalizedInputName(name);
+  const context = `${normalized} ${path} ${method} ${type}`.toLowerCase();
+  if (!normalized) return "";
+  if (/(?:^|_)(?:webhook|callback|endpoint|proxy|fetch|remote|feed)(?:_|$)/.test(normalized)) {
+    return "server_side_fetch_parameter";
+  }
+  if (/(?:^|_)(?:image|avatar|file|document|attachment|media)(?:_|$)/.test(normalized) && /(?:url|uri|link|remote)/.test(normalized)) {
+    return "remote_media_fetch_parameter";
+  }
+  if (/(?:^|_)(?:url|uri|link|target|source|dest|destination)(?:_|$)/.test(normalized)) {
+    if (/(?:import|export|fetch|proxy|webhook|callback|avatar|image|media|upload|download|render|preview|integrations?|connectors?)/.test(context)) {
+      return "url_fetch_candidate";
+    }
+    return "navigation_or_redirect_parameter";
+  }
+  if (String(type || "").toLowerCase() === "url") {
+    return /(?:import|fetch|proxy|webhook|callback|avatar|image|media|upload|download|render|preview)/.test(context)
+      ? "url_input_control"
+      : "navigation_or_redirect_parameter";
+  }
+  return "";
+}
+
+function ssrfParameterEvidence(discovery) {
+  const candidates = [];
+  const inspectEntry = (source, entry, context = {}) => {
+    const name = entry.parameter || context.field || "";
+    const risk = ssrfParameterRisk(name, entry.path || context.path || "", context.method || "GET", context.type || "");
+    if (!risk) return;
+    candidates.push({
+      source,
+      location: entry.location || context.location || "",
+      path: entry.path || context.path || "",
+      action: context.action || "",
+      parameter: entry.parameter || undefined,
+      field: context.field || undefined,
+      method: context.method || "GET",
+      status: context.status,
+      type: context.type || "",
+      risk
+    });
+  };
+  const inspectUrl = (source, url, status = undefined, method = "GET", baseUrl = undefined) => {
+    for (const entry of urlParameterEntries(url, baseUrl)) {
+      inspectEntry(source, entry, { method, status });
+    }
+  };
+
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status, "GET");
+  }
+  for (const form of discovery?.forms || []) {
+    const method = String(form.method || "GET").toUpperCase();
+    const pagePath = pathFromUrl(form.page_url);
+    const actionPath = pathFromUrl(form.action_url || form.page_url, form.page_url);
+    inspectUrl("form_page", form.page_url, undefined, method);
+    inspectUrl("form_action", form.action_url, undefined, method, form.page_url);
+    for (const control of form.controls || []) {
+      const field = control.name || control.id || "";
+      inspectEntry("form_field", {}, {
+        field,
+        path: pagePath,
+        action: actionPath,
+        method,
+        type: control.type || ""
+      });
+    }
+  }
+  return candidates.slice(0, 40);
+}
+
 function inputAttackSurfaceCandidates(discovery) {
   const candidates = [];
   const pushRoutePath = (route) => {
@@ -2879,6 +3041,18 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     "OWASP API testing treats GraphQL endpoints as API attack surface that should be reviewed for introspection exposure, operation authorization, and object-level access controls.",
     { checked: probes.filter((probe) => probe.category === "graphqlEndpoints").length, endpoints: graphqlExposures }
   );
+  const graphqlSchemaExposureIssues = graphqlExposures
+    .filter((item) => ["graphql_ide", "graphql_endpoint", "graphql_json_error"].includes(item.signal))
+    .map((item) => ({ ...item, signal: `${item.signal}_requires_access_control_review` }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.graphql_schema_exposure",
+    "GraphQL IDE and schema-like signals are not anonymously exposed",
+    graphqlSchemaExposureIssues.length === 0,
+    "OWASP GraphQL testing treats public IDEs, schema hints, and verbose GraphQL errors as signals for introspection and authorization review.",
+    { checked: graphqlExposures.length, issues: graphqlSchemaExposureIssues }
+  );
   addFinding(
     findings,
     "info",
@@ -3100,6 +3274,17 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     { candidates: objectIds, count: objectIds.length }
   );
 
+  const massAssignmentFields = massAssignmentFieldEvidence(discovery);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.discovery.mass_assignment_fields",
+    "Sensitive authorization and account fields are not client-controlled",
+    massAssignmentFields.length === 0,
+    "OWASP mass-assignment testing starts by identifying client-controlled fields that look like roles, permissions, tenancy, billing, status, or ownership properties.",
+    { candidates: massAssignmentFields, count: massAssignmentFields.length }
+  );
+
   const redirectParams = redirectParameterEvidence(discovery);
   addFinding(
     findings,
@@ -3120,6 +3305,30 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "OWASP WSTG HTTP Parameter Pollution testing reviews how applications interpret repeated parameters; this passive check records observed candidates only.",
     { candidates: duplicateParams, count: duplicateParams.length }
+  );
+
+  const ssrfParameters = ssrfParameterEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.ssrf_url_parameters",
+    "Server-side fetch URL parameters are inventoried for SSRF review",
+    true,
+    "OWASP SSRF testing begins by identifying URL, webhook, callback, proxy, fetch, feed, and remote-media inputs; this passive check stores names only.",
+    { candidates: ssrfParameters, count: ssrfParameters.length }
+  );
+  const ssrfReviewIssues = ssrfParameters.filter((item) =>
+    item.risk !== "navigation_or_redirect_parameter"
+    || String(item.method || "GET").toUpperCase() !== "GET"
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.discovery.ssrf_fetch_inputs",
+    "Remote-fetch inputs are reviewed before server-side use",
+    ssrfReviewIssues.length === 0,
+    "Inputs that can make the server fetch remote URLs should enforce allowlists, private-network blocking, redirect limits, and response-size controls.",
+    { checked: ssrfParameters.length, issues: ssrfReviewIssues }
   );
 
   const sensitiveUrlParams = sensitiveUrlParameterEvidence(discovery);

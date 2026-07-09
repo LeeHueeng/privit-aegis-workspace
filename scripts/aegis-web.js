@@ -1392,22 +1392,22 @@ function page() {
           zh: "API 授权与对象访问"
         },
         detects: {
-          ko: "ID-bearing route, role/admin/status 필드, GraphQL endpoint, OIDC/OAuth/JWKS 메타데이터, OAuth/SSO callback, authorization request parameter, 사용자/세션 API 익명 노출, API 캐시/nosniff 신호를 인벤토리합니다.",
-          en: "Inventories ID-bearing routes, role/admin/status fields, GraphQL endpoints, OIDC/OAuth/JWKS metadata, OAuth/SSO callbacks, authorization request parameters, anonymous user/session API exposure, and API cache/nosniff signals.",
-          ja: "ID含有route、role/admin/statusフィールド、GraphQL endpoint、OIDC/OAuth/JWKSメタデータ、OAuth/SSO callback、authorization request parameter、ユーザー/セッションAPIの匿名露出、API cache/nosniff信号をインベントリします。",
-          zh: "盘点带 ID 的路由、role/admin/status 字段、GraphQL 端点、OIDC/OAuth/JWKS 元数据、OAuth/SSO callback、authorization request parameter、用户/会话 API 匿名暴露以及 API cache/nosniff 信号。"
+          ko: "ID-bearing route, mass-assignment 민감 필드, GraphQL endpoint/IDE/schema 신호, OIDC/OAuth/JWKS 메타데이터, OAuth/SSO callback, authorization request parameter, 사용자/세션 API 익명 노출, API 캐시/nosniff 신호를 인벤토리합니다.",
+          en: "Inventories ID-bearing routes, mass-assignment sensitive fields, GraphQL endpoint/IDE/schema signals, OIDC/OAuth/JWKS metadata, OAuth/SSO callbacks, authorization request parameters, anonymous user/session API exposure, and API cache/nosniff signals.",
+          ja: "ID含有route、mass-assignment系の機密field、GraphQL endpoint/IDE/schema信号、OIDC/OAuth/JWKSメタデータ、OAuth/SSO callback、authorization request parameter、ユーザー/セッションAPIの匿名露出、API cache/nosniff信号をインベントリします。",
+          zh: "盘点带 ID 的路由、mass-assignment 敏感字段、GraphQL endpoint/IDE/schema 信号、OIDC/OAuth/JWKS 元数据、OAuth/SSO callback、authorization request parameter、用户/会话 API 匿名暴露以及 API cache/nosniff 信号。"
         },
         criteria: {
-          ko: "자동 passive 검사는 후보를 식별하고, OAuth 흐름은 implicit token response, cleartext redirect, 콜백 캐시/Referrer 누출을 피해야 하며, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
-          en: "Passive checks identify candidates; OAuth flows should avoid implicit token responses, cleartext redirects, and callback cache/referrer leakage; true BOLA/BFLA validation should continue with authenticated role-matrix tests.",
-          ja: "passive検査は候補を識別し、OAuthフローはimplicit token response、cleartext redirect、callback cache/referrer漏えいを避け、実際のBOLA/BFLA検証は認証済みrole-matrixテストで続ける必要があります。",
-          zh: "Passive 检查识别候选项；OAuth 流程应避免 implicit token response、明文 redirect 以及 callback cache/referrer 泄漏；真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
+          ko: "자동 passive 검사는 후보를 식별하고, GraphQL 공개 IDE/schema 신호와 mass-assignment 필드는 검토 대상으로 표시하며, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
+          en: "Passive checks identify candidates, mark public GraphQL IDE/schema signals and mass-assignment fields for review, and true BOLA/BFLA validation should continue with authenticated role-matrix tests.",
+          ja: "passive検査は候補を識別し、公開GraphQL IDE/schema信号とmass-assignment fieldをレビュー対象として示し、実際のBOLA/BFLA検証は認証済みrole-matrixテストで続ける必要があります。",
+          zh: "Passive 检查识别候选项，标记公开 GraphQL IDE/schema 信号和 mass-assignment 字段供复核；真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
         },
         evidence: {
-          ko: "path, parameter 이름, field, method, 상태, callback cache/referrer header, GraphQL/identity/user API/cache/header signal을 기록하고 OAuth parameter 값은 저장하지 않습니다.",
-          en: "Records path, parameter names, field, method, status, callback cache/referrer headers, and GraphQL/identity/user API/cache/header signals without storing OAuth parameter values.",
-          ja: "path、parameter名、field、method、status、callback cache/referrer header、GraphQL/identity/user API/cache/header signalを記録し、OAuth parameter値は保存しません。",
-          zh: "记录 path、parameter 名称、field、method、状态、callback cache/referrer header 以及 GraphQL/identity/user API/cache/header 信号，不保存 OAuth parameter 值。"
+          ko: "path, parameter/field 이름, method, 상태, callback cache/referrer header, GraphQL/identity/user API/cache/header signal을 기록하고 OAuth parameter 값은 저장하지 않습니다.",
+          en: "Records path, parameter/field names, method, status, callback cache/referrer headers, and GraphQL/identity/user API/cache/header signals without storing OAuth parameter values.",
+          ja: "path、parameter/field名、method、status、callback cache/referrer header、GraphQL/identity/user API/cache/header signalを記録し、OAuth parameter値は保存しません。",
+          zh: "记录 path、parameter/field 名称、method、状态、callback cache/referrer header 以及 GraphQL/identity/user API/cache/header 信号，不保存 OAuth parameter 值。"
         }
       },
       {
@@ -1420,22 +1420,22 @@ function page() {
           zh: "输入验证攻击面"
         },
         detects: {
-          ko: "XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF, LFI/RFI, command/code/template injection, HTTP splitting/smuggling 후보를 분류합니다.",
-          en: "Classifies candidates for XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF, LFI/RFI, command/code/template injection, and HTTP splitting/smuggling.",
-          ja: "XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF、LFI/RFI、command/code/template injection、HTTP splitting/smuggling候補を分類します。",
-          zh: "分类 XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF、LFI/RFI、命令/代码/模板注入和 HTTP splitting/smuggling 候选项。"
+          ko: "XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF URL/webhook/proxy 입력, LFI/RFI, command/code/template injection, HTTP splitting/smuggling 후보를 분류합니다.",
+          en: "Classifies candidates for XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF URL/webhook/proxy inputs, LFI/RFI, command/code/template injection, and HTTP splitting/smuggling.",
+          ja: "XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF URL/webhook/proxy入力、LFI/RFI、command/code/template injection、HTTP splitting/smuggling候補を分類します。",
+          zh: "分类 XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF URL/webhook/proxy 输入、LFI/RFI、命令/代码/模板注入和 HTTP splitting/smuggling 候选项。"
         },
         criteria: {
-          ko: "분류는 공격 성공을 뜻하지 않으며, 승인된 인증 테스트나 수동 리뷰 대상으로 표시되어야 합니다.",
-          en: "Classification is not proof of exploitability; it marks targets for authorized authenticated testing or manual review.",
-          ja: "分類は悪用可能性の証明ではなく、承認済み認証テストまたは手動レビュー対象を示します。",
-          zh: "分类不代表可利用，仅标记为授权认证测试或人工审查对象。"
+          ko: "분류는 공격 성공을 뜻하지 않으며, SSRF형 원격 fetch 입력은 allowlist/private-network 차단/redirect 제한 검토 대상으로 표시되어야 합니다.",
+          en: "Classification is not proof of exploitability; SSRF-style remote-fetch inputs are marked for allowlist, private-network blocking, and redirect-limit review.",
+          ja: "分類は悪用可能性の証明ではなく、SSRF系のremote-fetch入力はallowlist、private-network遮断、redirect制限レビュー対象として示します。",
+          zh: "分类不代表可利用；SSRF 类型 remote-fetch 输入会标记为 allowlist、私网阻断和 redirect 限制复核对象。"
         },
         evidence: {
-          ko: "route, URL parameter, form field, method, OWASP 검토군, sample count를 저장합니다.",
-          en: "Stores route, URL parameter, form field, method, OWASP review family, and sample count.",
-          ja: "route、URL parameter、form field、method、OWASPレビュー群、sample countを保存します。",
-          zh: "保存路由、URL 参数、表单字段、method、OWASP 审查类别和样本数量。"
+          ko: "route, URL parameter, form field, method, SSRF risk label, OWASP 검토군, sample count를 저장합니다.",
+          en: "Stores route, URL parameter, form field, method, SSRF risk label, OWASP review family, and sample count.",
+          ja: "route、URL parameter、form field、method、SSRF risk label、OWASPレビュー群、sample countを保存します。",
+          zh: "保存路由、URL 参数、表单字段、method、SSRF risk label、OWASP 审查类别和样本数量。"
         }
       },
       {

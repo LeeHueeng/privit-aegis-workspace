@@ -485,6 +485,11 @@ const criteria = {
     criteria: "GraphQL endpoints are inventoried for schema exposure, introspection, and object/function authorization review.",
     remediation: "Protect GraphQL IDEs in production, disable unnecessary introspection, and add authenticated authorization tests for queries and mutations."
   },
+  "frontend.probes.graphql_schema_exposure": {
+    category: "API exposure",
+    criteria: "Anonymous GraphQL responses do not expose IDEs, schema-like hints, or verbose GraphQL errors without an explicit environment approval.",
+    remediation: "Disable public GraphQL IDEs outside development, restrict introspection where appropriate, and require authentication/authorization for schema exploration."
+  },
   "frontend.probes.upload_surfaces": {
     category: "File handling",
     criteria: "Upload, import, export, and attachment surfaces are inventoried for controlled file-handling review.",
@@ -585,6 +590,11 @@ const criteria = {
     criteria: "ID-bearing routes are inventoried for manual or authenticated BOLA/BFLA review; passive discovery itself does not prove authorization safety.",
     remediation: "Add authenticated role-matrix tests for object-level and function-level authorization."
   },
+  "frontend.discovery.mass_assignment_fields": {
+    category: "API authorization",
+    criteria: "Client-controlled route parameters and form fields do not expose sensitive role, permission, tenancy, account-state, billing, or ownership properties.",
+    remediation: "Use explicit server-side allowlists for assignable properties and ignore or reject client-submitted authorization, tenancy, account-state, and entitlement fields."
+  },
   "frontend.discovery.redirect_parameters": {
     category: "Redirect review",
     criteria: "Redirect-like URL parameters are inventoried for manual open-redirect review; passive discovery itself does not prove exploitability.",
@@ -594,6 +604,16 @@ const criteria = {
     category: "Input validation",
     criteria: "Observed URLs and form actions are inventoried when they already contain duplicate parameter names.",
     remediation: "Define deterministic server-side behavior for repeated parameters and add tests for validation bypass risks."
+  },
+  "frontend.discovery.ssrf_url_parameters": {
+    category: "SSRF review",
+    criteria: "URL, webhook, callback, proxy, fetch, feed, and remote-media inputs are inventoried without storing submitted values.",
+    remediation: "Review these inputs for allowlisted destinations, private-network blocking, redirect limits, DNS rebinding defenses, and response-size controls."
+  },
+  "frontend.discovery.ssrf_fetch_inputs": {
+    category: "SSRF review",
+    criteria: "High-confidence remote-fetch inputs are not accepted server-side without destination allowlists and network egress controls.",
+    remediation: "Block localhost/private/cloud-metadata destinations, constrain protocols, limit redirects, and fetch through controlled server-side clients only when required."
   },
   "frontend.discovery.sensitive_url_parameters": {
     category: "Data leakage",
@@ -948,6 +968,12 @@ const localizedCriteria = {
       criteria: "GraphQL 엔드포인트는 schema 노출, introspection, 객체/기능 권한 검토 대상으로 기록되어야 합니다.",
       remediation: "운영 GraphQL IDE를 보호하고 불필요한 introspection을 비활성화하며 query/mutation 권한 테스트를 추가하세요."
     },
+    "frontend.probes.graphql_schema_exposure": {
+      title: "GraphQL IDE 및 schema 유사 신호가 익명 노출되지 않음",
+      category: "API 노출",
+      criteria: "익명 GraphQL 응답은 명시적 환경 승인 없이 IDE, schema 유사 힌트, 자세한 GraphQL 오류를 노출하지 않아야 합니다.",
+      remediation: "개발 외 환경의 공개 GraphQL IDE를 비활성화하고 필요한 경우 introspection을 제한하며 schema 탐색에는 인증/권한을 요구하세요."
+    },
     "frontend.probes.upload_surfaces": {
       title: "업로드 및 import/export 표면이 파일 처리 검토 대상으로 인벤토리됨",
       category: "파일 처리",
@@ -1068,6 +1094,12 @@ const localizedCriteria = {
       criteria: "ID가 포함된 route는 수동 또는 인증된 role-matrix BOLA/BFLA 검토 대상으로 기록되어야 하며, passive discovery만으로 권한 안전성을 증명하지 않습니다.",
       remediation: "객체 수준 및 기능 수준 권한에 대해 인증된 role-matrix 테스트를 추가하세요."
     },
+    "frontend.discovery.mass_assignment_fields": {
+      title: "민감 권한/계정 필드가 클라이언트 제어 입력으로 노출되지 않음",
+      category: "API 권한",
+      criteria: "클라이언트 제어 route parameter와 form field는 role, permission, tenant, account state, billing, ownership 같은 민감 속성을 노출하지 않아야 합니다.",
+      remediation: "서버에서 할당 가능한 속성을 명시적 allowlist로 제한하고 권한/tenant/account state/entitlement 필드는 클라이언트 제출값을 무시하거나 거부하세요."
+    },
     "frontend.discovery.redirect_parameters": {
       title: "리다이렉트 유사 URL 파라미터가 open redirect 검토 대상으로 인벤토리됨",
       category: "리다이렉트 검토",
@@ -1079,6 +1111,18 @@ const localizedCriteria = {
       category: "입력 검증",
       criteria: "관찰된 URL과 form action에 중복 파라미터 이름이 있으면 기록되어야 합니다.",
       remediation: "반복 파라미터에 대한 서버 측 동작을 명확히 정의하고 validation bypass 위험 테스트를 추가하세요."
+    },
+    "frontend.discovery.ssrf_url_parameters": {
+      title: "서버 측 fetch URL 파라미터가 SSRF 검토 대상으로 인벤토리됨",
+      category: "SSRF 검토",
+      criteria: "URL, webhook, callback, proxy, fetch, feed, remote media 입력은 제출값 저장 없이 이름만 기록되어야 합니다.",
+      remediation: "허용 destination allowlist, private network 차단, redirect 제한, DNS rebinding 방어, 응답 크기 제한을 검토하세요."
+    },
+    "frontend.discovery.ssrf_fetch_inputs": {
+      title: "원격 fetch 입력이 서버 측 사용 전 검토됨",
+      category: "SSRF 검토",
+      criteria: "서버가 원격 URL을 가져오게 할 수 있는 고신뢰 입력은 destination allowlist와 network egress 제어 없이 사용되면 안 됩니다.",
+      remediation: "localhost/private/cloud metadata destination을 차단하고 protocol과 redirect를 제한하며 필요한 경우 통제된 서버 측 client를 통해서만 fetch하세요."
     },
     "frontend.discovery.sensitive_url_parameters": {
       title: "민감 값이 URL query 또는 fragment parameter로 전달되지 않음",
