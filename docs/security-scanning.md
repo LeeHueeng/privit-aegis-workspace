@@ -89,7 +89,9 @@ file-upload form controls, account-recovery and well-known change-password route
 logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
 clearing signals, visible Retry-After/RateLimit headers on authentication surfaces,
 sensitive URL query/fragment parameter names, authentication-flow token URL
-inventory for reset/verification/invite/magic-link/OAuth/SSO paths, anonymously readable user/account/profile/session API JSON,
+inventory for reset/verification/invite/magic-link/OAuth/SSO paths, OAuth/SSO
+callback cache and Referrer-Policy posture, OAuth authorization request parameter
+inventory and risky response/redirect mode signals, anonymously readable user/account/profile/session API JSON,
 auth/session API cache and `nosniff` headers, security.txt contact metadata,
 client-side bundle leakage signals, external subresource integrity, HTTPS mixed
 content references, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled

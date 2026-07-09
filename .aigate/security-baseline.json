@@ -179,6 +179,14 @@
       "url": "https://www.rfc-editor.org/rfc/rfc9116"
     },
     {
+      "name": "RFC 9700 OAuth 2.0 Security Best Current Practice",
+      "url": "https://datatracker.ietf.org/doc/html/rfc9700"
+    },
+    {
+      "name": "OAuth 2.0 Form Post Response Mode",
+      "url": "https://openid.net/specs/oauth-v2-form-post-response-mode-1_0.html"
+    },
+    {
       "name": "GitHub Actions Secure Use Reference",
       "url": "https://docs.github.com/en/actions/reference/security/secure-use"
     },
@@ -333,6 +341,20 @@
         "/oauth2/authorize",
         "/oauth2/token",
         "/auth/realms/master/.well-known/openid-configuration"
+      ],
+      "oauthCallbackPaths": [
+        "/callback",
+        "/auth/callback",
+        "/oauth/callback",
+        "/oauth2/callback",
+        "/oidc/callback",
+        "/sso/callback",
+        "/login/callback",
+        "/signin/callback",
+        "/signin-oidc",
+        "/api/auth/callback",
+        "/api/oauth/callback",
+        "/saml/acs"
       ],
       "authApiPaths": [
         "/api/me",

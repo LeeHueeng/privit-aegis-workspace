@@ -495,6 +495,21 @@ const criteria = {
     criteria: "OIDC, OAuth, and JWKS metadata endpoints are inventoried so issuer, key, scope, and token posture can be reviewed.",
     remediation: "Confirm metadata is intentionally public, rotate signing keys safely, restrict token endpoints, and validate issuer/audience consistently."
   },
+  "frontend.probes.oauth_callback_routes": {
+    category: "Identity",
+    criteria: "Common OAuth, OIDC, SSO, and SAML callback routes are inventoried without credentials or authorization parameters.",
+    remediation: "Review callback routes for exact redirect registration, single-use code handling, CSRF/state validation, and predictable error behavior."
+  },
+  "frontend.probes.oauth_callback_cache": {
+    category: "Identity caching",
+    criteria: "Successful OAuth and SSO callback responses use private/no-store/no-cache style cache controls and avoid public caching.",
+    remediation: "Set Cache-Control: no-store or private/no-cache on callback responses that may process authorization codes, tokens, or session transitions."
+  },
+  "frontend.probes.oauth_callback_referrer": {
+    category: "Identity leakage",
+    criteria: "Successful OAuth and SSO callback responses send restrictive Referrer-Policy such as no-referrer, same-origin, or strict-origin.",
+    remediation: "Set a restrictive Referrer-Policy on callback responses and avoid loading third-party resources before URL-carried parameters are consumed and cleared."
+  },
   "frontend.probes.unauthenticated_user_api": {
     category: "API authorization",
     criteria: "Common user, account, profile, and session API paths do not anonymously return identity, role, permission, tenant, or session JSON.",
@@ -589,6 +604,16 @@ const criteria = {
     category: "Data leakage",
     criteria: "Password reset, verification, invitation, magic-link, OAuth, and SSO URL parameters are inventoried without storing token values.",
     remediation: "Review discovered auth-flow URL parameters for HTTPS-only delivery, short lifetime, single use, strict Referrer-Policy, and form_post or server-side state where appropriate."
+  },
+  "frontend.discovery.oauth_authorization_requests": {
+    category: "OAuth/OIDC",
+    criteria: "OAuth and OIDC authorization URLs are inventoried by parameter names without storing parameter values.",
+    remediation: "Use the inventory to review response_type, redirect_uri, state, nonce, code_challenge, and response_mode posture."
+  },
+  "frontend.discovery.oauth_authorization_request_hardening": {
+    category: "OAuth/OIDC",
+    criteria: "Observed OAuth authorization request URLs avoid implicit token response types, cleartext redirect URIs, and URL-carried response modes where safer alternatives exist.",
+    remediation: "Prefer authorization code with PKCE, exact HTTPS redirect URIs, state/nonce validation, and response_mode=form_post or server-side state when supported."
   },
   "frontend.discovery.attack_surface_matrix": {
     category: "Input validation",
@@ -935,6 +960,24 @@ const localizedCriteria = {
       criteria: "issuer, key, scope, token posture 검토를 위해 OIDC, OAuth, JWKS 메타데이터 엔드포인트가 기록되어야 합니다.",
       remediation: "메타데이터 공개가 의도된 것인지 확인하고 signing key rotation, token endpoint 제한, issuer/audience 검증을 점검하세요."
     },
+    "frontend.probes.oauth_callback_routes": {
+      title: "OAuth, OIDC, SSO, SAML 콜백 경로가 인벤토리됨",
+      category: "인증/식별",
+      criteria: "일반 OAuth/OIDC/SSO/SAML callback 경로는 credential 또는 authorization parameter 없이 기록되어야 합니다.",
+      remediation: "콜백 경로의 정확한 redirect 등록, 단회 code 처리, CSRF/state 검증, 예측 가능한 error 동작을 검토하세요."
+    },
+    "frontend.probes.oauth_callback_cache": {
+      title: "OAuth 및 SSO 콜백 응답이 브라우저/공유 캐시 저장을 피함",
+      category: "인증 캐싱",
+      criteria: "성공한 OAuth/SSO callback 응답은 private/no-store/no-cache 계열 cache control을 사용하고 public caching을 피해야 합니다.",
+      remediation: "authorization code, token, session 전환을 처리할 수 있는 callback 응답에 Cache-Control: no-store 또는 private/no-cache를 설정하세요."
+    },
+    "frontend.probes.oauth_callback_referrer": {
+      title: "OAuth 및 SSO 콜백 응답이 제한적인 Referrer-Policy를 사용함",
+      category: "인증 정보 유출",
+      criteria: "성공한 OAuth/SSO callback 응답은 no-referrer, same-origin, strict-origin 같은 제한적인 Referrer-Policy를 전송해야 합니다.",
+      remediation: "콜백 응답에 제한적인 Referrer-Policy를 설정하고 URL parameter가 소비/정리되기 전에는 제3자 리소스 로딩을 피하세요."
+    },
     "frontend.probes.unauthenticated_user_api": {
       title: "사용자, 계정, 세션 API가 익명으로 읽히지 않음",
       category: "API 권한",
@@ -1048,6 +1091,18 @@ const localizedCriteria = {
       category: "데이터 유출",
       criteria: "비밀번호 재설정, 인증 확인, 초대, magic link, OAuth, SSO URL parameter는 token 값 저장 없이 이름만 기록되어야 합니다.",
       remediation: "발견된 인증 흐름 URL parameter는 HTTPS-only 전달, 짧은 만료, 단회 사용, 엄격한 Referrer-Policy, 필요 시 form_post 또는 서버 측 state 전환을 검토하세요."
+    },
+    "frontend.discovery.oauth_authorization_requests": {
+      title: "OAuth 및 OIDC authorization request가 인벤토리됨",
+      category: "OAuth/OIDC",
+      criteria: "OAuth/OIDC authorization URL은 parameter 값 저장 없이 이름만 기록되어야 합니다.",
+      remediation: "response_type, redirect_uri, state, nonce, code_challenge, response_mode 구성을 검토하세요."
+    },
+    "frontend.discovery.oauth_authorization_request_hardening": {
+      title: "OAuth authorization request URL이 위험한 응답/리다이렉트 모드를 피함",
+      category: "OAuth/OIDC",
+      criteria: "관찰된 OAuth authorization request URL은 implicit token response, cleartext redirect URI, 더 안전한 대안이 있는 URL-carried response mode를 피해야 합니다.",
+      remediation: "authorization code + PKCE, 정확한 HTTPS redirect URI, state/nonce 검증, 지원되는 경우 response_mode=form_post 또는 서버 측 state를 선호하세요."
     },
     "frontend.discovery.attack_surface_matrix": {
       title: "입력 및 API 공격 표면이 OWASP 검토군으로 분류됨",

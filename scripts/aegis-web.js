@@ -1392,22 +1392,22 @@ function page() {
           zh: "API 授权与对象访问"
         },
         detects: {
-          ko: "ID-bearing route, role/admin/status 필드, GraphQL endpoint, OIDC/OAuth/JWKS 메타데이터, 사용자/세션 API 익명 노출, API 캐시/nosniff 신호를 인벤토리합니다.",
-          en: "Inventories ID-bearing routes, role/admin/status fields, GraphQL endpoints, OIDC/OAuth/JWKS metadata, anonymous user/session API exposure, and API cache/nosniff signals.",
-          ja: "ID含有route、role/admin/statusフィールド、GraphQL endpoint、OIDC/OAuth/JWKSメタデータ、ユーザー/セッションAPIの匿名露出、API cache/nosniff信号をインベントリします。",
-          zh: "盘点带 ID 的路由、role/admin/status 字段、GraphQL 端点、OIDC/OAuth/JWKS 元数据、用户/会话 API 匿名暴露以及 API cache/nosniff 信号。"
+          ko: "ID-bearing route, role/admin/status 필드, GraphQL endpoint, OIDC/OAuth/JWKS 메타데이터, OAuth/SSO callback, authorization request parameter, 사용자/세션 API 익명 노출, API 캐시/nosniff 신호를 인벤토리합니다.",
+          en: "Inventories ID-bearing routes, role/admin/status fields, GraphQL endpoints, OIDC/OAuth/JWKS metadata, OAuth/SSO callbacks, authorization request parameters, anonymous user/session API exposure, and API cache/nosniff signals.",
+          ja: "ID含有route、role/admin/statusフィールド、GraphQL endpoint、OIDC/OAuth/JWKSメタデータ、OAuth/SSO callback、authorization request parameter、ユーザー/セッションAPIの匿名露出、API cache/nosniff信号をインベントリします。",
+          zh: "盘点带 ID 的路由、role/admin/status 字段、GraphQL 端点、OIDC/OAuth/JWKS 元数据、OAuth/SSO callback、authorization request parameter、用户/会话 API 匿名暴露以及 API cache/nosniff 信号。"
         },
         criteria: {
-          ko: "자동 passive 검사는 후보를 식별하고, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
-          en: "Passive checks identify candidates; true BOLA/BFLA validation should continue with authenticated role-matrix tests.",
-          ja: "passive検査は候補を識別し、実際のBOLA/BFLA検証は認証済みrole-matrixテストで続ける必要があります。",
-          zh: "Passive 检查识别候选项，真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
+          ko: "자동 passive 검사는 후보를 식별하고, OAuth 흐름은 implicit token response, cleartext redirect, 콜백 캐시/Referrer 누출을 피해야 하며, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
+          en: "Passive checks identify candidates; OAuth flows should avoid implicit token responses, cleartext redirects, and callback cache/referrer leakage; true BOLA/BFLA validation should continue with authenticated role-matrix tests.",
+          ja: "passive検査は候補を識別し、OAuthフローはimplicit token response、cleartext redirect、callback cache/referrer漏えいを避け、実際のBOLA/BFLA検証は認証済みrole-matrixテストで続ける必要があります。",
+          zh: "Passive 检查识别候选项；OAuth 流程应避免 implicit token response、明文 redirect 以及 callback cache/referrer 泄漏；真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
         },
         evidence: {
-          ko: "path, parameter, field, method, 상태, GraphQL/identity/user API/cache/header signal을 기록합니다.",
-          en: "Records path, parameter, field, method, status, and GraphQL/identity/user API/cache/header signals.",
-          ja: "path、parameter、field、method、status、GraphQL/identity/user API/cache/header signalを記録します。",
-          zh: "记录 path、parameter、field、method、状态以及 GraphQL/identity/user API/cache/header 信号。"
+          ko: "path, parameter 이름, field, method, 상태, callback cache/referrer header, GraphQL/identity/user API/cache/header signal을 기록하고 OAuth parameter 값은 저장하지 않습니다.",
+          en: "Records path, parameter names, field, method, status, callback cache/referrer headers, and GraphQL/identity/user API/cache/header signals without storing OAuth parameter values.",
+          ja: "path、parameter名、field、method、status、callback cache/referrer header、GraphQL/identity/user API/cache/header signalを記録し、OAuth parameter値は保存しません。",
+          zh: "记录 path、parameter 名称、field、method、状态、callback cache/referrer header 以及 GraphQL/identity/user API/cache/header 信号，不保存 OAuth parameter 值。"
         }
       },
       {

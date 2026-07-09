@@ -1290,6 +1290,20 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/oauth2/token",
     "/auth/realms/master/.well-known/openid-configuration"
   ]);
+  const oauthCallbackPaths = configuredProbePaths(baseline, "oauthCallbackPaths", [
+    "/callback",
+    "/auth/callback",
+    "/oauth/callback",
+    "/oauth2/callback",
+    "/oidc/callback",
+    "/sso/callback",
+    "/login/callback",
+    "/signin/callback",
+    "/signin-oidc",
+    "/api/auth/callback",
+    "/api/oauth/callback",
+    "/saml/acs"
+  ]);
   const authApiPaths = configuredProbePaths(baseline, "authApiPaths", [
     "/api/me",
     "/api/user",
@@ -1395,6 +1409,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "graphqlEndpoints", graphqlEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "uploadPaths", uploadPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "oauthCallbackPaths", oauthCallbackPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "authApiPaths", authApiPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "accountRecoveryPaths", accountRecoveryPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "logoutPaths", logoutPaths));
@@ -1576,6 +1591,60 @@ function accountRecoverySignal(probe, response) {
     return response.redirects ? "account_recovery_redirect" : "account_recovery_route";
   }
   return "";
+}
+
+function oauthCallbackSignal(probe, response) {
+  if (!response.ok || isSoftNotFoundResponse(response)) return "";
+  const path = String(probe.path || "").toLowerCase();
+  if (!/(?:callback|signin-oidc|saml\/acs)/i.test(path)) return "";
+  const finalPath = (() => {
+    try {
+      return new URL(response.finalUrl || response.url || probe.url).pathname.toLowerCase();
+    } catch {
+      return "";
+    }
+  })();
+  if (response.redirects && /\/(?:login|signin|sign-in|auth)(?:\/|$)/i.test(finalPath)) {
+    return "oauth_callback_rejects_missing_or_anonymous_request";
+  }
+  if (response.status >= 200 && response.status < 400) return response.redirects ? "oauth_callback_redirect" : "oauth_callback_route";
+  if ([400, 401, 403, 405].includes(response.status)) return "oauth_callback_rejects_missing_or_anonymous_request";
+  return "";
+}
+
+function referrerPolicyProtected(value) {
+  const policy = String(value || "").toLowerCase();
+  return /\b(?:no-referrer|same-origin|strict-origin|strict-origin-when-cross-origin)\b/.test(policy) && !/\bunsafe-url\b/.test(policy);
+}
+
+function urlWithRedactedParameters(value) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  try {
+    const parsed = new URL(raw, "https://aegis.invalid");
+    const keys = unique([...parsed.searchParams.keys()]);
+    parsed.search = keys.map((key) => `${encodeURIComponent(key)}=[redacted]`).join("&");
+    parsed.hash = parsed.hash ? "#[redacted]" : "";
+    const output = raw.startsWith("/") ? `${parsed.pathname}${parsed.search}${parsed.hash}` : parsed.toString();
+    return output.slice(0, 240);
+  } catch {
+    return raw.split(/[?#]/)[0].slice(0, 240);
+  }
+}
+
+function oauthCallbackEvidence(probe, response, signal) {
+  return {
+    target: probe.targetName,
+    path: probe.path,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    signal,
+    contentType: contentType(response),
+    cacheControl: headerValue(response, "cache-control"),
+    referrerPolicy: headerValue(response, "referrer-policy"),
+    location: urlWithRedactedParameters(headerValue(response, "location"))
+  };
 }
 
 function logoutRouteSignal(probe, response) {
@@ -1855,6 +1924,56 @@ function authFlowTokenEvidence(discovery) {
       const context = `${entry.path || ""} ${entry.fragmentPath || ""}`;
       if (!authParam.test(entry.parameter) || !flowPath.test(`${context} ${entry.parameter}`)) continue;
       candidates.push({ source, ...entry, flow: classify(entry), status });
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status);
+  }
+  for (const form of discovery?.forms || []) {
+    inspectUrl("form_page", form.page_url);
+    inspectUrl("form_action", form.action_url, undefined, form.page_url);
+  }
+  return candidates.slice(0, 30);
+}
+
+function oauthAuthorizationRequestEvidence(discovery) {
+  const candidates = [];
+  const inspectUrl = (source, url, status = undefined, baseUrl = undefined) => {
+    if (!url) return;
+    try {
+      const parsed = baseUrl ? new URL(url, baseUrl) : new URL(url);
+      const params = parsed.searchParams;
+      const parameterNames = unique([...params.keys()]);
+      const pathLooksOauth = /\/(?:oauth2?|oidc|sso|auth)\/(?:authorize|login|connect)|\/authorize(?:$|[/?#])/i.test(parsed.pathname);
+      const hasOauthParams = parameterNames.some((key) => /^(?:client_id|redirect_uri|response_type|scope|state|nonce|code_challenge|code_challenge_method|response_mode)$/i.test(key));
+      if (!pathLooksOauth && !hasOauthParams) return;
+
+      const signals = [];
+      const responseType = String(params.get("response_type") || "").toLowerCase();
+      const responseMode = String(params.get("response_mode") || "").toLowerCase();
+      const redirectUri = String(params.get("redirect_uri") || "");
+      if (/\b(?:token|id_token)\b/.test(responseType)) signals.push("implicit_response_type");
+      if (responseType && !params.has("state")) signals.push("state_not_observed");
+      if (responseType.includes("code") && !params.has("code_challenge")) signals.push("pkce_not_observed");
+      if (responseMode && responseMode !== "form_post" && /\b(?:token|id_token)\b/.test(responseType)) signals.push("response_mode_not_form_post");
+      try {
+        if (redirectUri) {
+          const redirect = new URL(redirectUri);
+          if (redirect.protocol === "http:" && !isLoopback(redirect.hostname)) signals.push("cleartext_redirect_uri");
+        }
+      } catch {
+        if (redirectUri) signals.push("unparseable_redirect_uri");
+      }
+
+      candidates.push({
+        source,
+        path: parsed.pathname,
+        status,
+        parameters: parameterNames.filter((key) => /^(?:client_id|redirect_uri|response_type|scope|state|nonce|code_challenge|code_challenge_method|response_mode)$/i.test(key)),
+        signals
+      });
+    } catch {
+      // Ignore malformed OAuth authorization request candidates.
     }
   };
   for (const route of discovery?.routes || []) {
@@ -2646,6 +2765,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const graphqlExposures = [];
   const uploadSurfaces = [];
   const identityMetadata = [];
+  const oauthCallbackSurfaces = [];
   const unauthenticatedUserApis = [];
   const accountRecoverySurfaces = [];
   const logoutSurfaces = [];
@@ -2678,6 +2798,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "identityEndpoints") {
       const signal = identityMetadataSignal(probe, response);
       if (signal) identityMetadata.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "oauthCallbackPaths") {
+      const signal = oauthCallbackSignal(probe, response);
+      if (signal) oauthCallbackSurfaces.push(oauthCallbackEvidence(probe, response, signal));
     } else if (probe.category === "authApiPaths") {
       const signal = unauthenticatedUserApiSignal(probe, response);
       if (signal) unauthenticatedUserApis.push(probeEvidence(probe, response, signal));
@@ -2773,6 +2896,42 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "Identity metadata can be intentionally public, but discovered issuer, JWKS, authorization, and token endpoints should be reviewed for scope, audience, and key-rotation posture.",
     { checked: probes.filter((probe) => probe.category === "identityEndpoints").length, endpoints: identityMetadata }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.oauth_callback_routes",
+    "OAuth, OIDC, SSO, and SAML callback routes are inventoried",
+    true,
+    "Passive probes request common callback paths without credentials or authorization parameters, then record status, cache-control, and Referrer-Policy for redirect-flow review.",
+    { checked: probes.filter((probe) => probe.category === "oauthCallbackPaths").length, routes: oauthCallbackSurfaces }
+  );
+  const oauthCallbackSensitiveResponses = oauthCallbackSurfaces.filter((item) =>
+    ["oauth_callback_route", "oauth_callback_redirect"].includes(item.signal)
+  );
+  const oauthCallbackCacheIssues = oauthCallbackSensitiveResponses
+    .filter((item) => !cacheControlProtected(item.cacheControl))
+    .map((item) => ({ ...item, signal: "missing_private_or_no_store_cache_control" }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.oauth_callback_cache",
+    "OAuth and SSO callback responses avoid browser/shared-cache storage",
+    oauthCallbackCacheIssues.length === 0,
+    "OAuth callback responses may process authorization codes or tokens and should use no-store/private/no-cache style cache controls.",
+    { checked: oauthCallbackSensitiveResponses.length, issues: oauthCallbackCacheIssues }
+  );
+  const oauthCallbackReferrerIssues = oauthCallbackSensitiveResponses
+    .filter((item) => !referrerPolicyProtected(item.referrerPolicy))
+    .map((item) => ({ ...item, signal: "missing_restrictive_referrer_policy" }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.oauth_callback_referrer",
+    "OAuth and SSO callback responses use restrictive Referrer-Policy",
+    oauthCallbackReferrerIssues.length === 0,
+    "OWASP OAuth testing notes that authorization codes or tokens in URLs can leak through referrer headers; callback responses should use no-referrer, same-origin, or strict-origin style policies.",
+    { checked: oauthCallbackSensitiveResponses.length, issues: oauthCallbackReferrerIssues }
   );
   addFinding(
     findings,
@@ -2983,6 +3142,29 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "Password reset, verification, invitation, magic-link, OAuth, and SSO flows sometimes carry token-like parameters in URLs; passive discovery records parameter names only so reviewers can assess leakage risk.",
     { candidates: authFlowTokens, count: authFlowTokens.length }
+  );
+
+  const oauthAuthorizationRequests = oauthAuthorizationRequestEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.oauth_authorization_requests",
+    "OAuth and OIDC authorization requests are inventoried",
+    true,
+    "Discovered authorization URLs are reviewed for parameter names such as response_type, redirect_uri, state, nonce, code_challenge, and response_mode without storing values.",
+    { candidates: oauthAuthorizationRequests, count: oauthAuthorizationRequests.length }
+  );
+  const oauthAuthorizationIssues = oauthAuthorizationRequests
+    .filter((item) => (item.signals || []).some((signal) => ["implicit_response_type", "cleartext_redirect_uri", "response_mode_not_form_post"].includes(signal)))
+    .map((item) => ({ ...item, signals: item.signals.filter((signal) => ["implicit_response_type", "cleartext_redirect_uri", "response_mode_not_form_post"].includes(signal)) }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.discovery.oauth_authorization_request_hardening",
+    "OAuth authorization request URLs avoid risky response and redirect modes",
+    oauthAuthorizationIssues.length === 0,
+    "OWASP OAuth testing and OAuth security guidance recommend avoiding implicit token responses, cleartext redirect URIs, and URL-carried token response modes where form_post or server-side state is available.",
+    { checked: oauthAuthorizationRequests.length, issues: oauthAuthorizationIssues }
   );
 
   const attackSurfaces = attackSurfaceEvidence(discovery);
