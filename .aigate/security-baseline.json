@@ -47,6 +47,22 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/14-Test_Other_HTTP_Security_Header_Misconfigurations"
     },
     {
+      "name": "OWASP WSTG Test for Subdomain Takeover",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/10-Test_for_Subdomain_Takeover"
+    },
+    {
+      "name": "OWASP WSTG Fingerprint Web Application Framework",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/08-Fingerprint_Web_Application_Framework"
+    },
+    {
+      "name": "OWASP WSTG Client-side URL Redirect Testing",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/11-Client-side_Testing/04-Testing_for_Client-side_URL_Redirect"
+    },
+    {
+      "name": "OWASP WSTG Testing for Cookies Attributes",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/02-Testing_for_Cookies_Attributes"
+    },
+    {
       "name": "OWASP Transport Layer Security Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html"
     },
@@ -104,6 +120,7 @@
   "frontendAdvisory": {
     "maxHeaderAuditPages": 20,
     "maxContentReviewAssets": 12,
+    "maxDnsAuditTargets": 12,
     "authFormsMustUsePost": true,
     "csrfRequiredForStateChangingForms": true,
     "passwordAutocompleteRecommended": true,

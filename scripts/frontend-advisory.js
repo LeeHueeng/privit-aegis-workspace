@@ -1,6 +1,7 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { connect as tlsConnect } from "node:tls";
+import { resolveCname } from "node:dns/promises";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { isIP } from "node:net";
 import { dirname, resolve } from "node:path";
@@ -302,6 +303,42 @@ function headerMisconfigurationIssues(response) {
   return issues;
 }
 
+function frameworkFingerprintEvidence(response) {
+  const finalUrl = response.finalUrl || response.url;
+  const headerNames = [
+    "x-aspnet-version",
+    "x-aspnetmvc-version",
+    "x-generator",
+    "x-runtime",
+    "x-rack-cache",
+    "x-redirect-by",
+    "x-nextjs-cache",
+    "x-drupal-cache",
+    "x-varnish",
+    "x-laravel"
+  ];
+  const headers = headerNames
+    .map((name) => ({ url: finalUrl, header: name, value: headerValue(response, name) }))
+    .filter((item) => item.value);
+  const cookiePatterns = [
+    ["php", /^PHPSESSID$/i],
+    ["java", /^JSESSIONID$/i],
+    ["aspnet", /^ASP\.NET_SessionId$/i],
+    ["rails", /^_.*_session$/i],
+    ["laravel", /^laravel_session$/i],
+    ["express", /^connect\.sid$/i],
+    ["play", /^PLAY_SESSION$/i],
+    ["cakephp", /^CAKEPHP$/i]
+  ];
+  const cookies = [];
+  for (const cookie of response.setCookies || []) {
+    const name = cookieName(cookie);
+    const match = cookiePatterns.find(([, pattern]) => pattern.test(name));
+    if (match) cookies.push({ url: finalUrl, name, signal: match[0] });
+  }
+  return { headers, cookies };
+}
+
 function evaluateHeaders(findings, responses, scope, discovery) {
   const reachable = responses.filter((response) => response.ok);
   const htmlResponses = reachable.filter(isHtmlResponse);
@@ -416,6 +453,19 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     { checked: reachable.length, issues: headerMisconfigurations }
   );
 
+  const frameworkSignals = reachable.map(frameworkFingerprintEvidence);
+  const frameworkHeaders = frameworkSignals.flatMap((item) => item.headers);
+  const frameworkCookies = frameworkSignals.flatMap((item) => item.cookies);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.fingerprint.framework_markers",
+    "Responses avoid framework-identifying headers and cookie names",
+    frameworkHeaders.length === 0 && frameworkCookies.length === 0,
+    "OWASP WSTG framework fingerprinting checks headers, cookies, source, files, and error markers that reveal application components.",
+    { checked: reachable.length, headers: frameworkHeaders, cookies: frameworkCookies }
+  );
+
   const framingMissing = htmlResponses.filter((response) => {
     const csp = headerValue(response, "content-security-policy");
     const xfo = headerValue(response, "x-frame-options");
@@ -514,14 +564,29 @@ function cookieFlags(cookie) {
     .map((part) => part.trim().toLowerCase());
 }
 
+function cookieAttribute(cookie, name) {
+  const prefix = `${String(name || "").toLowerCase()}=`;
+  const part = String(cookie || "")
+    .split(";")
+    .slice(1)
+    .map((item) => item.trim())
+    .find((item) => item.toLowerCase().startsWith(prefix));
+  return part ? part.slice(prefix.length).trim() : "";
+}
+
+function isSensitiveCookieName(name) {
+  return /(?:session|auth|jwt|sid|access|refresh|token)/i.test(name) && !/(?:csrf|xsrf)/i.test(name);
+}
+
 function evaluateCookies(findings, responses) {
   const cookieEvidence = [];
+  const scopeEvidence = [];
   for (const response of responses.filter((item) => item.ok)) {
     const parsed = new URL(response.finalUrl || response.url);
     for (const cookie of response.setCookies || []) {
       const name = cookieName(cookie);
       const flags = cookieFlags(cookie);
-      const sensitive = /(?:session|auth|jwt|sid|access|refresh|token)/i.test(name) && !/(?:csrf|xsrf)/i.test(name);
+      const sensitive = isSensitiveCookieName(name);
       const sameSiteNone = flags.some((flag) => flag === "samesite=none");
       const missing = [];
       if (!flags.some((flag) => flag.startsWith("samesite"))) missing.push("SameSite");
@@ -529,6 +594,15 @@ function evaluateCookies(findings, responses) {
       if ((parsed.protocol === "https:" || sameSiteNone) && !flags.includes("secure")) missing.push("Secure");
       if (missing.length) {
         cookieEvidence.push({ url: response.finalUrl || response.url, name, missing });
+      }
+      if (sensitive) {
+        const domain = cookieAttribute(cookie, "domain");
+        const path = cookieAttribute(cookie, "path");
+        const scope = [];
+        const normalizedDomain = domain.replace(/^\./, "").toLowerCase();
+        if (domain && normalizedDomain !== parsed.hostname.toLowerCase()) scope.push("broad Domain");
+        if (path === "/") scope.push("Path=/");
+        if (scope.length) scopeEvidence.push({ url: response.finalUrl || response.url, name, scope, domain, path });
       }
     }
   }
@@ -541,6 +615,15 @@ function evaluateCookies(findings, responses) {
     cookieEvidence.length === 0,
     "Session-like cookies should use HttpOnly, SameSite, and Secure when applicable.",
     { cookies: cookieEvidence }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.cookies.scope",
+    "Sensitive cookies avoid broad Domain and Path scope",
+    scopeEvidence.length === 0,
+    "OWASP WSTG cookie testing checks Domain and Path scope because loose scoping can expose session cookies to sibling applications or subdomains.",
+    { cookies: scopeEvidence }
   );
 }
 
@@ -936,6 +1019,32 @@ function objectIdentifierEvidence(discovery) {
     .map((route) => ({ path: route.path || route.url, status: route.status, depth: route.depth }));
 }
 
+function redirectParameterEvidence(discovery) {
+  const redirectParam = /^(?:next|url|uri|redirect|redirect_uri|return|returnurl|return_url|continue|callback|target|to|dest|destination|forward|goto|return_to)$/i;
+  const candidates = [];
+  const inspectUrl = (source, url, status = undefined) => {
+    if (!url) return;
+    try {
+      const parsed = new URL(url);
+      for (const key of parsed.searchParams.keys()) {
+        if (redirectParam.test(key)) {
+          candidates.push({ source, path: parsed.pathname, parameter: key, status });
+        }
+      }
+    } catch {
+      // Ignore non-URL form actions in passive redirect-parameter inventory.
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status);
+  }
+  for (const form of discovery?.forms || []) {
+    inspectUrl("form_page", form.page_url);
+    inspectUrl("form_action", form.action_url);
+  }
+  return candidates.slice(0, 30);
+}
+
 function contentReviewTargets(scope, latestScan, baseline) {
   const maxAssets = configuredNumber(baseline, "maxContentReviewAssets", 12);
   const routes = latestScan?.discovery?.routes || [];
@@ -1125,6 +1234,106 @@ async function evaluateTls(findings, scope) {
   );
 }
 
+function takeoverProviderForCname(cname) {
+  const value = String(cname || "").replace(/\.$/, "").toLowerCase();
+  const providers = [
+    ["github-pages", /(?:^|\.)github\.io$/],
+    ["github-fastly", /(?:^|\.)github\.map\.fastly\.net$/],
+    ["aws-s3", /(?:^|\.)s3(?:[-.][a-z0-9-]+)?\.amazonaws\.com$|(?:^|\.)s3-website[-.][a-z0-9-]+\.amazonaws\.com$/],
+    ["azure", /(?:^|\.)(?:azurewebsites\.net|cloudapp\.net|trafficmanager\.net)$/],
+    ["heroku", /(?:^|\.)herokuapp\.com$/],
+    ["netlify", /(?:^|\.)netlify\.app$/],
+    ["vercel", /(?:^|\.)vercel\.app$/],
+    ["cloudflare-pages", /(?:^|\.)pages\.dev$/],
+    ["readme", /(?:^|\.)readme\.io$/]
+  ];
+  const match = providers.find(([, pattern]) => pattern.test(value));
+  return match ? match[0] : "";
+}
+
+function takeoverFingerprintSignals(response) {
+  if (!response.ok) return [];
+  const text = responseText(response);
+  const patterns = [
+    ["github-pages", /There isn't a GitHub Pages site here/i],
+    ["aws-s3", /(?:NoSuchBucket|The specified bucket does not exist)/i],
+    ["heroku", /No such app/i],
+    ["azure", /(?:404 Web Site not found|The resource you are looking for has been removed)/i],
+    ["fastly", /Fastly error:\s*unknown domain/i],
+    ["netlify", /Not Found - Request ID:/i],
+    ["cloudflare-pages", /(?:project not found|deployment_not_found)/i],
+    ["readme", /Project doesnt exist/i]
+  ];
+  return patterns.filter(([, pattern]) => pattern.test(text)).map(([provider]) => provider);
+}
+
+async function inspectCnameTarget(target) {
+  let parsed;
+  try {
+    parsed = new URL(target.baseUrl);
+  } catch (error) {
+    return { target: target.targetName, url: target.baseUrl, ok: false, error: error.message, cnames: [] };
+  }
+  if (!isPublicNonLoopbackUrl(target.baseUrl)) {
+    return { target: target.targetName, url: target.baseUrl, host: parsed.hostname, skipped: true, cnames: [] };
+  }
+
+  let cnames = [];
+  try {
+    cnames = await resolveCname(parsed.hostname);
+  } catch (error) {
+    if (!["ENODATA", "ENOTFOUND", "ENOTIMP", "ENOTSUP"].includes(error.code)) {
+      return { target: target.targetName, url: target.baseUrl, host: parsed.hostname, ok: false, error: error.code || error.message, cnames: [] };
+    }
+  }
+  const providers = unique(cnames.map(takeoverProviderForCname));
+  const response = providers.length
+    ? await requestHeaders(target.baseUrl, 0, { method: "GET", maxBodyBytes: 4096 })
+    : null;
+  const fingerprints = response ? takeoverFingerprintSignals(response) : [];
+  const issues = providers
+    .filter((provider) => fingerprints.includes(provider) || (provider === "github-fastly" && fingerprints.includes("github-pages")))
+    .map((provider) => ({
+      target: target.targetName,
+      host: parsed.hostname,
+      cname: cnames.find((cname) => takeoverProviderForCname(cname) === provider) || cnames[0],
+      provider,
+      status: response?.status || 0,
+      signal: "dangling_cname_fingerprint"
+    }));
+  return {
+    target: target.targetName,
+    url: target.baseUrl,
+    host: parsed.hostname,
+    ok: true,
+    cnames,
+    providers,
+    responseStatus: response?.status || 0,
+    issues
+  };
+}
+
+async function evaluateDns(findings, scope, baseline) {
+  const maxTargets = configuredNumber(baseline, "maxDnsAuditTargets", 12);
+  const targets = targetBaseUrls(scope)
+    .filter((target) => isAllowedUrl(target.baseUrl, scope, target.targetName))
+    .slice(0, Math.max(1, maxTargets));
+  const inspections = [];
+  for (const target of targets) {
+    inspections.push(await inspectCnameTarget(target));
+  }
+  const issues = inspections.flatMap((item) => item.issues || []);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.dns.dangling_cname",
+    "Public target hostnames do not show dangling CNAME takeover fingerprints",
+    issues.length === 0,
+    "OWASP WSTG subdomain takeover testing checks DNS CNAME records and known third-party unclaimed-resource fingerprints before manual validation.",
+    { checked: inspections.length, issues, inspections }
+  );
+}
+
 async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const discovery = latestScan?.discovery || {};
   const probes = buildPassiveProbes(scope, latestScan, baseline);
@@ -1289,6 +1498,17 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     { candidates: objectIds, count: objectIds.length }
   );
 
+  const redirectParams = redirectParameterEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.redirect_parameters",
+    "Redirect-like URL parameters are inventoried for open redirect review",
+    true,
+    "OWASP WSTG client-side URL redirect testing starts by identifying parameters that control URLs or paths; this passive check records candidates only.",
+    { candidates: redirectParams, count: redirectParams.length }
+  );
+
   return probeResponses.map(({ probe, response }) => ({
     ...probeEvidence(probe, response, ""),
     ok: response.ok,
@@ -1324,6 +1544,7 @@ async function main() {
   evaluateForms(findings, discovery);
   evaluateTransport(findings, scope, discovery);
   await evaluateTls(findings, scope);
+  await evaluateDns(findings, scope, baseline);
   const contentReviews = await evaluateClientContentLeakage(findings, scope, latestScan, baseline);
   const probes = await evaluatePassiveProbes(findings, scope, latestScan, baseline);
 
@@ -1365,6 +1586,11 @@ async function main() {
         "x-permitted-cross-domain-policies": response.headers?.["x-permitted-cross-domain-policies"] || "",
         "public-key-pins": response.headers?.["public-key-pins"] || "",
         "public-key-pins-report-only": response.headers?.["public-key-pins-report-only"] || "",
+        "x-aspnet-version": response.headers?.["x-aspnet-version"] || "",
+        "x-aspnetmvc-version": response.headers?.["x-aspnetmvc-version"] || "",
+        "x-generator": response.headers?.["x-generator"] || "",
+        "x-runtime": response.headers?.["x-runtime"] || "",
+        "x-redirect-by": response.headers?.["x-redirect-by"] || "",
         server: response.headers?.server || ""
       },
       setCookieCount: response.setCookies?.length || 0

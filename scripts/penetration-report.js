@@ -239,6 +239,11 @@ const criteria = {
     criteria: "Security headers avoid deprecated HPKP, obsolete X-Frame-Options ALLOW-FROM, permissive X-Permitted-Cross-Domain-Policies, and HSTS on cleartext HTTP.",
     remediation: "Remove deprecated headers, set X-Permitted-Cross-Domain-Policies to none when used, and keep HSTS only on HTTPS responses."
   },
+  "frontend.fingerprint.framework_markers": {
+    category: "Fingerprinting",
+    criteria: "Responses do not expose framework-identifying headers or well-known framework session cookie names.",
+    remediation: "Remove optional framework disclosure headers and rename generic framework cookies where the application stack allows it."
+  },
   "frontend.headers.framing": {
     category: "Clickjacking",
     criteria: "Every discovered HTML response sets CSP frame-ancestors or X-Frame-Options DENY/SAMEORIGIN.",
@@ -264,6 +269,11 @@ const criteria = {
     criteria: "Session-like cookies use HttpOnly, SameSite, and Secure when applicable.",
     remediation: "Set HttpOnly, SameSite=Lax/Strict, and Secure on session/auth cookies."
   },
+  "frontend.cookies.scope": {
+    category: "Session",
+    criteria: "Sensitive cookies do not use broad Domain scope or Path=/ unless explicitly justified.",
+    remediation: "Host-scope sensitive cookies where possible and narrow Path to the smallest application area that needs the cookie."
+  },
   "frontend.forms.autocomplete": {
     category: "Authentication UX",
     criteria: "Authentication fields provide explicit password-manager autocomplete hints.",
@@ -283,6 +293,11 @@ const criteria = {
     category: "Transport",
     criteria: "Public HTTPS targets negotiate TLSv1.2 or TLSv1.3, present a trusted certificate, and have more than 14 days before certificate expiry.",
     remediation: "Renew or replace invalid/expiring certificates and disable legacy TLS protocols at the edge."
+  },
+  "frontend.dns.dangling_cname": {
+    category: "DNS",
+    criteria: "Public target hostnames do not have CNAMEs pointing to known third-party services that also return unclaimed-resource takeover fingerprints.",
+    remediation: "Remove dangling DNS records or claim/provision the referenced third-party resource before exposing the hostname."
   },
   "frontend.content.client_secrets": {
     category: "Information leakage",
@@ -343,6 +358,11 @@ const criteria = {
     category: "Authorization review",
     criteria: "ID-bearing routes are inventoried for manual or authenticated BOLA/BFLA review; passive discovery itself does not prove authorization safety.",
     remediation: "Add authenticated role-matrix tests for object-level and function-level authorization."
+  },
+  "frontend.discovery.redirect_parameters": {
+    category: "Redirect review",
+    criteria: "Redirect-like URL parameters are inventoried for manual open-redirect review; passive discovery itself does not prove exploitability.",
+    remediation: "Validate redirect targets against an allowlist and prefer server-side route identifiers over arbitrary URL parameters."
   }
 };
 
