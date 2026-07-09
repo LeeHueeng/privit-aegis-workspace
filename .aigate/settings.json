@@ -8,7 +8,7 @@
   "distribution": "auto",
   "defaultBranch": "main",
   "targetBranch": "main",
-  "branchStrategy": "gitlab-flow",
+  "branchStrategy": "GitLab Flow with merge requests",
   "protectedBranches": [
     "main",
     "develop"
@@ -34,6 +34,15 @@
     "gemini",
     "claude"
   ],
+  "aiRootFiles": "protect",
+  "serverEnforcement": {
+    "gitlab": {
+      "onlyAllowMergeIfPipelineSucceeds": "auto"
+    },
+    "github": {
+      "requiredChecksEnforced": "verified"
+    }
+  },
   "aiModelSettings": {
     "version": 1,
     "defaultProvider": "codex",
@@ -184,15 +193,6 @@
       }
     },
     "updatedAt": "2026-07-08T10:31:01.320Z"
-  },
-  "aiRootFiles": "protect",
-  "serverEnforcement": {
-    "gitlab": {
-      "onlyAllowMergeIfPipelineSucceeds": "auto"
-    },
-    "github": {
-      "requiredChecksEnforced": "auto"
-    }
   },
   "aiRuntimeSettings": {
     "version": 1,
