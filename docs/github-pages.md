@@ -37,3 +37,7 @@ Your current plan does not support GitHub Pages for this repository.
 For a star-focused open source launch, review the repository for secrets and
 private scope data first, then make the repository public or move the Pages site
 to a public docs repository.
+
+The Pages workflow validates the static site on every docs push. If Pages is not
+enabled or the private repository plan does not support it, deployment is skipped
+with a GitHub Actions summary instead of failing the repository quality gate.
