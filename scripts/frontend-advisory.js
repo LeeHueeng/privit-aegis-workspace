@@ -618,6 +618,80 @@ function authApiHeaderEvidence(probe, response, signal) {
   };
 }
 
+function numericCacheDirective(value, name) {
+  const match = String(value || "").match(new RegExp(`\\b${escapeRegex(name)}\\s*=\\s*(\\d+)`, "i"));
+  return match ? Number(match[1]) : null;
+}
+
+function cacheControlAllowsSharedStorage(value) {
+  const header = String(value || "");
+  if (!header || /\b(?:no-store|no-cache|private)\b/i.test(header)) return false;
+  if (/\bpublic\b/i.test(header)) return true;
+  const sMaxAge = numericCacheDirective(header, "s-maxage");
+  if (typeof sMaxAge === "number" && sMaxAge > 0) return true;
+  const maxAge = numericCacheDirective(header, "max-age");
+  return typeof maxAge === "number" && maxAge > 0;
+}
+
+function cacheLayerHeaders(response) {
+  const names = [
+    "age",
+    "cdn-cache-control",
+    "cf-cache-status",
+    "surrogate-control",
+    "via",
+    "x-cache",
+    "x-cache-hits",
+    "x-served-by",
+    "x-varnish",
+    "x-vercel-cache",
+    "x-nextjs-cache"
+  ];
+  return Object.fromEntries(
+    names
+      .map((name) => [name, headerValue(response, name)])
+      .filter(([, value]) => value)
+  );
+}
+
+function cacheDeceptionRouteEvidence(response, scope, discovery) {
+  if (!isSuccessStatus(response) || !isHtmlResponse(response)) return null;
+  const finalUrl = response.finalUrl || response.url;
+  let parsed;
+  try {
+    parsed = new URL(finalUrl);
+  } catch {
+    return null;
+  }
+  const path = parsed.pathname;
+  const dynamicPath = /(?:account|admin|billing|cart|checkout|dashboard|inbox|me|orders?|payment|profile|session|settings|user|wallet)/i.test(path);
+  const hasQuery = parsed.searchParams && [...parsed.searchParams.keys()].length > 0;
+  const authLike = isAuthLikeUrl(finalUrl, scope, discovery);
+  if (!dynamicPath && !hasQuery && !authLike) return null;
+
+  const cacheControl = headerValue(response, "cache-control");
+  const layers = cacheLayerHeaders(response);
+  const sharedCacheable = cacheControlAllowsSharedStorage(cacheControl);
+  const unprotectedBehindCache = Boolean(Object.keys(layers).length) && !cacheControlProtected(cacheControl);
+  const signal = sharedCacheable
+    ? "cacheable_dynamic_html"
+    : unprotectedBehindCache
+      ? "dynamic_html_behind_cache_without_no_store"
+      : "dynamic_html_cache_review_candidate";
+
+  return {
+    url: finalUrl,
+    status: response.status || 0,
+    path,
+    authLike,
+    hasQuery,
+    cacheControl,
+    cacheHeaders: layers,
+    signal,
+    issue: sharedCacheable || unprotectedBehindCache
+  };
+}
+
 function evaluateHeaders(findings, responses, scope, discovery) {
   const reachable = responses.filter((response) => response.ok);
   const htmlResponses = reachable.filter(isHtmlResponse);
@@ -853,6 +927,29 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     cacheMissing.length === 0,
     "Auth and account pages should avoid browser/proxy storage of sensitive responses.",
     { checked: authResponses.length, missing: cacheMissing.map((response) => response.finalUrl || response.url) }
+  );
+
+  const cacheDeceptionCandidates = htmlResponses
+    .map((response) => cacheDeceptionRouteEvidence(response, scope, discovery))
+    .filter(Boolean);
+  addFinding(
+    findings,
+    "info",
+    "frontend.cache.deception_candidates",
+    "Dynamic HTML routes are inventoried for web cache deception review",
+    true,
+    "OWASP path-confusion and web-cache-deception testing starts by identifying dynamic pages where caches and origins may disagree about whether a response is static or user-specific.",
+    { checked: htmlResponses.length, candidates: cacheDeceptionCandidates }
+  );
+  const cacheDeceptionIssues = cacheDeceptionCandidates.filter((item) => item.issue);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.cache.dynamic_route_shared_cache",
+    "Dynamic or authentication-like HTML routes avoid shared-cache storage",
+    cacheDeceptionIssues.length === 0,
+    "Dynamic HTML routes with account, session, admin, billing, checkout, profile, or query-bearing content should avoid public/shared caching to reduce web cache deception risk.",
+    { checked: cacheDeceptionCandidates.length, issues: cacheDeceptionIssues }
   );
 
   const authRateLimitSignals = authResponses.map((response) => rateLimitEvidence(response));
@@ -1264,6 +1361,32 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/api-docs",
     "/redoc"
   ]);
+  const apiVersionPaths = configuredProbePaths(baseline, "apiVersionPaths", [
+    "/api/v1",
+    "/api/v1/",
+    "/api/v1/users",
+    "/api/v1/auth",
+    "/api/v2",
+    "/api/v2/",
+    "/v1",
+    "/v1/",
+    "/v2",
+    "/v2/",
+    "/rest/v1",
+    "/rest/v2"
+  ]);
+  const legacyApiPaths = configuredProbePaths(baseline, "legacyApiPaths", [
+    "/api/v0",
+    "/v0",
+    "/api/legacy",
+    "/legacy",
+    "/api/old",
+    "/old",
+    "/api/beta",
+    "/beta",
+    "/api/internal",
+    "/internal/api"
+  ]);
   const graphqlEndpoints = configuredProbePaths(baseline, "graphqlEndpoints", [
     "/graphql",
     "/graphiql",
@@ -1406,6 +1529,8 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "backupFiles", backupFiles));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sensitiveExtensions", sensitiveExtensions));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiDocs", apiDocs));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiVersionPaths", apiVersionPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "legacyApiPaths", legacyApiPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "graphqlEndpoints", graphqlEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "uploadPaths", uploadPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
@@ -1522,6 +1647,29 @@ function apiDocsSignal(response) {
   const type = contentType(response);
   if (type.includes("application/json") && /"(?:openapi|swagger)"\s*:/.test(text)) return "openapi_json";
   if (/swagger ui|redoc|openapi|api documentation/i.test(text)) return "api_docs";
+  return "";
+}
+
+function apiVersionSignal(probe, response) {
+  if (!response.ok || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  if (response.status >= 400) return "";
+  const type = contentType(response);
+  const path = String(probe.path || "").toLowerCase();
+  if (type.includes("json")) return "versioned_api_json";
+  if (/\/(?:api\/)?v\d+(?:\/|$)/i.test(path) && !type.includes("text/html")) return "versioned_api_response";
+  if (/\/(?:api\/)?v\d+(?:\/|$)/i.test(path) && response.status >= 300 && response.status < 400) return "versioned_api_redirect";
+  return "";
+}
+
+function legacyApiSignal(probe, response) {
+  if (!response.ok || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  if (response.status >= 400) return "";
+  const type = contentType(response);
+  const path = String(probe.path || "").toLowerCase();
+  if (!/(?:v0|legacy|old|beta|internal)/i.test(path)) return "";
+  if (type.includes("json")) return "legacy_api_json";
+  if (!type.includes("text/html")) return "legacy_api_response";
+  if (response.status >= 300 && response.status < 400) return "legacy_api_redirect";
   return "";
 }
 
@@ -2924,6 +3072,8 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const backupExposures = [];
   const extensionExposures = [];
   const apiDocExposures = [];
+  const apiVersionSurfaces = [];
+  const legacyApiExposures = [];
   const graphqlExposures = [];
   const uploadSurfaces = [];
   const identityMetadata = [];
@@ -2951,6 +3101,12 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "apiDocs") {
       const signal = apiDocsSignal(response);
       if (signal) apiDocExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "apiVersionPaths") {
+      const signal = apiVersionSignal(probe, response);
+      if (signal) apiVersionSurfaces.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "legacyApiPaths") {
+      const signal = legacyApiSignal(probe, response);
+      if (signal) legacyApiExposures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "graphqlEndpoints") {
       const signal = graphqlSignal(response);
       if (signal) graphqlExposures.push(probeEvidence(probe, response, signal));
@@ -3031,6 +3187,24 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     apiDocExposures.length === 0,
     "OpenAPI, Swagger, ReDoc, and API docs endpoints should be intentionally published or access controlled.",
     { checked: probes.filter((probe) => probe.category === "apiDocs").length, exposed: apiDocExposures }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.api_versions",
+    "Versioned API routes are inventoried",
+    true,
+    "OWASP API reconnaissance recommends inventorying deployed API versions because older versions may retain vulnerabilities fixed in newer implementations.",
+    { checked: probes.filter((probe) => probe.category === "apiVersionPaths").length, routes: apiVersionSurfaces }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.legacy_api_versions",
+    "Legacy, beta, internal, and v0 API routes are not anonymously exposed",
+    legacyApiExposures.length === 0,
+    "Deprecated or internal API versions expand attack surface and should be retired, authenticated, or explicitly approved for the environment.",
+    { checked: probes.filter((probe) => probe.category === "legacyApiPaths").length, exposed: legacyApiExposures }
   );
   addFinding(
     findings,

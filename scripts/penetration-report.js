@@ -320,6 +320,16 @@ const criteria = {
     criteria: "Authentication-like pages use Cache-Control: no-store.",
     remediation: "Set Cache-Control: no-store on login, account, password reset, and session pages."
   },
+  "frontend.cache.deception_candidates": {
+    category: "Browser caching",
+    criteria: "Dynamic HTML routes are inventoried for web cache deception review without generating synthetic attack suffixes.",
+    remediation: "Review dynamic/account/session routes behind CDNs or shared caches for cache-key consistency and static-extension path confusion."
+  },
+  "frontend.cache.dynamic_route_shared_cache": {
+    category: "Browser caching",
+    criteria: "Dynamic or authentication-like HTML routes do not advertise public/shared cacheability.",
+    remediation: "Set Cache-Control: no-store/private/no-cache on dynamic account/session/admin/profile/billing/checkout pages and verify CDN cache rules do not override it."
+  },
   "frontend.headers.auth_rate_limit": {
     category: "Abuse control",
     criteria: "Authentication-like pages are inventoried for visible Retry-After or RateLimit headers.",
@@ -479,6 +489,16 @@ const criteria = {
     category: "API exposure",
     criteria: "OpenAPI, Swagger UI, ReDoc, and similar API docs are absent, authenticated, IP-restricted, or intentionally approved for the environment.",
     remediation: "Disable public API docs outside development or protect them with authentication/IP allowlisting."
+  },
+  "frontend.probes.api_versions": {
+    category: "API inventory",
+    criteria: "Versioned API routes are inventoried so deployed API versions can be reviewed for support status and authorization posture.",
+    remediation: "Maintain an API version inventory, retire unsupported versions, and ensure all versions share current authentication and authorization controls."
+  },
+  "frontend.probes.legacy_api_versions": {
+    category: "API inventory",
+    criteria: "Legacy, beta, internal, old, and v0 API routes are not anonymously exposed unless explicitly approved for the environment.",
+    remediation: "Retire legacy API versions or protect them with authentication, network restrictions, and matching security controls."
   },
   "frontend.probes.graphql": {
     category: "API exposure",
@@ -770,6 +790,18 @@ const localizedCriteria = {
       criteria: "로그인/계정/비밀번호 재설정/세션 페이지는 Cache-Control: no-store를 사용해야 합니다.",
       remediation: "인증 관련 페이지에 Cache-Control: no-store를 설정하세요."
     },
+    "frontend.cache.deception_candidates": {
+      title: "동적 HTML route가 web cache deception 검토 대상으로 인벤토리됨",
+      category: "브라우저 캐싱",
+      criteria: "동적 HTML route는 synthetic 공격 suffix를 만들지 않고 web cache deception 검토 대상으로 기록되어야 합니다.",
+      remediation: "CDN 또는 공유 캐시 뒤의 동적/계정/세션 route에서 cache-key 일관성과 static-extension path confusion 가능성을 검토하세요."
+    },
+    "frontend.cache.dynamic_route_shared_cache": {
+      title: "동적 또는 인증 유사 HTML route가 공유 캐시 저장을 피함",
+      category: "브라우저 캐싱",
+      criteria: "동적 또는 인증 유사 HTML route는 public/shared cache 가능성을 광고하지 않아야 합니다.",
+      remediation: "account/session/admin/profile/billing/checkout 같은 동적 페이지에 Cache-Control: no-store/private/no-cache를 설정하고 CDN rule이 이를 덮어쓰지 않는지 확인하세요."
+    },
     "frontend.headers.auth_rate_limit": {
       title: "인증 유사 페이지의 rate-limit 헤더가 인벤토리됨",
       category: "남용 방지",
@@ -961,6 +993,18 @@ const localizedCriteria = {
       category: "API 노출",
       criteria: "OpenAPI, Swagger UI, ReDoc 등 API 문서는 없거나 인증/IP 제한/환경 승인 하에 공개되어야 합니다.",
       remediation: "개발 외 환경에서 공개 API 문서를 비활성화하거나 인증/IP allowlist로 보호하세요."
+    },
+    "frontend.probes.api_versions": {
+      title: "버전별 API route가 인벤토리됨",
+      category: "API 인벤토리",
+      criteria: "배포된 API version의 지원 상태와 권한 posture를 검토할 수 있도록 versioned API route가 기록되어야 합니다.",
+      remediation: "API version inventory를 유지하고 지원 종료 version을 폐기하며 모든 version에 최신 인증/권한 통제를 동일하게 적용하세요."
+    },
+    "frontend.probes.legacy_api_versions": {
+      title: "legacy, beta, internal, old, v0 API route가 익명 노출되지 않음",
+      category: "API 인벤토리",
+      criteria: "legacy, beta, internal, old, v0 API route는 환경에서 명시적으로 승인되지 않는 한 익명 노출되면 안 됩니다.",
+      remediation: "legacy API version을 폐기하거나 인증, 네트워크 제한, 동일한 보안 통제로 보호하세요."
     },
     "frontend.probes.graphql": {
       title: "GraphQL 엔드포인트가 schema 및 권한 검토 대상으로 인벤토리됨",

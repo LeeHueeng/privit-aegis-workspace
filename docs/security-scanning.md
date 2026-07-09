@@ -81,7 +81,8 @@ webserver metafiles
 (`robots.txt`, `sitemap.xml`, `security.txt`, `crossdomain.xml`,
 `clientaccesspolicy.xml`), generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, GraphQL endpoints and public
-IDE/schema-like exposure signals, upload/import/
+IDE/schema-like exposure signals, versioned API route inventory, legacy/beta/
+internal API exposure, upload/import/
 export surfaces, OIDC/OAuth/JWKS metadata, CORS trust decisions, CSP quality,
 CSP Report-Only policy inventory, COOP/COEP/CORP isolation header inventory and
 value validation, authentication form GET submissions, state-changing form CSRF
@@ -89,6 +90,7 @@ token candidates, external form actions, sensitive cleartext form submissions,
 file-upload form controls, account-recovery and well-known change-password routes,
 logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
 clearing signals, visible Retry-After/RateLimit headers on authentication surfaces,
+dynamic HTML route cache posture for web-cache-deception review,
 sensitive URL query/fragment parameter names, authentication-flow token URL
 inventory for reset/verification/invite/magic-link/OAuth/SSO paths, OAuth/SSO
 callback cache and Referrer-Policy posture, OAuth authorization request parameter

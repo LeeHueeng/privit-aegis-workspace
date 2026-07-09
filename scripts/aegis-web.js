@@ -1224,22 +1224,22 @@ function page() {
           zh: "安全响应头与浏览器防护"
         },
         detects: {
-          ko: "CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache header를 확인합니다.",
-          en: "Checks CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, and cache headers.",
-          ja: "CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、cache headerを確認します。",
-          zh: "检查 CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS 和缓存响应头。"
+          ko: "CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache header와 web cache deception 후보를 확인합니다.",
+          en: "Checks CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache headers, and web-cache-deception candidates.",
+          ja: "CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、cache header、web cache deception候補を確認します。",
+          zh: "检查 CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、缓存响应头和 web cache deception 候选项。"
         },
         criteria: {
-          ko: "위험한 누락/완화 설정이 없어야 하며, 교차 출처 격리 헤더는 잘못된 값이나 unsafe-none을 피하고 인증 페이지는 민감 cache를 남기지 않아야 합니다.",
-          en: "Risky missing or weak headers should be absent, cross-origin isolation headers should avoid invalid values or unsafe-none, and auth pages should avoid sensitive caching.",
-          ja: "危険な欠落や弱いヘッダーがなく、cross-origin isolationヘッダーは不正な値やunsafe-noneを避け、認証ページは機密cacheを残さない必要があります。",
-          zh: "不应缺失或弱化关键响应头，跨源隔离响应头应避免无效值或 unsafe-none，认证页面不应留下敏感缓存。"
+          ko: "위험한 누락/완화 설정이 없어야 하며, 동적/인증 유사 HTML route는 public/shared cache 가능성을 광고하지 않아야 합니다.",
+          en: "Risky missing or weak headers should be absent, and dynamic/auth-like HTML routes should not advertise public or shared cacheability.",
+          ja: "危険な欠落や弱いヘッダーがなく、動的/認証系HTML routeはpublic/shared cache可能性を示してはいけません。",
+          zh: "不应缺失或弱化关键响应头，动态/认证类 HTML route 不应声明可被 public/shared cache 存储。"
         },
         evidence: {
-          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP/격리 헤더 신호와 Report-Only 보고 지시자 존재 여부를 저장합니다.",
-          en: "Stores header names, values, URLs, status codes, CORS/CSP/isolation-header signals, and Report-Only reporting-directive presence.",
-          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSP/isolation-headerシグナル、Report-Only reporting directiveの有無を保存します。",
-          zh: "保存响应头名称、值、URL、状态码、CORS/CSP/隔离响应头信号以及 Report-Only 报告指令是否存在。"
+          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP/격리 헤더 신호, cache layer header, dynamic route label을 저장합니다.",
+          en: "Stores header names, values, URLs, status codes, CORS/CSP/isolation-header signals, cache-layer headers, and dynamic-route labels.",
+          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSP/isolation-headerシグナル、cache layer header、dynamic route labelを保存します。",
+          zh: "保存响应头名称、值、URL、状态码、CORS/CSP/隔离响应头信号、cache-layer 响应头和 dynamic-route 标签。"
         }
       },
       {
@@ -1392,22 +1392,22 @@ function page() {
           zh: "API 授权与对象访问"
         },
         detects: {
-          ko: "ID-bearing route, mass-assignment 민감 필드, GraphQL endpoint/IDE/schema 신호, OIDC/OAuth/JWKS 메타데이터, OAuth/SSO callback, authorization request parameter, 사용자/세션 API 익명 노출, API 캐시/nosniff 신호를 인벤토리합니다.",
-          en: "Inventories ID-bearing routes, mass-assignment sensitive fields, GraphQL endpoint/IDE/schema signals, OIDC/OAuth/JWKS metadata, OAuth/SSO callbacks, authorization request parameters, anonymous user/session API exposure, and API cache/nosniff signals.",
-          ja: "ID含有route、mass-assignment系の機密field、GraphQL endpoint/IDE/schema信号、OIDC/OAuth/JWKSメタデータ、OAuth/SSO callback、authorization request parameter、ユーザー/セッションAPIの匿名露出、API cache/nosniff信号をインベントリします。",
-          zh: "盘点带 ID 的路由、mass-assignment 敏感字段、GraphQL endpoint/IDE/schema 信号、OIDC/OAuth/JWKS 元数据、OAuth/SSO callback、authorization request parameter、用户/会话 API 匿名暴露以及 API cache/nosniff 信号。"
+          ko: "ID-bearing route, API version/legacy route, mass-assignment 민감 필드, GraphQL endpoint/IDE/schema 신호, OIDC/OAuth/JWKS 메타데이터, OAuth/SSO callback, authorization request parameter, 사용자/세션 API 익명 노출, API 캐시/nosniff 신호를 인벤토리합니다.",
+          en: "Inventories ID-bearing routes, API version/legacy routes, mass-assignment sensitive fields, GraphQL endpoint/IDE/schema signals, OIDC/OAuth/JWKS metadata, OAuth/SSO callbacks, authorization request parameters, anonymous user/session API exposure, and API cache/nosniff signals.",
+          ja: "ID含有route、API version/legacy route、mass-assignment系の機密field、GraphQL endpoint/IDE/schema信号、OIDC/OAuth/JWKSメタデータ、OAuth/SSO callback、authorization request parameter、ユーザー/セッションAPIの匿名露出、API cache/nosniff信号をインベントリします。",
+          zh: "盘点带 ID 的路由、API version/legacy route、mass-assignment 敏感字段、GraphQL endpoint/IDE/schema 信号、OIDC/OAuth/JWKS 元数据、OAuth/SSO callback、authorization request parameter、用户/会话 API 匿名暴露以及 API cache/nosniff 信号。"
         },
         criteria: {
-          ko: "자동 passive 검사는 후보를 식별하고, GraphQL 공개 IDE/schema 신호와 mass-assignment 필드는 검토 대상으로 표시하며, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
-          en: "Passive checks identify candidates, mark public GraphQL IDE/schema signals and mass-assignment fields for review, and true BOLA/BFLA validation should continue with authenticated role-matrix tests.",
-          ja: "passive検査は候補を識別し、公開GraphQL IDE/schema信号とmass-assignment fieldをレビュー対象として示し、実際のBOLA/BFLA検証は認証済みrole-matrixテストで続ける必要があります。",
-          zh: "Passive 检查识别候选项，标记公开 GraphQL IDE/schema 信号和 mass-assignment 字段供复核；真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
+          ko: "자동 passive 검사는 후보를 식별하고, legacy/beta/internal API route와 GraphQL 공개 IDE/schema 신호, mass-assignment 필드는 검토 대상으로 표시해야 합니다.",
+          en: "Passive checks identify candidates and mark legacy/beta/internal API routes, public GraphQL IDE/schema signals, and mass-assignment fields for review.",
+          ja: "passive検査は候補を識別し、legacy/beta/internal API route、公開GraphQL IDE/schema信号、mass-assignment fieldをレビュー対象として示す必要があります。",
+          zh: "Passive 检查识别候选项，并标记 legacy/beta/internal API route、公开 GraphQL IDE/schema 信号和 mass-assignment 字段供复核。"
         },
         evidence: {
-          ko: "path, parameter/field 이름, method, 상태, callback cache/referrer header, GraphQL/identity/user API/cache/header signal을 기록하고 OAuth parameter 값은 저장하지 않습니다.",
-          en: "Records path, parameter/field names, method, status, callback cache/referrer headers, and GraphQL/identity/user API/cache/header signals without storing OAuth parameter values.",
-          ja: "path、parameter/field名、method、status、callback cache/referrer header、GraphQL/identity/user API/cache/header signalを記録し、OAuth parameter値は保存しません。",
-          zh: "记录 path、parameter/field 名称、method、状态、callback cache/referrer header 以及 GraphQL/identity/user API/cache/header 信号，不保存 OAuth parameter 值。"
+          ko: "path, API version label, parameter/field 이름, method, 상태, callback cache/referrer header, GraphQL/identity/user API/cache/header signal을 기록하고 OAuth parameter 값은 저장하지 않습니다.",
+          en: "Records path, API version label, parameter/field names, method, status, callback cache/referrer headers, and GraphQL/identity/user API/cache/header signals without storing OAuth parameter values.",
+          ja: "path、API version label、parameter/field名、method、status、callback cache/referrer header、GraphQL/identity/user API/cache/header signalを記録し、OAuth parameter値は保存しません。",
+          zh: "记录 path、API version label、parameter/field 名称、method、状态、callback cache/referrer header 以及 GraphQL/identity/user API/cache/header 信号，不保存 OAuth parameter 值。"
         }
       },
       {

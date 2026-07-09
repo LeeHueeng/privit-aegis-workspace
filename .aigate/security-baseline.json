@@ -155,6 +155,14 @@
       "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
     },
     {
+      "name": "OWASP WSTG API Reconnaissance",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance"
+    },
+    {
+      "name": "OWASP WSTG Path Confusion and Web Cache Deception",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/13-Test_for_Path_Confusion"
+    },
+    {
       "name": "OWASP WSTG Testing GraphQL",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/99-Testing_GraphQL"
     },
@@ -277,7 +285,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 290,
+      "maxProbeRequests": 360,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -323,6 +331,32 @@
         "/swagger-ui/index.html",
         "/api-docs",
         "/redoc"
+      ],
+      "apiVersionPaths": [
+        "/api/v1",
+        "/api/v1/",
+        "/api/v1/users",
+        "/api/v1/auth",
+        "/api/v2",
+        "/api/v2/",
+        "/v1",
+        "/v1/",
+        "/v2",
+        "/v2/",
+        "/rest/v1",
+        "/rest/v2"
+      ],
+      "legacyApiPaths": [
+        "/api/v0",
+        "/v0",
+        "/api/legacy",
+        "/legacy",
+        "/api/old",
+        "/old",
+        "/api/beta",
+        "/beta",
+        "/api/internal",
+        "/internal/api"
       ],
       "graphqlEndpoints": [
         "/graphql",
