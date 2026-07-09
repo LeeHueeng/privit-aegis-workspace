@@ -444,8 +444,18 @@ function page() {
     .switch input { width: auto; }
     .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
     .actions button, .primary { border: 0; border-radius: 7px; padding: 10px 11px; cursor: pointer; background: #e8eef8; color: var(--ink); font-weight: 800; min-height: 42px; }
+    .actions button { position: relative; }
     .primary { background: var(--accent); color: #ffffff; }
     .actions button:hover, .primary:hover { filter: brightness(0.97); }
+    .actions button[data-tooltip]:hover, .actions button[data-tooltip]:focus-visible { z-index: 30; }
+    .actions button[data-tooltip]::before,
+    .actions button[data-tooltip]::after { opacity: 0; pointer-events: none; position: absolute; transition: opacity 120ms ease, transform 120ms ease; }
+    .actions button[data-tooltip]::before { content: ""; left: 50%; top: calc(100% + 3px); transform: translate(-50%, -2px); border: 6px solid transparent; border-bottom-color: #111827; z-index: 31; }
+    .actions button[data-tooltip]::after { content: attr(data-tooltip); left: 50%; top: calc(100% + 14px); transform: translate(-50%, -4px); width: max-content; max-width: min(280px, calc(100vw - 48px)); border-radius: 7px; padding: 8px 10px; background: #111827; color: #ffffff; box-shadow: 0 10px 22px rgba(15, 23, 42, 0.22); font-size: 12px; font-weight: 700; line-height: 1.35; text-align: left; white-space: normal; z-index: 32; }
+    .actions button[data-tooltip]:hover::before,
+    .actions button[data-tooltip]:hover::after,
+    .actions button[data-tooltip]:focus-visible::before,
+    .actions button[data-tooltip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
     #report-view { padding-bottom: 24px; }
     .report-frame { width: 100%; min-height: 720px; height: 720px; border: 0; border-radius: 0; background: transparent; display: block; overflow: hidden; }
     pre { min-height: 190px; max-height: 380px; overflow: auto; background: #0f172a; color: #dbeafe; border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: 13px; }
@@ -786,8 +796,115 @@ function page() {
       }
     };
 
+    const actionDescriptions = {
+      ko: {
+        catalog: "검사 항목 카탈로그를 다시 생성합니다.",
+        docs: "Aegis 문서를 한국어, 영어, 일본어, 중국어로 생성합니다.",
+        verify: "허용 범위와 승인 설정이 유효한지 확인합니다.",
+        plan: "실제 공격 없이 실행할 보안 점검 계획을 만듭니다.",
+        map: "대상 사이트를 크롤링해 경로, 링크, 폼을 수집합니다.",
+        scan: "허용된 범위 안에서 passive 보안 스캔을 실행합니다.",
+        dryRun: "저장 없이 스캔 명령이 안전하게 실행되는지 미리 확인합니다.",
+        report: "최근 스캔 결과를 HTML 보고서로 생성하고 현재 언어로 변환합니다.",
+        gate: "AIGate 품질/보안 게이트를 실행합니다.",
+        start: "카탈로그, 검증, 계획, 사이트맵, 보고서, AIGate를 순서대로 실행합니다.",
+        ai: "AIGate AI 통합 설정을 생성하거나 갱신합니다.",
+        aiDoctor: "AI 제공자, 키, 로컬 모델 연결 상태를 진단합니다.",
+        aiReport: "AI 통합 상태와 권장 설정 보고서를 생성합니다.",
+        aiModelCommands: "모델 변경과 provider 설정에 필요한 명령어를 출력합니다.",
+        aiProviderCheck: "활성 AI provider의 endpoint와 health check를 확인합니다.",
+        audit: "npm 의존성 취약점을 moderate 이상 기준으로 검사합니다.",
+        hardening: "OWASP/GitHub 보안 하드닝 기준을 점검합니다.",
+        targetAdvisory: "현재 프론트/백엔드 대상의 보안 헤더와 노출 상태를 점검합니다.",
+        completionAudit: "구현 완료도, 다국어, AI, 보안, GitHub 준비 상태를 종합적으로 점검합니다.",
+        githubReady: "GitHub Actions, secret, 권한, repo 보호 설정 준비 상태를 확인합니다.",
+        gateReady: "AIGate가 PR/푸시 전에 통과 가능한 상태인지 확인합니다.",
+        gitStatus: "현재 브랜치, 변경 파일, 원격 동기화 상태를 보여줍니다.",
+        ciSecurity: "로컬에서 CI 보안 파이프라인과 AIGate 검사를 실행합니다."
+      },
+      en: {
+        catalog: "Regenerates the security check catalog.",
+        docs: "Generates Aegis documentation in Korean, English, Japanese, and Chinese.",
+        verify: "Checks whether the authorized scope and approval settings are valid.",
+        plan: "Builds a security test plan without running live attacks.",
+        map: "Crawls the target site and collects routes, links, and forms.",
+        scan: "Runs a passive security scan inside the authorized scope.",
+        dryRun: "Previews whether the scan command can run safely without saving results.",
+        report: "Generates the latest HTML scan report and localizes it to the current language.",
+        gate: "Runs the AIGate quality and security gate.",
+        start: "Runs catalog, verify, plan, site map, report, and AIGate in order.",
+        ai: "Creates or updates the AIGate AI integration settings.",
+        aiDoctor: "Checks AI providers, keys, and local model connectivity.",
+        aiReport: "Generates an AI integration status and recommendation report.",
+        aiModelCommands: "Prints commands for model switching and provider settings.",
+        aiProviderCheck: "Checks active AI provider endpoints and health checks.",
+        audit: "Checks npm dependency vulnerabilities at moderate severity or higher.",
+        hardening: "Checks the OWASP/GitHub hardening baseline.",
+        targetAdvisory: "Checks security headers and exposure on the current frontend/backend targets.",
+        completionAudit: "Audits completion status across i18n, AI, security, and GitHub readiness.",
+        githubReady: "Checks GitHub Actions, secrets, token permissions, and repository protection readiness.",
+        gateReady: "Checks whether AIGate is ready to pass before PR or push.",
+        gitStatus: "Shows the current branch, changed files, and remote sync state.",
+        ciSecurity: "Runs the local CI security pipeline and AIGate checks."
+      },
+      ja: {
+        catalog: "セキュリティチェックのカタログを再生成します。",
+        docs: "Aegis文書を韓国語、英語、日本語、中国語で生成します。",
+        verify: "許可範囲と承認設定が有効か確認します。",
+        plan: "実攻撃を行わずにセキュリティテスト計画を作成します。",
+        map: "対象サイトをクロールし、経路、リンク、フォームを収集します。",
+        scan: "許可された範囲内でpassiveセキュリティスキャンを実行します。",
+        dryRun: "結果を保存せず、スキャンコマンドが安全に動くか事前確認します。",
+        report: "最新スキャン結果をHTMLレポートにし、現在の言語へ変換します。",
+        gate: "AIGateの品質/セキュリティゲートを実行します。",
+        start: "カタログ、検証、計画、サイトマップ、レポート、AIGateを順番に実行します。",
+        ai: "AIGateのAI統合設定を作成または更新します。",
+        aiDoctor: "AIプロバイダー、キー、ローカルモデル接続を診断します。",
+        aiReport: "AI統合状態と推奨設定のレポートを生成します。",
+        aiModelCommands: "モデル変更とprovider設定に必要なコマンドを出力します。",
+        aiProviderCheck: "有効なAI providerのendpointとhealth checkを確認します。",
+        audit: "npm依存関係の脆弱性をmoderate以上で検査します。",
+        hardening: "OWASP/GitHubのハードニング基準を確認します。",
+        targetAdvisory: "現在のフロント/バックエンド対象のセキュリティヘッダーと露出を確認します。",
+        completionAudit: "多言語、AI、セキュリティ、GitHub準備状態を総合監査します。",
+        githubReady: "GitHub Actions、secret、権限、repo保護設定の準備状態を確認します。",
+        gateReady: "PR/プッシュ前にAIGateを通過できる状態か確認します。",
+        gitStatus: "現在のブランチ、変更ファイル、リモート同期状態を表示します。",
+        ciSecurity: "ローカルCIセキュリティパイプラインとAIGate検査を実行します。"
+      },
+      zh: {
+        catalog: "重新生成安全检查目录。",
+        docs: "生成韩语、英语、日语和中文的 Aegis 文档。",
+        verify: "检查授权范围和审批设置是否有效。",
+        plan: "在不执行真实攻击的情况下生成安全测试计划。",
+        map: "爬取目标站点并收集路由、链接和表单。",
+        scan: "在授权范围内执行 passive 安全扫描。",
+        dryRun: "不保存结果，预先确认扫描命令能否安全运行。",
+        report: "生成最新 HTML 扫描报告，并转换为当前语言。",
+        gate: "运行 AIGate 质量和安全网关。",
+        start: "依次运行目录、验证、计划、站点图、报告和 AIGate。",
+        ai: "创建或更新 AIGate AI 集成设置。",
+        aiDoctor: "诊断 AI 提供方、密钥和本地模型连接状态。",
+        aiReport: "生成 AI 集成状态和建议设置报告。",
+        aiModelCommands: "输出模型切换和 provider 设置所需命令。",
+        aiProviderCheck: "检查启用的 AI provider endpoint 和 health check。",
+        audit: "按 moderate 及以上级别检查 npm 依赖漏洞。",
+        hardening: "检查 OWASP/GitHub 安全加固基线。",
+        targetAdvisory: "检查当前前端/后端目标的安全头和暴露状态。",
+        completionAudit: "综合审计多语言、AI、安全和 GitHub 准备状态。",
+        githubReady: "检查 GitHub Actions、secret、权限和 repo 保护设置准备状态。",
+        gateReady: "检查 PR/推送前 AIGate 是否可通过。",
+        gitStatus: "显示当前分支、变更文件和远程同步状态。",
+        ciSecurity: "运行本地 CI 安全流水线和 AIGate 检查。"
+      }
+    };
+
     function t(key) {
       return messages[language]?.[key] || messages.en[key] || key;
+    }
+
+    function actionDescription(action) {
+      return actionDescriptions[language]?.[action] || actionDescriptions.en[action] || "";
     }
 
     function escapeHtml(value) {
@@ -803,6 +920,14 @@ function page() {
       languageSelect.value = language;
       for (const el of document.querySelectorAll("[data-i18n]")) {
         el.textContent = t(el.dataset.i18n);
+      }
+      for (const button of document.querySelectorAll("[data-action]")) {
+        const description = actionDescription(button.dataset.action);
+        if (!description) continue;
+        const label = button.textContent.trim();
+        button.dataset.tooltip = description;
+        button.title = description;
+        button.setAttribute("aria-label", label ? label + ": " + description : description);
       }
       setStatus(currentState?.reportExists ? t("reportReady") : t("ready"), currentState?.reportExists ? "ok" : "");
     }
