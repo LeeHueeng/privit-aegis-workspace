@@ -602,10 +602,11 @@ function page() {
     .progress-bar { height: 10px; border-radius: 999px; background: var(--soft-line); overflow: hidden; }
     .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: var(--accent); transition: width 180ms ease; }
     .progress-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; list-style: none; margin: 0; padding: 0; }
-    .progress-step { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 9px; background: #ffffff; }
-    .step-dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft-line); color: var(--muted); font-size: 12px; font-weight: 900; }
-    .progress-step strong { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .progress-step span { display: block; color: var(--muted); font-size: 12px; }
+    .progress-step { display: grid; grid-template-columns: 1fr; justify-items: center; gap: 7px; min-height: 96px; align-content: center; border: 1px solid var(--line); border-radius: 8px; padding: 10px 9px; background: #ffffff; text-align: center; }
+    .progress-step .step-dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft-line); color: var(--muted); font-size: 12px; font-weight: 900; }
+    .progress-step strong { display: flex; min-height: 32px; align-items: center; justify-content: center; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+    .progress-step .step-label { display: grid; gap: 3px; color: var(--muted); font-size: 12px; }
+    .progress-step .step-label span { display: block; color: var(--muted); font-size: 12px; }
     .progress-step.running { border-color: var(--accent); background: var(--accent-weak); }
     .progress-step.running .step-dot { background: var(--accent); color: #ffffff; }
     .progress-step.done .step-dot { background: var(--ok); color: #ffffff; }
@@ -661,6 +662,16 @@ function page() {
     .pill { border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 800; background: #eef2f7; white-space: nowrap; }
     .pill.ok { background: #e5f7ef; color: var(--ok); }
     .pill.warn { background: #fff7e6; color: var(--warn); }
+    .detection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+    .detection-card { display: grid; gap: 12px; border: 1px solid var(--line); border-radius: 8px; padding: 15px; background: #ffffff; min-width: 0; }
+    .detection-card-head { display: flex; align-items: flex-start; gap: 10px; }
+    .detection-icon { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 8px; display: grid; place-items: center; background: var(--accent-weak); color: var(--accent); font-weight: 900; font-size: 13px; }
+    .detection-card h3 { margin: 0 0 4px; font-size: 15px; line-height: 1.3; }
+    .detection-standard { color: var(--muted); font-size: 12px; font-weight: 800; overflow-wrap: anywhere; }
+    .detection-body { display: grid; gap: 8px; }
+    .detection-row { display: grid; gap: 3px; padding-top: 8px; border-top: 1px solid var(--soft-line); }
+    .detection-row span { color: var(--muted); font-size: 12px; font-weight: 900; text-transform: uppercase; }
+    .detection-row p { color: var(--text); font-size: 13px; line-height: 1.45; overflow-wrap: anywhere; }
     .hidden { display: none; }
     .ok { color: var(--ok); }
     .warn { color: var(--warn); }
@@ -674,6 +685,7 @@ function page() {
       .shell, .layout, .runtime-grid, .runtime-switches { grid-template-columns: 1fr; }
       aside { position: static; }
       .actions { grid-template-columns: 1fr 1fr; }
+      .detection-grid { grid-template-columns: 1fr; }
     }
     @media (max-width: 620px) {
       main { padding: 14px; }
@@ -696,6 +708,7 @@ function page() {
         <button class="active" data-view="dashboard" data-i18n="navDashboard">Dashboard</button>
         <button data-view="scope" data-i18n="navScope">Scope</button>
         <button data-view="discovery" data-i18n="navDiscovery">Discovery</button>
+        <button data-view="detections" data-i18n="navDetections">Detections</button>
         <button data-view="ai" data-i18n="navAi">AI</button>
         <button data-view="updates" data-i18n="navUpdates">Updates</button>
         <button data-view="report" data-i18n="navReport">Report</button>
@@ -836,6 +849,19 @@ function page() {
             </table>
           </div>
         </div>
+      </section>
+
+      <section id="detections-view" class="hidden">
+        <div class="panel">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow" data-i18n="detectionGuideEyebrow">Coverage</span>
+              <h2 data-i18n="detectionGuide">Security Detection Guide</h2>
+              <p class="muted" data-i18n="detectionGuideIntro">This page explains what Aegis checks, the pass criteria, and which evidence is stored in reports.</p>
+            </div>
+          </div>
+        </div>
+        <div id="detection-guide" class="detection-grid"></div>
       </section>
 
       <section id="ai-view" class="hidden">
@@ -991,7 +1017,7 @@ function page() {
 
     const messages = {
       ko: {
-        navDashboard: "대시보드", navScope: "범위", navDiscovery: "탐색", navAi: "AI", navUpdates: "업데이트", navReport: "보고서", navLogs: "로그",
+        navDashboard: "대시보드", navScope: "범위", navDiscovery: "탐색", navDetections: "탐지 설명", navAi: "AI", navUpdates: "업데이트", navReport: "보고서", navLogs: "로그",
         title: "Privit Aegis 콘솔", metricCatalog: "카탈로그", metricFindings: "취약점", metricRoutes: "경로", metricForms: "폼", metricAuth: "인증", metricAi: "AI",
         actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionPenetrationReport: "침투검사 리포트", actionStart: "전체 실행",
         latestRun: "최근 실행", scopeSettings: "범위 설정", project: "프로젝트", environment: "환경", frontendUrl: "프론트 URL", backendUrl: "백엔드 API URL", owner: "소유자 이메일", expiresAt: "승인 만료일", allowedPaths: "허용 경로", deniedPaths: "차단 경로", maxRps: "최대 RPS", maxConcurrency: "최대 동시성", backendApi: "백엔드 API", ciCd: "CI/CD", saveScope: "범위 저장",
@@ -999,12 +1025,12 @@ function page() {
         providers: "프로바이더", aiModels: "AI 모델", aiRuntimeSettings: "AI 런타임 설정", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiTools: "AI 도구", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
         aiProfile: "프로필", aiLocale: "언어", aiTemperature: "온도", aiTopP: "Top P", aiMaxOutputTokens: "최대 출력 토큰", aiMaxInputTokens: "최대 입력 토큰", aiFileBudgetTokens: "파일 토큰 예산", aiOutputFormat: "출력 형식", aiMaxTurns: "최대 턴", aiTimeoutMs: "타임아웃 ms", aiParallelism: "병렬성", aiBudgetPerRun: "실행당 예산", aiDailyBudget: "일일 예산", aiMinPushGateScore: "최소 푸시 게이트 점수", aiMemoryMode: "메모리 모드", aiHandoffLanguage: "전달 언어", aiAllowNetwork: "네트워크", aiAllowPackageInstall: "패키지 설치", aiPreferLocal: "로컬 우선", aiPromptGuard: "프롬프트 방어", aiRedactSecrets: "시크릿 마스킹", aiStorePrompts: "프롬프트 저장", aiStoreResponses: "응답 저장", aiRequireTests: "테스트 필수", aiAdvancedJson: "고급 JSON", aiUsageWhere: "AI 사용 위치", aiScanDecision: "스캔 판정", aiPenetrationReportDecision: "침투 리포트", aiNoScanDecision: "AI 미사용: 규칙 기반 패시브 검사", aiNoReportDecision: "AI 미사용: 검사 결과 템플릿 렌더링", aiUsedFor: "AI 사용처", aiActions: "AI 명령",
         model: "모델", providerType: "유형", enabledProvider: "사용", endpoint: "API/로컬 엔드포인트", healthUrl: "헬스 URL", apiStyle: "API 방식", apiKeyEnv: "키 환경변수", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자", disabled: "비활성", check: "확인 필요",
-        updates: "업데이트", actionAudit: "npm audit", actionHardening: "하드닝 검사", actionTargetAdvisory: "대상 점검", actionGitStatus: "Git 상태", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
+        updates: "업데이트", actionAudit: "npm audit", actionHardening: "하드닝 검사", actionTargetAdvisory: "대상 점검", actionGitStatus: "Git 상태", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력", detectionGuideEyebrow: "탐지 범위", detectionGuide: "보안탐지 설명", detectionGuideIntro: "Aegis가 무엇을 검사하는지, 통과 기준이 무엇인지, 보고서에 어떤 증거가 남는지 설명합니다.", detects: "탐지 대상", passCriteria: "통과 기준", reportEvidence: "보고 증거",
         runCenter: "Run Center", runTitle: "승인된 보안 워크플로", runSubtitle: "안전한 Aegis 흐름을 실행하고 각 단계를 실시간으로 확인합니다.", quickActions: "빠른 작업", liveLog: "실시간 로그", noActiveRun: "실행 중인 작업이 없습니다.", readyToRun: "실행 준비 완료", currentStep: "현재 단계", queued: "대기", progressRunning: "진행 중", progressDone: "완료", progressFailed: "실패", elapsed: "경과", latestScan: "최근 스캔", scanTarget: "대상/모드", discoverySummary: "탐색 결과", targetAdvisorySummary: "대상 점검", passiveProbeSummary: "패시브 침투 프로브", penetrationReportSummary: "침투 리포트", aegisReport: "Aegis 보고서", penetrationReport: "침투검사 리포트",
         ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
       },
       en: {
-        navDashboard: "Dashboard", navScope: "Scope", navDiscovery: "Discovery", navAi: "AI", navUpdates: "Updates", navReport: "Report", navLogs: "Logs",
+        navDashboard: "Dashboard", navScope: "Scope", navDiscovery: "Discovery", navDetections: "Detections", navAi: "AI", navUpdates: "Updates", navReport: "Report", navLogs: "Logs",
         title: "Privit Aegis Console", metricCatalog: "Catalog", metricFindings: "Findings", metricRoutes: "Routes", metricForms: "Forms", metricAuth: "Auth", metricAi: "AI",
         actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionPenetrationReport: "Penetration Report", actionStart: "Start All",
         latestRun: "Latest Run", scopeSettings: "Scope Settings", project: "Project", environment: "Environment", frontendUrl: "Frontend URL", backendUrl: "Backend API URL", owner: "Owner Email", expiresAt: "Authorization Expires", allowedPaths: "Allowed Paths", deniedPaths: "Denied Paths", maxRps: "Max RPS", maxConcurrency: "Max Concurrency", backendApi: "Backend API", ciCd: "CI/CD", saveScope: "Save Scope",
@@ -1012,12 +1038,12 @@ function page() {
         providers: "Providers", aiModels: "AI Models", aiRuntimeSettings: "AI Runtime Settings", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiTools: "AI Tools", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
         aiProfile: "Profile", aiLocale: "Locale", aiTemperature: "Temperature", aiTopP: "Top P", aiMaxOutputTokens: "Max Output Tokens", aiMaxInputTokens: "Max Input Tokens", aiFileBudgetTokens: "File Budget Tokens", aiOutputFormat: "Output Format", aiMaxTurns: "Max Turns", aiTimeoutMs: "Timeout Ms", aiParallelism: "Parallelism", aiBudgetPerRun: "Budget / Run", aiDailyBudget: "Daily Budget", aiMinPushGateScore: "Min Push Gate Score", aiMemoryMode: "Memory Mode", aiHandoffLanguage: "Handoff Language", aiAllowNetwork: "Network", aiAllowPackageInstall: "Package Install", aiPreferLocal: "Prefer Local", aiPromptGuard: "Prompt Guard", aiRedactSecrets: "Redact Secrets", aiStorePrompts: "Store Prompts", aiStoreResponses: "Store Responses", aiRequireTests: "Require Tests", aiAdvancedJson: "Advanced JSON", aiUsageWhere: "AI Usage", aiScanDecision: "Scan decisions", aiPenetrationReportDecision: "Penetration report", aiNoScanDecision: "No AI: deterministic passive checks", aiNoReportDecision: "No AI: template rendering from check results", aiUsedFor: "AI used for", aiActions: "AI commands",
         model: "Model", providerType: "Type", enabledProvider: "Enabled", endpoint: "API/Local Endpoint", healthUrl: "Health URL", apiStyle: "API Style", apiKeyEnv: "Key Env", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args", disabled: "Disabled", check: "Check",
-        updates: "Updates", actionAudit: "npm audit", actionHardening: "Hardening", actionTargetAdvisory: "Target Advisory", actionGitStatus: "Git Status", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
+        updates: "Updates", actionAudit: "npm audit", actionHardening: "Hardening", actionTargetAdvisory: "Target Advisory", actionGitStatus: "Git Status", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output", detectionGuideEyebrow: "Coverage", detectionGuide: "Security Detection Guide", detectionGuideIntro: "Explains what Aegis checks, the pass criteria, and which evidence is stored in reports.", detects: "Detects", passCriteria: "Pass criteria", reportEvidence: "Report evidence",
         runCenter: "Run Center", runTitle: "Authorized security workflow", runSubtitle: "Run the safe Aegis flow and watch each step as it executes.", quickActions: "Quick Actions", liveLog: "Live Log", noActiveRun: "No active run.", readyToRun: "Ready to run", currentStep: "Current step", queued: "Queued", progressRunning: "Running", progressDone: "Done", progressFailed: "Failed", elapsed: "Elapsed", latestScan: "Latest scan", scanTarget: "Target / mode", discoverySummary: "Discovery", targetAdvisorySummary: "Target advisory", passiveProbeSummary: "Passive probes", penetrationReportSummary: "Penetration report", aegisReport: "Aegis Report", penetrationReport: "Penetration Report",
         ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
       },
       ja: {
-        navDashboard: "ダッシュボード", navScope: "スコープ", navDiscovery: "探索", navAi: "AI", navUpdates: "更新", navReport: "レポート", navLogs: "ログ",
+        navDashboard: "ダッシュボード", navScope: "スコープ", navDiscovery: "探索", navDetections: "検出説明", navAi: "AI", navUpdates: "更新", navReport: "レポート", navLogs: "ログ",
         title: "Privit Aegis コンソール", metricCatalog: "カタログ", metricFindings: "検出", metricRoutes: "経路", metricForms: "フォーム", metricAuth: "認証", metricAi: "AI",
         actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionPenetrationReport: "侵入テストレポート", actionStart: "全実行",
         latestRun: "最新実行", scopeSettings: "スコープ設定", project: "プロジェクト", environment: "環境", frontendUrl: "フロントURL", backendUrl: "バックエンドAPI URL", owner: "所有者メール", expiresAt: "承認期限", allowedPaths: "許可パス", deniedPaths: "拒否パス", maxRps: "最大RPS", maxConcurrency: "最大同時実行", backendApi: "バックエンドAPI", ciCd: "CI/CD", saveScope: "スコープ保存",
@@ -1025,12 +1051,12 @@ function page() {
         providers: "プロバイダー", aiModels: "AIモデル", aiRuntimeSettings: "AIランタイム設定", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiTools: "AIツール", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
         aiProfile: "プロファイル", aiLocale: "ロケール", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大出力トークン", aiMaxInputTokens: "最大入力トークン", aiFileBudgetTokens: "ファイルトークン予算", aiOutputFormat: "出力形式", aiMaxTurns: "最大ターン", aiTimeoutMs: "タイムアウト ms", aiParallelism: "並列数", aiBudgetPerRun: "実行予算", aiDailyBudget: "日次予算", aiMinPushGateScore: "最小プッシュゲートスコア", aiMemoryMode: "メモリモード", aiHandoffLanguage: "引き継ぎ言語", aiAllowNetwork: "ネットワーク", aiAllowPackageInstall: "パッケージ導入", aiPreferLocal: "ローカル優先", aiPromptGuard: "プロンプト防御", aiRedactSecrets: "秘密マスク", aiStorePrompts: "プロンプト保存", aiStoreResponses: "応答保存", aiRequireTests: "テスト必須", aiAdvancedJson: "詳細JSON", aiUsageWhere: "AI利用場所", aiScanDecision: "スキャン判定", aiPenetrationReportDecision: "侵入テストレポート", aiNoScanDecision: "AI未使用: 決定的なpassive検査", aiNoReportDecision: "AI未使用: 検査結果のテンプレート表示", aiUsedFor: "AIの用途", aiActions: "AIコマンド",
         model: "モデル", providerType: "種類", enabledProvider: "有効", endpoint: "API/ローカルエンドポイント", healthUrl: "ヘルスURL", apiStyle: "API方式", apiKeyEnv: "キー環境変数", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数", disabled: "無効", check: "確認",
-        updates: "更新", actionAudit: "npm audit", actionHardening: "ハードニング診断", actionTargetAdvisory: "対象診断", actionGitStatus: "Git状態", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
+        updates: "更新", actionAudit: "npm audit", actionHardening: "ハードニング診断", actionTargetAdvisory: "対象診断", actionGitStatus: "Git状態", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力", detectionGuideEyebrow: "検出範囲", detectionGuide: "セキュリティ検出の説明", detectionGuideIntro: "Aegisが何を検査し、合格基準とレポート証跡が何かを説明します。", detects: "検出対象", passCriteria: "合格基準", reportEvidence: "レポート証跡",
         runCenter: "Run Center", runTitle: "承認済みセキュリティワークフロー", runSubtitle: "安全なAegisフローを実行し、各ステップをリアルタイムで確認します。", quickActions: "クイック操作", liveLog: "ライブログ", noActiveRun: "実行中の作業はありません。", readyToRun: "実行準備完了", currentStep: "現在のステップ", queued: "待機", progressRunning: "実行中", progressDone: "完了", progressFailed: "失敗", elapsed: "経過", latestScan: "最新スキャン", scanTarget: "対象/モード", discoverySummary: "探索結果", targetAdvisorySummary: "対象診断", passiveProbeSummary: "パッシブ侵入プローブ", penetrationReportSummary: "侵入テストレポート", aegisReport: "Aegisレポート", penetrationReport: "侵入テストレポート",
         ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
       },
       zh: {
-        navDashboard: "仪表盘", navScope: "范围", navDiscovery: "发现", navAi: "AI", navUpdates: "更新", navReport: "报告", navLogs: "日志",
+        navDashboard: "仪表盘", navScope: "范围", navDiscovery: "发现", navDetections: "检测说明", navAi: "AI", navUpdates: "更新", navReport: "报告", navLogs: "日志",
         title: "Privit Aegis 控制台", metricCatalog: "目录", metricFindings: "发现项", metricRoutes: "路由", metricForms: "表单", metricAuth: "认证", metricAi: "AI",
         actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionPenetrationReport: "渗透测试报告", actionStart: "全部运行",
         latestRun: "最近运行", scopeSettings: "范围设置", project: "项目", environment: "环境", frontendUrl: "前端 URL", backendUrl: "后端 API URL", owner: "所有者邮箱", expiresAt: "授权到期", allowedPaths: "允许路径", deniedPaths: "拒绝路径", maxRps: "最大 RPS", maxConcurrency: "最大并发", backendApi: "后端 API", ciCd: "CI/CD", saveScope: "保存范围",
@@ -1038,7 +1064,7 @@ function page() {
         providers: "提供方", aiModels: "AI 模型", aiRuntimeSettings: "AI 运行时设置", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiTools: "AI 工具", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
         aiProfile: "配置", aiLocale: "语言", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大输出令牌", aiMaxInputTokens: "最大输入令牌", aiFileBudgetTokens: "文件令牌预算", aiOutputFormat: "输出格式", aiMaxTurns: "最大轮次", aiTimeoutMs: "超时 ms", aiParallelism: "并行数", aiBudgetPerRun: "单次预算", aiDailyBudget: "每日预算", aiMinPushGateScore: "最低推送门禁分数", aiMemoryMode: "记忆模式", aiHandoffLanguage: "交接语言", aiAllowNetwork: "网络", aiAllowPackageInstall: "包安装", aiPreferLocal: "优先本地", aiPromptGuard: "提示防护", aiRedactSecrets: "密钥脱敏", aiStorePrompts: "保存提示", aiStoreResponses: "响应保存", aiRequireTests: "要求测试", aiAdvancedJson: "高级 JSON", aiUsageWhere: "AI 使用位置", aiScanDecision: "扫描判定", aiPenetrationReportDecision: "渗透测试报告", aiNoScanDecision: "未使用 AI：确定性被动检查", aiNoReportDecision: "未使用 AI：按检查结果模板渲染", aiUsedFor: "AI 用途", aiActions: "AI 命令",
         model: "模型", providerType: "类型", enabledProvider: "启用", endpoint: "API/本地端点", healthUrl: "健康 URL", apiStyle: "API 样式", apiKeyEnv: "密钥环境变量", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数", disabled: "已禁用", check: "需检查",
-        updates: "更新", actionAudit: "npm audit", actionHardening: "加固检查", actionTargetAdvisory: "目标检查", actionGitStatus: "Git 状态", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
+        updates: "更新", actionAudit: "npm audit", actionHardening: "加固检查", actionTargetAdvisory: "目标检查", actionGitStatus: "Git 状态", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出", detectionGuideEyebrow: "检测范围", detectionGuide: "安全检测说明", detectionGuideIntro: "说明 Aegis 检查什么、通过标准是什么，以及报告中保留哪些证据。", detects: "检测对象", passCriteria: "通过标准", reportEvidence: "报告证据",
         runCenter: "Run Center", runTitle: "已授权安全工作流", runSubtitle: "运行安全的 Aegis 流程，并实时查看每个步骤。", quickActions: "快捷操作", liveLog: "实时日志", noActiveRun: "没有正在运行的任务。", readyToRun: "准备运行", currentStep: "当前步骤", queued: "排队", progressRunning: "运行中", progressDone: "完成", progressFailed: "失败", elapsed: "用时", latestScan: "最近扫描", scanTarget: "目标/模式", discoverySummary: "发现结果", targetAdvisorySummary: "目标检查", passiveProbeSummary: "被动渗透探测", penetrationReportSummary: "渗透测试报告", aegisReport: "Aegis 报告", penetrationReport: "渗透测试报告",
         ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
       }
@@ -1131,6 +1157,289 @@ function page() {
       }
     };
 
+    const detectionGuideItems = [
+      {
+        icon: "01",
+        standard: "Aegis scope guard",
+        title: {
+          ko: "승인 범위와 안전 모드",
+          en: "Authorized scope and safety mode",
+          ja: "承認範囲と安全モード",
+          zh: "授权范围与安全模式"
+        },
+        detects: {
+          ko: "소유자, 승인 만료일, 허용 host/path, 차단 path, RPS, 동시성, passive-only 설정을 확인합니다.",
+          en: "Checks owner, authorization expiry, allowed hosts/paths, denied paths, RPS, concurrency, and passive-only mode.",
+          ja: "所有者、承認期限、許可host/path、拒否path、RPS、同時実行、passive-only設定を確認します。",
+          zh: "检查所有者、授权到期、允许 host/path、拒绝 path、RPS、并发数和 passive-only 设置。"
+        },
+        criteria: {
+          ko: "대상 요청 전에 범위 검증이 통과해야 하며, 공개 대상은 placeholder 승인이 아니어야 합니다.",
+          en: "Scope validation must pass before requests are sent, and public targets must not use placeholder approval.",
+          ja: "対象へリクエストを送る前にスコープ検証が成功し、公開対象はplaceholder承認であってはなりません。",
+          zh: "发送目标请求前必须通过范围验证，公网目标不能使用占位授权。"
+        },
+        evidence: {
+          ko: "프로젝트, 환경, target URL, 승인 정보, 안전 제한값만 기록합니다.",
+          en: "Records project, environment, target URLs, authorization metadata, and safety limits.",
+          ja: "プロジェクト、環境、target URL、承認メタデータ、安全制限値を記録します。",
+          zh: "记录项目、环境、目标 URL、授权元数据和安全限制。"
+        }
+      },
+      {
+        icon: "02",
+        standard: "OWASP WSTG information gathering",
+        title: {
+          ko: "사이트맵과 인증 표면",
+          en: "Site map and authentication surfaces",
+          ja: "サイトマップと認証面",
+          zh: "站点图与认证表面"
+        },
+        detects: {
+          ko: "링크, route, form, 로그인 유사 URL, robots/sitemap을 수집하고 폼은 제출하지 않습니다.",
+          en: "Collects links, routes, forms, login-like URLs, robots.txt, and sitemap.xml without submitting forms.",
+          ja: "リンク、route、form、ログイン類似URL、robots/sitemapを収集し、formは送信しません。",
+          zh: "收集链接、路由、表单、登录类 URL、robots 和 sitemap，但不提交表单。"
+        },
+        criteria: {
+          ko: "범위 안의 경로만 따라가고 차단 URL은 보고서에 분리되어야 합니다.",
+          en: "Only in-scope paths are followed, and blocked URLs are reported separately.",
+          ja: "スコープ内の経路のみ追跡し、ブロックURLは別途レポートします。",
+          zh: "仅跟随范围内路径，并单独报告被阻止 URL。"
+        },
+        evidence: {
+          ko: "상태 코드, path, depth, source, form 수, 인증 표면 수를 기록합니다.",
+          en: "Records status code, path, depth, source, form count, and auth-surface count.",
+          ja: "ステータスコード、path、depth、source、form数、認証面数を記録します。",
+          zh: "记录状态码、路径、深度、来源、表单数和认证表面数。"
+        }
+      },
+      {
+        icon: "03",
+        standard: "OWASP headers and CSP",
+        title: {
+          ko: "보안 헤더와 브라우저 방어",
+          en: "Security headers and browser defenses",
+          ja: "セキュリティヘッダーとブラウザ防御",
+          zh: "安全响应头与浏览器防护"
+        },
+        detects: {
+          ko: "CSP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache header를 확인합니다.",
+          en: "Checks CSP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, and cache headers.",
+          ja: "CSP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、cache headerを確認します。",
+          zh: "检查 CSP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS 和缓存响应头。"
+        },
+        criteria: {
+          ko: "위험한 누락/완화 설정이 없어야 하며, 인증 페이지는 민감 cache를 남기지 않아야 합니다.",
+          en: "Risky missing or weak headers should be absent, and auth pages should avoid sensitive caching.",
+          ja: "危険な欠落や弱いヘッダーがなく、認証ページは機密cacheを残さない必要があります。",
+          zh: "不应缺失或弱化关键响应头，认证页面不应留下敏感缓存。"
+        },
+        evidence: {
+          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP 신호를 저장합니다.",
+          en: "Stores header names, values, URLs, status codes, and CORS/CSP signals.",
+          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSPシグナルを保存します。",
+          zh: "保存响应头名称、值、URL、状态码和 CORS/CSP 信号。"
+        }
+      },
+      {
+        icon: "04",
+        standard: "OWASP session management",
+        title: {
+          ko: "쿠키, 세션, JWT",
+          en: "Cookies, sessions, and JWTs",
+          ja: "Cookie、セッション、JWT",
+          zh: "Cookie、会话与 JWT"
+        },
+        detects: {
+          ko: "HttpOnly/SameSite/Secure, cookie Domain/Path, JWT alg/kid/claim 신호, 브라우저 저장소 token 키를 확인합니다.",
+          en: "Checks HttpOnly/SameSite/Secure, cookie Domain/Path, JWT alg/kid/claim signals, and token-like browser-storage keys.",
+          ja: "HttpOnly/SameSite/Secure、cookie Domain/Path、JWT alg/kid/claimシグナル、ブラウザストレージのtokenキーを確認します。",
+          zh: "检查 HttpOnly/SameSite/Secure、Cookie Domain/Path、JWT alg/kid/claim 信号和浏览器存储中的 token 类键。"
+        },
+        criteria: {
+          ko: "세션성 쿠키는 방어 속성을 갖고, 민감 token은 클라이언트 코드에 하드코딩되지 않아야 합니다.",
+          en: "Session-like cookies should use defensive flags, and sensitive tokens should not be hard-coded in client code.",
+          ja: "セッション系cookieは防御属性を持ち、機密tokenはクライアントコードにハードコードされてはいけません。",
+          zh: "会话类 Cookie 应带防护属性，敏感 token 不应硬编码在客户端代码中。"
+        },
+        evidence: {
+          ko: "쿠키 이름과 누락 flag, JWT header 신호, 저장소 키 이름만 마스킹해 기록합니다.",
+          en: "Records cookie names with missing flags, JWT header signals, and storage key names with redaction.",
+          ja: "cookie名と不足flag、JWTヘッダーシグナル、ストレージキー名をマスクして記録します。",
+          zh: "记录 Cookie 名称及缺失标志、JWT 头部信号和已脱敏的存储键名。"
+        }
+      },
+      {
+        icon: "05",
+        standard: "OWASP TLS and transport",
+        title: {
+          ko: "전송 계층과 서버 노출",
+          en: "Transport layer and server exposure",
+          ja: "転送層とサーバ露出",
+          zh: "传输层与服务器暴露"
+        },
+        detects: {
+          ko: "HTTP/HTTPS, TLS 인증서 유효성, HSTS 위치, Server/X-Powered-By version banner를 확인합니다.",
+          en: "Checks HTTP/HTTPS, TLS certificate validity, HSTS placement, and Server/X-Powered-By version banners.",
+          ja: "HTTP/HTTPS、TLS証明書の有効性、HSTS配置、Server/X-Powered-By version bannerを確認します。",
+          zh: "检查 HTTP/HTTPS、TLS 证书有效性、HSTS 位置和 Server/X-Powered-By 版本横幅。"
+        },
+        criteria: {
+          ko: "공개 대상은 HTTPS와 유효한 인증서를 사용하고, 정밀한 서버 버전 노출을 피해야 합니다.",
+          en: "Public targets should use HTTPS with valid certificates and avoid precise server-version disclosure.",
+          ja: "公開対象は有効な証明書付きHTTPSを使用し、詳細なサーバversion露出を避ける必要があります。",
+          zh: "公网目标应使用带有效证书的 HTTPS，并避免精确暴露服务器版本。"
+        },
+        evidence: {
+          ko: "scheme, 인증서 날짜/오류, HSTS 위치, banner 신호를 기록합니다.",
+          en: "Records scheme, certificate dates/errors, HSTS placement, and banner signals.",
+          ja: "scheme、証明書日付/エラー、HSTS配置、bannerシグナルを記録します。",
+          zh: "记录 scheme、证书日期/错误、HSTS 位置和 banner 信号。"
+        }
+      },
+      {
+        icon: "06",
+        standard: "OWASP exposure probes",
+        title: {
+          ko: "민감 파일과 운영 표면",
+          en: "Sensitive files and operational surfaces",
+          ja: "機密ファイルと運用面",
+          zh: "敏感文件与运维表面"
+        },
+        detects: {
+          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics를 GET/OPTIONS로 확인합니다.",
+          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics with GET/OPTIONS.",
+          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metricsをGET/OPTIONSで確認します。",
+          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档和 admin/debug/metrics。"
+        },
+        criteria: {
+          ko: "민감 파일과 운영 endpoint는 익명으로 읽히지 않아야 합니다.",
+          en: "Sensitive files and operational endpoints should not be anonymously readable.",
+          ja: "機密ファイルと運用endpointは匿名で読めてはいけません。",
+          zh: "敏感文件和运维端点不应可匿名读取。"
+        },
+        evidence: {
+          ko: "URL, 상태, content-type, allow header, 탐지 signal만 기록하고 본문은 저장하지 않습니다.",
+          en: "Records URL, status, content type, Allow header, and detection signal without storing response bodies.",
+          ja: "URL、status、content-type、Allow header、検出signalのみ記録し、本文は保存しません。",
+          zh: "记录 URL、状态、content-type、Allow header 和检测信号，不保存响应正文。"
+        }
+      },
+      {
+        icon: "07",
+        standard: "OWASP client-side testing",
+        title: {
+          ko: "클라이언트 코드 위험",
+          en: "Client-side code risks",
+          ja: "クライアントコードリスク",
+          zh: "客户端代码风险"
+        },
+        detects: {
+          ko: "DOM XSS source/sink, postMessage origin 검증, reverse tabnabbing, resource URL 조작, template injection, prototype pollution, WebSocket, XSSI를 확인합니다.",
+          en: "Checks DOM XSS source/sink, postMessage origin checks, reverse tabnabbing, resource URL manipulation, template injection, prototype pollution, WebSockets, and XSSI.",
+          ja: "DOM XSS source/sink、postMessage origin検証、reverse tabnabbing、resource URL操作、template injection、prototype pollution、WebSocket、XSSIを確認します。",
+          zh: "检查 DOM XSS source/sink、postMessage origin 校验、reverse tabnabbing、资源 URL 操纵、模板注入、原型污染、WebSocket 和 XSSI。"
+        },
+        criteria: {
+          ko: "사용자 제어 입력이 위험 sink로 직접 연결되거나 민감 token이 bundle에 노출되지 않아야 합니다.",
+          en: "User-controlled inputs should not flow directly into risky sinks, and sensitive tokens should not appear in bundles.",
+          ja: "ユーザー制御入力が危険sinkへ直接流れず、機密tokenがbundleに露出してはいけません。",
+          zh: "用户可控输入不应直接流入危险 sink，敏感 token 不应出现在 bundle 中。"
+        },
+        evidence: {
+          ko: "asset URL, signal 이름, host, storage key, JWT claim 키 등 축약 증거를 저장합니다.",
+          en: "Stores reduced evidence such as asset URL, signal name, host, storage key, and JWT claim keys.",
+          ja: "asset URL、signal名、host、storage key、JWT claim keyなどの縮約証跡を保存します。",
+          zh: "保存简化证据，如 asset URL、信号名、host、存储键和 JWT claim 键。"
+        }
+      },
+      {
+        icon: "08",
+        standard: "OWASP API Top 10",
+        title: {
+          ko: "API 권한과 객체 접근",
+          en: "API authorization and object access",
+          ja: "API権限とオブジェクトアクセス",
+          zh: "API 授权与对象访问"
+        },
+        detects: {
+          ko: "ID-bearing route, role/admin/status 필드, GraphQL endpoint, OIDC/OAuth/JWKS 메타데이터를 인벤토리합니다.",
+          en: "Inventories ID-bearing routes, role/admin/status fields, GraphQL endpoints, and OIDC/OAuth/JWKS metadata.",
+          ja: "ID含有route、role/admin/statusフィールド、GraphQL endpoint、OIDC/OAuth/JWKSメタデータをインベントリします。",
+          zh: "盘点带 ID 的路由、role/admin/status 字段、GraphQL 端点和 OIDC/OAuth/JWKS 元数据。"
+        },
+        criteria: {
+          ko: "자동 passive 검사는 후보를 식별하고, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
+          en: "Passive checks identify candidates; true BOLA/BFLA validation should continue with authenticated role-matrix tests.",
+          ja: "passive検査は候補を識別し、実際のBOLA/BFLA検証は認証済みrole-matrixテストで続ける必要があります。",
+          zh: "Passive 检查识别候选项，真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
+        },
+        evidence: {
+          ko: "path, parameter, field, method, 상태, GraphQL/identity signal을 기록합니다.",
+          en: "Records path, parameter, field, method, status, and GraphQL/identity signals.",
+          ja: "path、parameter、field、method、status、GraphQL/identity signalを記録します。",
+          zh: "记录 path、parameter、field、method、状态和 GraphQL/identity 信号。"
+        }
+      },
+      {
+        icon: "09",
+        standard: "OWASP WSTG input validation",
+        title: {
+          ko: "입력 검증 공격 표면",
+          en: "Input-validation attack surface",
+          ja: "入力検証攻撃面",
+          zh: "输入验证攻击面"
+        },
+        detects: {
+          ko: "XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF, LFI/RFI, command/code/template injection, HTTP splitting/smuggling 후보를 분류합니다.",
+          en: "Classifies candidates for XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF, LFI/RFI, command/code/template injection, and HTTP splitting/smuggling.",
+          ja: "XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF、LFI/RFI、command/code/template injection、HTTP splitting/smuggling候補を分類します。",
+          zh: "分类 XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF、LFI/RFI、命令/代码/模板注入和 HTTP splitting/smuggling 候选项。"
+        },
+        criteria: {
+          ko: "분류는 공격 성공을 뜻하지 않으며, 승인된 인증 테스트나 수동 리뷰 대상으로 표시되어야 합니다.",
+          en: "Classification is not proof of exploitability; it marks targets for authorized authenticated testing or manual review.",
+          ja: "分類は悪用可能性の証明ではなく、承認済み認証テストまたは手動レビュー対象を示します。",
+          zh: "分类不代表可利用，仅标记为授权认证测试或人工审查对象。"
+        },
+        evidence: {
+          ko: "route, URL parameter, form field, method, OWASP 검토군, sample count를 저장합니다.",
+          en: "Stores route, URL parameter, form field, method, OWASP review family, and sample count.",
+          ja: "route、URL parameter、form field、method、OWASPレビュー群、sample countを保存します。",
+          zh: "保存路由、URL 参数、表单字段、method、OWASP 审查类别和样本数量。"
+        }
+      },
+      {
+        icon: "10",
+        standard: "Aegis reporting and redaction",
+        title: {
+          ko: "보고서와 증거 마스킹",
+          en: "Reporting and evidence redaction",
+          ja: "レポートと証跡マスキング",
+          zh: "报告与证据脱敏"
+        },
+        detects: {
+          ko: "검사 항목, 통과 기준, 상태, 권장 조치, redaction 정책을 HTML/JSON 보고서에 정리합니다.",
+          en: "Summarizes checks, pass criteria, status, recommendations, and redaction policy in HTML/JSON reports.",
+          ja: "検査項目、合格基準、状態、推奨対応、redaction方針をHTML/JSONレポートに整理します。",
+          zh: "在 HTML/JSON 报告中汇总检查项、通过标准、状态、建议措施和脱敏策略。"
+        },
+        criteria: {
+          ko: "보고서는 현재 언어로 표시되고, 토큰/쿠키/비밀번호/API key/이메일/결제 식별자는 마스킹되어야 합니다.",
+          en: "Reports should render in the selected language and redact tokens, cookies, passwords, API keys, emails, and payment identifiers.",
+          ja: "レポートは選択言語で表示され、token、cookie、password、API key、email、payment識別子をマスクする必要があります。",
+          zh: "报告应使用所选语言显示，并脱敏 token、cookie、password、API key、email 和支付标识。"
+        },
+        evidence: {
+          ko: "finding id, severity, target, status, 요약 증거, 생성 시각, artifact path를 기록합니다.",
+          en: "Records finding ID, severity, target, status, summarized evidence, generated time, and artifact path.",
+          ja: "finding id、severity、target、status、要約証跡、生成時刻、artifact pathを記録します。",
+          zh: "记录 finding id、severity、target、status、摘要证据、生成时间和 artifact path。"
+        }
+      }
+    ];
+
     function t(key) {
       return messages[language]?.[key] || messages.en[key] || key;
     }
@@ -1141,6 +1450,32 @@ function page() {
 
     function actionLabel(action) {
       return t(actionLabelKeys[action] || action) || action;
+    }
+
+    function localizedText(value) {
+      if (!value || typeof value !== "object") return String(value || "");
+      return value[language] || value.en || value.ko || "";
+    }
+
+    function renderDetectionGuide() {
+      const target = document.querySelector("#detection-guide");
+      if (!target) return;
+      target.innerHTML = detectionGuideItems.map((item) => \`
+        <article class="detection-card">
+          <div class="detection-card-head">
+            <span class="detection-icon">\${escapeHtml(item.icon)}</span>
+            <div>
+              <h3>\${escapeHtml(localizedText(item.title))}</h3>
+              <div class="detection-standard">\${escapeHtml(item.standard)}</div>
+            </div>
+          </div>
+          <div class="detection-body">
+            <div class="detection-row"><span>\${escapeHtml(t("detects"))}</span><p>\${escapeHtml(localizedText(item.detects))}</p></div>
+            <div class="detection-row"><span>\${escapeHtml(t("passCriteria"))}</span><p>\${escapeHtml(localizedText(item.criteria))}</p></div>
+            <div class="detection-row"><span>\${escapeHtml(t("reportEvidence"))}</span><p>\${escapeHtml(localizedText(item.evidence))}</p></div>
+          </div>
+        </article>
+      \`).join("");
     }
 
     function progressStatusLabel(status) {
@@ -1189,7 +1524,7 @@ function page() {
       document.querySelector("#progress-steps").innerHTML = steps.map((step, index) => \`
         <li class="progress-step \${escapeHtml(step.status || "queued")}">
           <span class="step-dot">\${step.status === "done" ? "✓" : step.status === "failed" ? "!" : index + 1}</span>
-          <span>
+          <span class="step-label">
             <strong>\${escapeHtml(actionLabel(step.id))}</strong>
             <span>\${escapeHtml(progressStatusLabel(step.status || "queued"))}</span>
           </span>
@@ -1233,6 +1568,7 @@ function page() {
         renderLatestSummary(currentState);
         renderAi(currentState.ai || {});
       }
+      renderDetectionGuide();
       if (activeJob?.status === "running") {
         setStatus(t("running") + " " + actionLabel(activeJob.action), "warn");
       } else {
@@ -1542,6 +1878,7 @@ function page() {
       renderAi(data.ai || {});
       renderToolchain(data);
       renderRoutes(discovery);
+      renderDetectionGuide();
       language = localStorage.getItem("aegis.language") || data.webSettings?.language || language;
       applyI18n();
     }
@@ -1664,6 +2001,7 @@ function page() {
       });
     });
 
+    if (window.location.pathname === "/detections") view("detections");
     applyI18n();
     refresh();
   </script>
@@ -1674,7 +2012,9 @@ function page() {
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
-    if (req.method === "GET" && url.pathname === "/") return send(res, 200, page(), "text/html; charset=utf-8");
+    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/detections")) {
+      return send(res, 200, page(), "text/html; charset=utf-8");
+    }
     if (req.method === "GET" && url.pathname === "/api/state") return json(res, 200, await state());
     if (req.method === "POST" && url.pathname === "/api/scope") return json(res, 200, await saveScope(await readRequest(req)));
     if (req.method === "POST" && url.pathname === "/api/settings") return json(res, 200, await saveSettings(await readRequest(req)));

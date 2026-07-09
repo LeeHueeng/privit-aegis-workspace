@@ -425,6 +425,21 @@ const criteria = {
     criteria: "OpenAPI, Swagger UI, ReDoc, and similar API docs are absent, authenticated, IP-restricted, or intentionally approved for the environment.",
     remediation: "Disable public API docs outside development or protect them with authentication/IP allowlisting."
   },
+  "frontend.probes.graphql": {
+    category: "API exposure",
+    criteria: "GraphQL endpoints are inventoried for schema exposure, introspection, and object/function authorization review.",
+    remediation: "Protect GraphQL IDEs in production, disable unnecessary introspection, and add authenticated authorization tests for queries and mutations."
+  },
+  "frontend.probes.upload_surfaces": {
+    category: "File handling",
+    criteria: "Upload, import, export, and attachment surfaces are inventoried for controlled file-handling review.",
+    remediation: "Validate file type and content server-side, scan uploads, store files outside executable paths, and require authentication/authorization."
+  },
+  "frontend.probes.identity_metadata": {
+    category: "Identity",
+    criteria: "OIDC, OAuth, and JWKS metadata endpoints are inventoried so issuer, key, scope, and token posture can be reviewed.",
+    remediation: "Confirm metadata is intentionally public, rotate signing keys safely, restrict token endpoints, and validate issuer/audience consistently."
+  },
   "frontend.probes.admin_debug": {
     category: "Administration/debug",
     criteria: "Admin consoles, debug endpoints, metrics, actuator, server-status, and hot-reload endpoints are absent or require authentication.",
@@ -469,6 +484,11 @@ const criteria = {
     category: "Input validation",
     criteria: "Observed URLs and form actions are inventoried when they already contain duplicate parameter names.",
     remediation: "Define deterministic server-side behavior for repeated parameters and add tests for validation bypass risks."
+  },
+  "frontend.discovery.attack_surface_matrix": {
+    category: "Input validation",
+    criteria: "Discovered routes, URL parameters, and form fields are mapped to OWASP WSTG/API review families without sending exploit payloads.",
+    remediation: "Use the matrix to plan authorized authenticated tests for XSS, injection, SSRF, file inclusion, upload, and authorization cases."
   }
 };
 
@@ -726,6 +746,24 @@ const localizedCriteria = {
       criteria: "OpenAPI, Swagger UI, ReDoc 등 API 문서는 없거나 인증/IP 제한/환경 승인 하에 공개되어야 합니다.",
       remediation: "개발 외 환경에서 공개 API 문서를 비활성화하거나 인증/IP allowlist로 보호하세요."
     },
+    "frontend.probes.graphql": {
+      title: "GraphQL 엔드포인트가 schema 및 권한 검토 대상으로 인벤토리됨",
+      category: "API 노출",
+      criteria: "GraphQL 엔드포인트는 schema 노출, introspection, 객체/기능 권한 검토 대상으로 기록되어야 합니다.",
+      remediation: "운영 GraphQL IDE를 보호하고 불필요한 introspection을 비활성화하며 query/mutation 권한 테스트를 추가하세요."
+    },
+    "frontend.probes.upload_surfaces": {
+      title: "업로드 및 import/export 표면이 파일 처리 검토 대상으로 인벤토리됨",
+      category: "파일 처리",
+      criteria: "upload, import, export, attachment 표면은 통제된 파일 처리 검토 대상으로 기록되어야 합니다.",
+      remediation: "파일 type/content를 서버에서 검증하고, 업로드 검사를 수행하며, 실행 가능한 경로 밖에 저장하고 인증/권한을 요구하세요."
+    },
+    "frontend.probes.identity_metadata": {
+      title: "OIDC, OAuth, JWKS 메타데이터 엔드포인트가 인벤토리됨",
+      category: "인증/식별",
+      criteria: "issuer, key, scope, token posture 검토를 위해 OIDC, OAuth, JWKS 메타데이터 엔드포인트가 기록되어야 합니다.",
+      remediation: "메타데이터 공개가 의도된 것인지 확인하고 signing key rotation, token endpoint 제한, issuer/audience 검증을 점검하세요."
+    },
     "frontend.probes.admin_debug": {
       title: "관리자 및 디버그 표면이 없거나 인증을 요구함",
       category: "관리/디버그",
@@ -779,6 +817,12 @@ const localizedCriteria = {
       category: "입력 검증",
       criteria: "관찰된 URL과 form action에 중복 파라미터 이름이 있으면 기록되어야 합니다.",
       remediation: "반복 파라미터에 대한 서버 측 동작을 명확히 정의하고 validation bypass 위험 테스트를 추가하세요."
+    },
+    "frontend.discovery.attack_surface_matrix": {
+      title: "입력 및 API 공격 표면이 OWASP 검토군으로 분류됨",
+      category: "입력 검증",
+      criteria: "발견된 route, URL parameter, form field가 exploit payload 없이 OWASP WSTG/API 검토군으로 매핑되어야 합니다.",
+      remediation: "이 matrix를 기준으로 XSS, injection, SSRF, file inclusion, upload, authorization에 대한 승인된 인증 테스트를 계획하세요."
     }
   }
 };

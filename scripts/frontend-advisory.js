@@ -116,6 +116,69 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+const ATTACK_SURFACE_RULES = [
+  {
+    id: "xss_html",
+    label: "XSS / HTML injection",
+    review: "OWASP WSTG reflected, stored, DOM XSS, and HTML injection",
+    patterns: [/\b(q|query|search|keyword|message|comment|content|html|body|description|title|name|bio|profile|return)\b/i]
+  },
+  {
+    id: "sql_nosql_orm",
+    label: "SQL / NoSQL / ORM injection",
+    review: "OWASP WSTG SQL, NoSQL, and ORM injection",
+    patterns: [/\b(id|ids|filter|where|sort|order|group|select|query|search|userId|accountId|tenantId|orderId|limit|offset)\b/i]
+  },
+  {
+    id: "ldap_xml_xpath",
+    label: "LDAP / XML / XPath / XXE",
+    review: "OWASP WSTG LDAP, XML, XPath, and parser injection",
+    patterns: [/\b(ldap|dn|uid|cn|member|group|filter|xml|xpath|xslt|soap|saml|assertion|wsdl|xsl)\b/i]
+  },
+  {
+    id: "ssrf_fetch",
+    label: "SSRF / URL fetch",
+    review: "OWASP WSTG SSRF and server-side fetch review",
+    patterns: [/\b(url|uri|link|target|callback|webhook|endpoint|feed|avatar|image|proxy|fetch|redirect|return|continue|dest|destination)\b/i]
+  },
+  {
+    id: "file_path",
+    label: "Path traversal / LFI / RFI",
+    review: "OWASP WSTG local and remote file inclusion",
+    patterns: [/\b(file|path|dir|folder|template|page|view|include|download|upload|import|export|filename|document|attachment)\b/i]
+  },
+  {
+    id: "command_code_template",
+    label: "Command / code / template injection",
+    review: "OWASP WSTG command, code, and server-side template injection",
+    patterns: [/\b(cmd|command|exec|process|shell|script|code|template|expression|render|debug|eval|function)\b/i]
+  },
+  {
+    id: "http_header",
+    label: "HTTP splitting / smuggling / host header",
+    review: "OWASP WSTG HTTP response splitting, request smuggling, and host header injection",
+    patterns: [/\b(header|host|forwarded|referer|origin|next|return|continue|callback|location)\b/i]
+  },
+  {
+    id: "authz_mass_assignment",
+    label: "BOLA / BFLA / mass assignment",
+    review: "OWASP API Top 10 object, function, and property authorization",
+    patterns: [/\b(role|admin|isAdmin|enabled|disabled|status|plan|price|credit|balance|permission|scope|owner|tenant|org|organization|account|user|record|object)\b/i]
+  },
+  {
+    id: "upload_business_logic",
+    label: "File upload / business logic",
+    review: "OWASP WSTG malicious and unexpected file upload review",
+    patterns: [/\b(upload|file|attachment|avatar|image|photo|document|import|media|multipart)\b/i]
+  },
+  {
+    id: "graphql_api",
+    label: "GraphQL / API schema review",
+    review: "OWASP API and GraphQL endpoint authorization/introspection review",
+    patterns: [/\b(graphql|graphiql|query|mutation|operationName|variables|schema|api)\b/i]
+  }
+];
+
 function buildTargets(scope, latestScan, baseline) {
   const discovery = latestScan?.discovery || {};
   const frontend = scope?.targets?.frontend || {};
@@ -789,6 +852,32 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/api-docs",
     "/redoc"
   ]);
+  const graphqlEndpoints = configuredProbePaths(baseline, "graphqlEndpoints", [
+    "/graphql",
+    "/graphiql",
+    "/graphql/playground",
+    "/api/graphql",
+    "/v1/graphql"
+  ]);
+  const uploadPaths = configuredProbePaths(baseline, "uploadPaths", [
+    "/upload",
+    "/uploads",
+    "/files/upload",
+    "/api/upload",
+    "/api/uploads",
+    "/attachments",
+    "/import",
+    "/export"
+  ]);
+  const identityEndpoints = configuredProbePaths(baseline, "identityEndpoints", [
+    "/.well-known/openid-configuration",
+    "/.well-known/jwks.json",
+    "/oauth/authorize",
+    "/oauth/token",
+    "/oauth2/authorize",
+    "/oauth2/token",
+    "/auth/realms/master/.well-known/openid-configuration"
+  ]);
   const adminPaths = configuredProbePaths(baseline, "adminPaths", [
     "/admin",
     "/admin/login",
@@ -849,6 +938,9 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "backupFiles", backupFiles));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sensitiveExtensions", sensitiveExtensions));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiDocs", apiDocs));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "graphqlEndpoints", graphqlEndpoints));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "uploadPaths", uploadPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
@@ -958,6 +1050,45 @@ function apiDocsSignal(response) {
   const type = contentType(response);
   if (type.includes("application/json") && /"(?:openapi|swagger)"\s*:/.test(text)) return "openapi_json";
   if (/swagger ui|redoc|openapi|api documentation/i.test(text)) return "api_docs";
+  return "";
+}
+
+function graphqlSignal(response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  const finalUrl = response.finalUrl || response.url || "";
+  if (/graphiql|graphql playground|apollo sandbox|graphql voyager/i.test(text)) return "graphql_ide";
+  if (type.includes("json") && /"errors"\s*:\s*\[/.test(text) && /graphql|query|mutation/i.test(text)) return "graphql_json_error";
+  if (/graphql/i.test(text) && /(?:query|mutation|operationName|__schema|schema)/i.test(text)) return "graphql_endpoint";
+  if (/\/graphql(?:$|[/?#])/i.test(finalUrl)) return "graphql_reachable";
+  return "";
+}
+
+function uploadSurfaceSignal(probe, response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  const path = String(probe.path || "").toLowerCase();
+  if (/<input\b[^>]*\btype=["']?file["']?/i.test(text)) return "upload_form";
+  if (/multipart\/form-data|dropzone|filepond|uppy|upload/i.test(text)) return "upload_ui";
+  if (/\/(?:upload|uploads|files|attachments?|import|export)(?:\/|$)/i.test(path) && !type.includes("text/html")) {
+    return "file_endpoint";
+  }
+  if (/\/(?:upload|uploads|files|attachments?|import|export)(?:\/|$)/i.test(path)) return "upload_surface";
+  return "";
+}
+
+function identityMetadataSignal(probe, response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  const path = String(probe.path || "").toLowerCase();
+  if (path.includes("openid-configuration") && type.includes("json") && /"(?:issuer|authorization_endpoint|jwks_uri)"\s*:/.test(text)) {
+    return "openid_configuration";
+  }
+  if (path.includes("jwks") && type.includes("json") && /"keys"\s*:\s*\[/.test(text)) return "jwks_metadata";
+  if (/\/oauth2?\/(?:authorize|token)(?:$|[/?#])/i.test(path) && !isSoftNotFoundResponse(response)) return "oauth_endpoint";
   return "";
 }
 
@@ -1104,6 +1235,104 @@ function duplicateParameterEvidence(discovery) {
     inspectUrl("form_action", form.action_url);
   }
   return candidates.slice(0, 30);
+}
+
+function inputAttackSurfaceCandidates(discovery) {
+  const candidates = [];
+  const pushRoutePath = (route) => {
+    const path = route.path || route.url || "";
+    if (!path) return;
+    candidates.push({
+      source: "route_path",
+      method: "GET",
+      path,
+      status: route.status
+    });
+  };
+  const inspectUrl = (source, url, status = undefined, method = "GET", baseUrl = undefined) => {
+    if (!url) return;
+    try {
+      const parsed = baseUrl ? new URL(url, baseUrl) : new URL(url);
+      candidates.push({
+        source,
+        method,
+        path: parsed.pathname,
+        status
+      });
+      for (const key of unique([...parsed.searchParams.keys()])) {
+        candidates.push({
+          source: `${source}_query`,
+          method,
+          path: parsed.pathname,
+          parameter: key,
+          status
+        });
+      }
+    } catch {
+      // Discovery may contain intentionally relative form actions.
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    pushRoutePath(route);
+    inspectUrl("route", route.url, route.status, "GET");
+  }
+  for (const form of discovery?.forms || []) {
+    const method = String(form.method || "GET").toUpperCase();
+    inspectUrl("form_page", form.page_url, undefined, method);
+    inspectUrl("form_action", form.action_url, undefined, method, form.page_url);
+    for (const control of form.controls || []) {
+      const field = control.name || control.id || control.type || "";
+      if (!field) continue;
+      candidates.push({
+        source: "form_field",
+        method,
+        path: (() => {
+          try {
+            return new URL(form.page_url).pathname;
+          } catch {
+            return form.page_url || "";
+          }
+        })(),
+        action: form.action_url || "",
+        field,
+        type: control.type || ""
+      });
+    }
+  }
+  return candidates.slice(0, 400);
+}
+
+function attackSurfaceText(candidate) {
+  return [
+    candidate.path,
+    candidate.action,
+    candidate.parameter,
+    candidate.field,
+    candidate.type,
+    candidate.source,
+    candidate.method
+  ].filter(Boolean).join(" ");
+}
+
+function attackSurfaceEvidence(discovery) {
+  const candidates = inputAttackSurfaceCandidates(discovery);
+  const categories = [];
+  for (const rule of ATTACK_SURFACE_RULES) {
+    const matches = candidates.filter((candidate) => rule.patterns.some((pattern) => pattern.test(attackSurfaceText(candidate))));
+    if (!matches.length) continue;
+    categories.push({
+      id: rule.id,
+      label: rule.label,
+      review: rule.review,
+      count: matches.length,
+      samples: matches.slice(0, 10)
+    });
+  }
+  return {
+    totalCandidates: candidates.length,
+    categories,
+    coverage: ATTACK_SURFACE_RULES.map((rule) => ({ id: rule.id, label: rule.label, matched: categories.some((item) => item.id === rule.id) }))
+  };
 }
 
 function isClientReviewAsset(url) {
@@ -1784,6 +2013,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const backupExposures = [];
   const extensionExposures = [];
   const apiDocExposures = [];
+  const graphqlExposures = [];
+  const uploadSurfaces = [];
+  const identityMetadata = [];
   const adminExposures = [];
   const debugExposures = [];
   const metafileExposures = [];
@@ -1804,6 +2036,15 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "apiDocs") {
       const signal = apiDocsSignal(response);
       if (signal) apiDocExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "graphqlEndpoints") {
+      const signal = graphqlSignal(response);
+      if (signal) graphqlExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "uploadPaths") {
+      const signal = uploadSurfaceSignal(probe, response);
+      if (signal) uploadSurfaces.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "identityEndpoints") {
+      const signal = identityMetadataSignal(probe, response);
+      if (signal) identityMetadata.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "adminPaths") {
       const signal = exposedRouteSignal(scope, discovery, probe, response);
       if (signal) adminExposures.push(probeEvidence(probe, response, signal));
@@ -1863,6 +2104,33 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     apiDocExposures.length === 0,
     "OpenAPI, Swagger, ReDoc, and API docs endpoints should be intentionally published or access controlled.",
     { checked: probes.filter((probe) => probe.category === "apiDocs").length, exposed: apiDocExposures }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.graphql",
+    "GraphQL endpoints are inventoried for schema and authorization review",
+    true,
+    "OWASP API testing treats GraphQL endpoints as API attack surface that should be reviewed for introspection exposure, operation authorization, and object-level access controls.",
+    { checked: probes.filter((probe) => probe.category === "graphqlEndpoints").length, endpoints: graphqlExposures }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.upload_surfaces",
+    "Upload and import/export surfaces are inventoried for file-handling review",
+    true,
+    "OWASP WSTG file-upload testing starts by identifying upload, import, export, and attachment surfaces before controlled authenticated testing.",
+    { checked: probes.filter((probe) => probe.category === "uploadPaths").length, surfaces: uploadSurfaces }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.identity_metadata",
+    "OIDC, OAuth, and JWKS metadata endpoints are inventoried",
+    true,
+    "Identity metadata can be intentionally public, but discovered issuer, JWKS, authorization, and token endpoints should be reviewed for scope, audience, and key-rotation posture.",
+    { checked: probes.filter((probe) => probe.category === "identityEndpoints").length, endpoints: identityMetadata }
   );
   addFinding(
     findings,
@@ -1950,6 +2218,17 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "OWASP WSTG HTTP Parameter Pollution testing reviews how applications interpret repeated parameters; this passive check records observed candidates only.",
     { candidates: duplicateParams, count: duplicateParams.length }
+  );
+
+  const attackSurfaces = attackSurfaceEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.attack_surface_matrix",
+    "Input and API attack surfaces are mapped to OWASP review families",
+    true,
+    "OWASP WSTG input validation and OWASP API testing begin by identifying entry points; this passive matrix classifies discovered routes, parameters, and fields without sending exploit payloads.",
+    attackSurfaces
   );
 
   return probeResponses.map(({ probe, response }) => ({

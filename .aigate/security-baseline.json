@@ -135,6 +135,26 @@
       "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
     },
     {
+      "name": "OWASP WSTG Input Validation Testing",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/README"
+    },
+    {
+      "name": "OWASP WSTG Server-Side Request Forgery",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/19-Testing_for_Server-Side_Request_Forgery"
+    },
+    {
+      "name": "OWASP WSTG Local File Inclusion",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/07-Input_Validation_Testing/11.1-Testing_for_Local_File_Inclusion"
+    },
+    {
+      "name": "OWASP WSTG File Upload Testing",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/10-Business_Logic_Testing/09-Test_Upload_of_Malicious_Files"
+    },
+    {
+      "name": "OWASP WSTG Clickjacking",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/09-Testing_for_Clickjacking"
+    },
+    {
       "name": "GitHub Actions Secure Use Reference",
       "url": "https://docs.github.com/en/actions/reference/security/secure-use"
     },
@@ -193,7 +213,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 150,
+      "maxProbeRequests": 220,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -239,6 +259,32 @@
         "/swagger-ui/index.html",
         "/api-docs",
         "/redoc"
+      ],
+      "graphqlEndpoints": [
+        "/graphql",
+        "/graphiql",
+        "/graphql/playground",
+        "/api/graphql",
+        "/v1/graphql"
+      ],
+      "uploadPaths": [
+        "/upload",
+        "/uploads",
+        "/files/upload",
+        "/api/upload",
+        "/api/uploads",
+        "/attachments",
+        "/import",
+        "/export"
+      ],
+      "identityEndpoints": [
+        "/.well-known/openid-configuration",
+        "/.well-known/jwks.json",
+        "/oauth/authorize",
+        "/oauth/token",
+        "/oauth2/authorize",
+        "/oauth2/token",
+        "/auth/realms/master/.well-known/openid-configuration"
       ],
       "adminPaths": [
         "/admin",
