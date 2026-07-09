@@ -59,6 +59,26 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/11-Client-side_Testing/04-Testing_for_Client-side_URL_Redirect"
     },
     {
+      "name": "OWASP WSTG Testing Web Messaging",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/11-Testing_Web_Messaging"
+    },
+    {
+      "name": "OWASP WSTG Testing for Client-side Resource Manipulation",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/06-Testing_for_Client-side_Resource_Manipulation"
+    },
+    {
+      "name": "OWASP WSTG Testing Browser Storage",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/12-Testing_Browser_Storage"
+    },
+    {
+      "name": "OWASP WSTG Test Cloud Storage",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/11-Test_Cloud_Storage"
+    },
+    {
+      "name": "OWASP WSTG Host Header Injection",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/17-Testing_for_Host_Header_Injection"
+    },
+    {
       "name": "OWASP WSTG Testing for Cookies Attributes",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/02-Testing_for_Cookies_Attributes"
     },
@@ -121,6 +141,7 @@
     "maxHeaderAuditPages": 20,
     "maxContentReviewAssets": 12,
     "maxDnsAuditTargets": 12,
+    "maxHostHeaderAuditTargets": 8,
     "authFormsMustUsePost": true,
     "csrfRequiredForStateChangingForms": true,
     "passwordAutocompleteRecommended": true,

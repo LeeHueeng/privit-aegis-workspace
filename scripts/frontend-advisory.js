@@ -183,7 +183,7 @@ function requestHeaders(url, redirects = 0, options = {}, originalUrl = url) {
           });
         }
         res.on("end", async () => {
-          if ([301, 302, 303, 307, 308].includes(status) && location && redirects < 5) {
+          if (options.followRedirects !== false && [301, 302, 303, 307, 308].includes(status) && location && redirects < 5) {
             const nextUrl = new URL(location, parsed).toString();
             resolveRequest(await requestHeaders(nextUrl, redirects + 1, options, originalUrl));
             return;
@@ -1069,18 +1069,70 @@ function clientSecretSignals(response) {
   return patterns.filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
 }
 
+function clientCodeText(response) {
+  return String(response.bodyPreview || "").slice(0, 16384);
+}
+
+function clientBehaviorSignals(response) {
+  if (!isSuccessStatus(response)) return [];
+  const text = clientCodeText(response);
+  const signals = [];
+  if (/postMessage\s*\([^)]*,\s*["']\*["']/i.test(text)) signals.push("postmessage_wildcard_target");
+  if (/addEventListener\s*\(\s*["']message["']/i.test(text) && !/(?:^|[.\s])origin\b|event\.origin|e\.origin/i.test(text)) {
+    signals.push("message_listener_without_origin_check");
+  }
+  if (/(?:window\.)?location(?:\.(?:href|assign|replace))?\s*(?:=|\()\s*[^;]{0,220}(?:URLSearchParams|location\.(?:search|hash)|document\.(?:URL|location))/is.test(text)) {
+    signals.push("client_redirect_from_url");
+  }
+  if (/(?:iframe|script|img|link|audio|video)\.src\s*=\s*[^;]{0,220}(?:URLSearchParams|location\.|searchParams)/is.test(text)
+    || /createElement\(\s*["'](?:script|iframe)["']\)[\s\S]{0,300}\.src\s*=/i.test(text)) {
+    signals.push("resource_url_from_client_input");
+  }
+  if (/(?:localStorage|sessionStorage)\.setItem\(\s*["'][^"']*(?:token|secret|password|jwt|auth|session)[^"']*/i.test(text)) {
+    signals.push("sensitive_browser_storage_key");
+  }
+  if (/document\.write\s*\([^)]*(?:location|document\.URL|URLSearchParams)/i.test(text)) {
+    signals.push("document_write_from_url");
+  }
+  return unique(signals);
+}
+
+function cloudStorageReferences(response) {
+  if (!isSuccessStatus(response)) return [];
+  const text = clientCodeText(response);
+  const providers = [
+    ["aws_s3", /(?:^|\.)s3(?:[-.][a-z0-9-]+)?\.amazonaws\.com$|(?:^|\.)s3-website[-.][a-z0-9-]+\.amazonaws\.com$/i],
+    ["google_cloud_storage", /(?:^|\.)storage\.googleapis\.com$/i],
+    ["azure_blob", /(?:^|\.)blob\.core\.windows\.net$/i],
+    ["firebase_storage", /(?:^|\.)firebasestorage\.googleapis\.com$/i],
+    ["digitalocean_spaces", /(?:^|\.)digitaloceanspaces\.com$/i],
+    ["cloudflare_r2", /(?:^|\.)r2\.dev$/i]
+  ];
+  const refs = [];
+  for (const match of text.matchAll(/https?:\/\/([a-z0-9.-]+)(?::\d+)?\/[^\s"'<>)]*/gi)) {
+    const host = match[1].toLowerCase();
+    const provider = providers.find(([, pattern]) => pattern.test(host));
+    if (provider) refs.push({ host, provider: provider[0] });
+  }
+  return [...new Map(refs.map((ref) => [`${ref.provider}:${ref.host}`, ref])).values()].slice(0, 20);
+}
+
 async function evaluateClientContentLeakage(findings, scope, latestScan, baseline) {
   const targets = contentReviewTargets(scope, latestScan, baseline);
   const reviews = [];
   for (const url of targets) {
-    const response = await requestHeaders(url, 0, { method: "GET", maxBodyBytes: 8192 });
+    const response = await requestHeaders(url, 0, { method: "GET", maxBodyBytes: 16384 });
     const signals = clientSecretSignals(response);
+    const behaviorSignals = clientBehaviorSignals(response);
+    const cloudStorage = cloudStorageReferences(response);
     reviews.push({
       url,
       finalUrl: response.finalUrl || response.url,
       status: response.status || 0,
       contentType: headerValue(response, "content-type"),
       signals,
+      behaviorSignals,
+      cloudStorage,
       ok: response.ok
     });
   }
@@ -1093,6 +1145,66 @@ async function evaluateClientContentLeakage(findings, scope, latestScan, baselin
     exposures.length === 0,
     "OWASP WSTG information leakage review includes frontend JavaScript and public content. This check stores signal names only, not secret values.",
     { checked: reviews.length, exposed: exposures }
+  );
+  const webMessaging = reviews
+    .filter((review) => review.behaviorSignals.includes("postmessage_wildcard_target") || review.behaviorSignals.includes("message_listener_without_origin_check"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: review.behaviorSignals.filter((signal) => signal.includes("message")) }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.web_messaging",
+    "Client-side bundles avoid risky Web Messaging patterns",
+    webMessaging.length === 0,
+    "OWASP WSTG Web Messaging testing reviews postMessage target origins and message event origin validation.",
+    { checked: reviews.length, exposed: webMessaging }
+  );
+  const clientRedirects = reviews
+    .filter((review) => review.behaviorSignals.includes("client_redirect_from_url") || review.behaviorSignals.includes("document_write_from_url"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: review.behaviorSignals.filter((signal) => ["client_redirect_from_url", "document_write_from_url"].includes(signal)) }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.client_redirects",
+    "Client-side bundles avoid URL-controlled redirects and document writes",
+    clientRedirects.length === 0,
+    "OWASP WSTG client-side URL redirect testing reviews code paths where URL-controlled values influence navigation.",
+    { checked: reviews.length, exposed: clientRedirects }
+  );
+  const resourceManipulation = reviews
+    .filter((review) => review.behaviorSignals.includes("resource_url_from_client_input"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: ["resource_url_from_client_input"] }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.resource_manipulation",
+    "Client-side bundles avoid URL-controlled resource loading",
+    resourceManipulation.length === 0,
+    "OWASP WSTG client-side resource manipulation testing reviews whether URL-controlled input can choose scripts, iframes, or other resources.",
+    { checked: reviews.length, exposed: resourceManipulation }
+  );
+  const browserStorage = reviews
+    .filter((review) => review.behaviorSignals.includes("sensitive_browser_storage_key"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: ["sensitive_browser_storage_key"] }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.browser_storage",
+    "Client-side bundles avoid storing sensitive keys in browser storage",
+    browserStorage.length === 0,
+    "OWASP WSTG browser storage testing looks for authentication tokens, session identifiers, or sensitive business data in localStorage/sessionStorage.",
+    { checked: reviews.length, exposed: browserStorage }
+  );
+  const cloudStorage = reviews
+    .filter((review) => review.cloudStorage.length)
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, references: review.cloudStorage }));
+  addFinding(
+    findings,
+    "info",
+    "frontend.content.cloud_storage_refs",
+    "Cloud storage references are inventoried for access-control review",
+    true,
+    "OWASP WSTG cloud storage testing starts by identifying storage endpoints whose access controls should be manually verified.",
+    { checked: reviews.length, references: cloudStorage }
   );
   return reviews;
 }
@@ -1334,6 +1446,71 @@ async function evaluateDns(findings, scope, baseline) {
   );
 }
 
+function hostHeaderIssue(response, testHost) {
+  if (!response.ok) return null;
+  const lowerHost = testHost.toLowerCase();
+  const reflectedHeaders = ["location", "content-location", "refresh"]
+    .map((name) => ({ header: name, value: headerValue(response, name) }))
+    .filter((item) => item.value.toLowerCase().includes(lowerHost));
+  const bodyReflected = responseText(response).toLowerCase().includes(lowerHost);
+  if (!reflectedHeaders.length && !bodyReflected) return null;
+  return {
+    status: response.status || 0,
+    reflectedHeaders,
+    bodyReflected,
+    signal: "untrusted_host_reflected"
+  };
+}
+
+async function evaluateHostHeader(findings, scope, baseline) {
+  const testHost = "aegis.invalid";
+  const maxTargets = configuredNumber(baseline, "maxHostHeaderAuditTargets", 8);
+  const targets = targetBaseUrls(scope)
+    .filter((target) => isAllowedUrl(target.baseUrl, scope, target.targetName))
+    .slice(0, Math.max(1, maxTargets));
+  const variants = [
+    { name: "host", headers: { host: testHost } },
+    { name: "x-forwarded-host", headers: { "x-forwarded-host": testHost } },
+    { name: "x-original-host", headers: { "x-original-host": testHost } },
+    { name: "forwarded", headers: { forwarded: `host=${testHost};proto=https` } }
+  ];
+  const checks = [];
+  const issues = [];
+  for (const target of targets) {
+    for (const variant of variants) {
+      const response = await requestHeaders(target.baseUrl, 0, {
+        method: "GET",
+        followRedirects: false,
+        maxBodyBytes: 4096,
+        headers: variant.headers
+      });
+      const issue = hostHeaderIssue(response, testHost);
+      const evidence = {
+        target: target.targetName,
+        url: target.baseUrl,
+        variant: variant.name,
+        status: response.status || 0,
+        ok: response.ok,
+        error: response.error || "",
+        location: headerValue(response, "location"),
+        contentLocation: headerValue(response, "content-location"),
+        refresh: headerValue(response, "refresh")
+      };
+      checks.push(evidence);
+      if (issue) issues.push({ ...evidence, ...issue });
+    }
+  }
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.host_injection",
+    "Responses do not reflect untrusted Host-style headers",
+    issues.length === 0,
+    "OWASP WSTG host header injection testing checks whether attacker-supplied Host-style headers influence redirects, links, or security-sensitive response content.",
+    { checked: checks.length, testHost, issues }
+  );
+}
+
 async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const discovery = latestScan?.discovery || {};
   const probes = buildPassiveProbes(scope, latestScan, baseline);
@@ -1540,6 +1717,7 @@ async function main() {
   const findings = [];
   evaluateHeaders(findings, responses, scope, discovery);
   await evaluateCors(findings, scope);
+  await evaluateHostHeader(findings, scope, baseline);
   evaluateCookies(findings, responses);
   evaluateForms(findings, discovery);
   evaluateTransport(findings, scope, discovery);

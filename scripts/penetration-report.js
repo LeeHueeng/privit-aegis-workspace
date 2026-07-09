@@ -264,6 +264,11 @@ const criteria = {
     criteria: "Responses do not reflect an arbitrary untrusted Origin and do not combine wildcard or reflected origins with credentials.",
     remediation: "Replace dynamic origin reflection with an explicit allowlist and avoid Access-Control-Allow-Credentials unless strictly needed."
   },
+  "frontend.headers.host_injection": {
+    category: "Input validation",
+    criteria: "Responses do not reflect attacker-controlled Host, X-Forwarded-Host, X-Original-Host, or Forwarded headers in redirects or response content.",
+    remediation: "Use a strict canonical host allowlist and build absolute URLs from trusted configuration rather than request headers."
+  },
   "frontend.cookies.flags": {
     category: "Session",
     criteria: "Session-like cookies use HttpOnly, SameSite, and Secure when applicable.",
@@ -303,6 +308,31 @@ const criteria = {
     category: "Information leakage",
     criteria: "Discovered client-side JavaScript and JSON assets do not expose obvious private keys, provider keys, JWT literals, or secret assignments.",
     remediation: "Remove client-side secrets, rotate exposed credentials, and move privileged tokens to server-side storage."
+  },
+  "frontend.content.web_messaging": {
+    category: "Client-side testing",
+    criteria: "Client bundles do not use wildcard postMessage targets or message listeners without visible origin validation signals.",
+    remediation: "Use explicit postMessage target origins and validate event.origin before trusting message data."
+  },
+  "frontend.content.client_redirects": {
+    category: "Client-side testing",
+    criteria: "Client bundles do not appear to drive navigation or document writes directly from URL-controlled values.",
+    remediation: "Validate redirect targets against an allowlist and avoid writing URL-controlled values into document output."
+  },
+  "frontend.content.resource_manipulation": {
+    category: "Client-side testing",
+    criteria: "Client bundles do not appear to load scripts, iframes, or other resources directly from URL-controlled values.",
+    remediation: "Resolve client-selected resources through a server-approved allowlist or fixed route identifiers."
+  },
+  "frontend.content.browser_storage": {
+    category: "Client-side testing",
+    criteria: "Client bundles do not appear to store token/session/password-like keys in localStorage or sessionStorage.",
+    remediation: "Keep sensitive session material in HttpOnly cookies or server-side storage and clear non-sensitive browser storage on logout."
+  },
+  "frontend.content.cloud_storage_refs": {
+    category: "Cloud storage",
+    criteria: "Cloud storage URLs found in client assets are inventoried for manual access-control review.",
+    remediation: "Review referenced buckets/containers for least-privilege access, public listing restrictions, and sensitive object exposure."
   },
   "frontend.probes.sensitive_files": {
     category: "Exposure",

@@ -65,8 +65,8 @@ autocomplete hints. It also reviews public transport posture for cleartext HTTP,
 basic TLS certificate validity, and precise web server version banners. It also
 performs header-misconfiguration checks for deprecated HPKP, obsolete
 `X-Frame-Options: ALLOW-FROM`, permissive cross-domain policy headers, and HSTS
-placement, plus CNAME takeover fingerprints and sensitive cookie scope. It does
-not submit forms or send attack payloads.
+placement, plus CNAME takeover fingerprints, Host-style header reflection, and
+sensitive cookie scope. It does not submit forms or send attack payloads.
 
 The target advisory also runs low-impact passive penetration probes based on
 OWASP WSTG and OWASP API Security Top 10 themes. These probes use GET/OPTIONS
@@ -78,10 +78,12 @@ webserver metafiles
 (`robots.txt`, `sitemap.xml`, `security.txt`, `crossdomain.xml`,
 `clientaccesspolicy.xml`), generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, CORS trust decisions, CSP quality,
-client-side bundle leakage signals, framework fingerprint markers, redirect-like
-URL parameters for open-redirect review, and ID-bearing routes that should
-receive BOLA/BFLA review. Response bodies are not stored in reports; only URL,
-status, headers, redirect, DNS, and detection signals are recorded.
+client-side bundle leakage signals, Web Messaging patterns, URL-controlled
+redirect/resource-loading patterns, sensitive browser-storage keys, cloud storage
+references, framework fingerprint markers, redirect-like URL parameters for
+open-redirect review, and ID-bearing routes that should receive BOLA/BFLA
+review. Response bodies are not stored in reports; only URL, status, headers,
+redirect, DNS, and detection signals are recorded.
 
 Use `npm run completion:audit` when iterating on the workspace. It reports code
 TODO items separately from external GitHub blockers such as repository secrets

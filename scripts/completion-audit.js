@@ -158,7 +158,7 @@ function main() {
     "security",
     "passive_probes",
     Number(targetAdvisory?.summary?.probes || 0) > 0,
-    "Target advisory includes passive probes plus DNS/CNAME takeover fingerprints, CORS, CSP quality, cookie scope, framework fingerprinting, redirect-parameter inventory, client bundle leakage, backup/extension exposure, directory listings, source maps, API docs, admin/debug surfaces, metafiles, error disclosure, HTTP methods, header misconfiguration, and TLS posture.",
+    "Target advisory includes passive probes plus DNS/CNAME takeover fingerprints, Host header reflection, CORS, CSP quality, cookie scope, framework fingerprinting, redirect-parameter inventory, client bundle leakage, Web Messaging, resource manipulation, browser storage, cloud storage references, backup/extension exposure, directory listings, source maps, API docs, admin/debug surfaces, metafiles, error disclosure, HTTP methods, header misconfiguration, and TLS posture.",
     { probes: targetAdvisory?.summary?.probes, contentReviews: targetAdvisory?.summary?.contentReviews }
   );
   const hardeningFailedIds = failedFindingIds(hardening);
