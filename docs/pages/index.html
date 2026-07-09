@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Privit Aegis Workspace: authorized security testing console, passive web checks, localized reports, AI-assisted remediation, and AIGate readiness.">
+    <title>Privit Aegis Workspace</title>
+    <link rel="stylesheet" href="./styles.css">
+    <script src="./site.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#overview" aria-label="Privit Aegis Workspace">
+        <span class="brand-mark">A</span>
+        <span>Privit Aegis</span>
+      </a>
+      <nav class="topnav" aria-label="Primary">
+        <a href="#workflow" data-i18n="nav.workflow">Workflow</a>
+        <a href="#checks" data-i18n="nav.checks">Checks</a>
+        <a href="#reports" data-i18n="nav.reports">Reports</a>
+        <a href="#ai" data-i18n="nav.ai">AI</a>
+        <a href="#start" data-i18n="nav.start">Start</a>
+      </nav>
+      <div class="language-switcher" aria-label="Language">
+        <button type="button" data-lang="ko">KO</button>
+        <button type="button" data-lang="en" class="is-active">EN</button>
+        <button type="button" data-lang="ja">JA</button>
+        <button type="button" data-lang="zh">ZH</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" id="overview">
+        <div class="intro-copy">
+          <p class="eyebrow" data-i18n="hero.eyebrow">Authorized security testing workspace</p>
+          <h1 data-i18n="hero.title">Privit Aegis Workspace</h1>
+          <p class="lead" data-i18n="hero.lead">
+            A local web console and CLI workflow for passive discovery, security posture review, localized reports, AI-assisted remediation prompts, and AIGate push readiness.
+          </p>
+          <div class="hero-actions">
+            <a class="button primary" href="https://github.com/LeeHueeng/privit-aegis-workspace" data-i18n="hero.github">Open GitHub</a>
+            <a class="button secondary" href="#start" data-i18n="hero.quickstart">Quick start</a>
+          </div>
+        </div>
+        <aside class="status-panel" aria-label="Project status">
+          <div>
+            <span class="metric-value">4</span>
+            <span class="metric-label" data-i18n="hero.languages">Languages</span>
+          </div>
+          <div>
+            <span class="metric-value">50+</span>
+            <span class="metric-label" data-i18n="hero.checks">Passive checks</span>
+          </div>
+          <div>
+            <span class="metric-value">0</span>
+            <span class="metric-label" data-i18n="hero.destructive">Destructive defaults</span>
+          </div>
+        </aside>
+      </section>
+
+      <section class="quick-links" aria-label="Repository links">
+        <a href="./" data-i18n="links.site">Pages site</a>
+        <a href="https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/README.md" data-i18n="links.readme">README</a>
+        <a href="https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/docs/security-scanning.md" data-i18n="links.scanning">Security scanning</a>
+        <a href="https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/docs/ROADMAP.md" data-i18n="links.roadmap">Roadmap</a>
+      </section>
+
+      <section class="content-grid" id="workflow">
+        <div class="section-copy">
+          <p class="eyebrow" data-i18n="workflow.eyebrow">Workflow</p>
+          <h2 data-i18n="workflow.title">From approved scope to publishable report</h2>
+          <p data-i18n="workflow.body">
+            The workspace verifies scope, maps the target passively, reviews security posture, localizes evidence, and keeps AIGate for git and CI quality checks.
+          </p>
+        </div>
+        <figure class="workflow-visual">
+          <img src="./assets/aegis-workflow.svg" alt="Aegis workflow diagram">
+        </figure>
+      </section>
+
+      <section class="band" id="checks">
+        <div class="section-heading">
+          <p class="eyebrow" data-i18n="checks.eyebrow">Detection coverage</p>
+          <h2 data-i18n="checks.title">Passive checks that explain themselves</h2>
+        </div>
+        <div class="card-grid">
+          <article class="feature-card">
+            <span class="icon shield">01</span>
+            <h3 data-i18n="checks.scope.title">Scope guard</h3>
+            <p data-i18n="checks.scope.body">Validates authorization, loopback safety, discovery depth, page limits, and denied paths.</p>
+          </article>
+          <article class="feature-card">
+            <span class="icon route">02</span>
+            <h3 data-i18n="checks.discovery.title">Site discovery</h3>
+            <p data-i18n="checks.discovery.body">Inventories routes, forms, auth-like pages, sitemap entries, redirects, and blocked URLs without submitting forms.</p>
+          </article>
+          <article class="feature-card">
+            <span class="icon header">03</span>
+            <h3 data-i18n="checks.headers.title">Browser posture</h3>
+            <p data-i18n="checks.headers.body">Reviews CSP, HSTS, Referrer-Policy, nosniff, frame controls, isolation headers, CORS, and Permissions-Policy.</p>
+          </article>
+          <article class="feature-card">
+            <span class="icon api">04</span>
+            <h3 data-i18n="checks.api.title">API and identity</h3>
+            <p data-i18n="checks.api.body">Looks for OpenAPI, GraphQL, OIDC, JWKS, versioned APIs, auth/session endpoints, and public account data signals.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="content-grid reverse" id="reports">
+        <div class="report-preview" aria-label="Report preview">
+          <div class="report-line">
+            <span data-i18n="reports.preview.status">Review recommended</span>
+            <strong>0 critical</strong>
+          </div>
+          <div class="report-row passed"></div>
+          <div class="report-row warning"></div>
+          <div class="report-row neutral"></div>
+          <div class="report-meta">
+            <span data-i18n="reports.preview.criteria">Pass criteria</span>
+            <span data-i18n="reports.preview.evidence">Redacted evidence</span>
+          </div>
+        </div>
+        <div class="section-copy">
+          <p class="eyebrow" data-i18n="reports.eyebrow">Reports</p>
+          <h2 data-i18n="reports.title">Readable reports for developers and reviewers</h2>
+          <p data-i18n="reports.body">
+            Reports include the target, scan mode, discovery map, findings, pass criteria, recommended fixes, and redaction policy in the selected language.
+          </p>
+        </div>
+      </section>
+
+      <section class="band split-list" id="ai">
+        <div>
+          <p class="eyebrow" data-i18n="ai.eyebrow">AI</p>
+          <h2 data-i18n="ai.title">AI assists, deterministic checks decide</h2>
+          <p data-i18n="ai.body">
+            Codex, Gemini, Claude, local AI, and API providers can be configured for readiness checks and remediation prompts. Scan findings stay based on response metadata and passive evidence.
+          </p>
+        </div>
+        <ul>
+          <li data-i18n="ai.item1">Provider and model command references</li>
+          <li data-i18n="ai.item2">Prompt-injection guard and secret redaction settings</li>
+          <li data-i18n="ai.item3">Optional AIGate AI reports for git workflows</li>
+        </ul>
+      </section>
+
+      <section class="start-panel" id="start">
+        <p class="eyebrow" data-i18n="start.eyebrow">Run locally</p>
+        <h2 data-i18n="start.title">Start the web console</h2>
+        <pre><code>npm run setup
+npm run web</code></pre>
+        <p data-i18n="start.body">Open http://127.0.0.1:4317, confirm the authorized target, run Start, and open the localized report.</p>
+      </section>
+    </main>
+
+    <footer>
+      <span data-i18n="footer.scope">Authorized security testing only.</span>
+      <a href="https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/SECURITY.md" data-i18n="footer.security">Security policy</a>
+    </footer>
+  </body>
+</html>

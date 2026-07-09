@@ -52,9 +52,9 @@ function hasScripts(packageJson, names) {
   return names.every((name) => Boolean(scripts[name]));
 }
 
-function failedFindingIds(report) {
+function failedFindingIds(report, options = {}) {
   return (report?.findings || [])
-    .filter((finding) => !finding.passed)
+    .filter((finding) => !finding.passed && (!options.level || finding.level === options.level))
     .map((finding) => finding.id);
 }
 
@@ -102,6 +102,15 @@ function main() {
     "web_locales",
     ["value=\"ko\"", "value=\"en\"", "value=\"ja\"", "value=\"zh\""].every((needle) => webSource.includes(needle)),
     "Web console exposes Korean, English, Japanese, and Chinese selectors."
+  );
+  const docsSiteCheck = runJson("node", ["./scripts/check-pages-site.js"]);
+  add(
+    checks,
+    "docs",
+    "pages_site",
+    docsSiteCheck.ok && docsSiteCheck.value?.status === "PASS",
+    "Repository includes multilingual README files and a validated GitHub Pages documentation site.",
+    docsSiteCheck.ok ? docsSiteCheck.value : { error: docsSiteCheck.error }
   );
 
   const providerConfig = aiSettings.aiModelSettings?.providers || {};
@@ -161,8 +170,9 @@ function main() {
     "Target advisory includes passive probes plus DNS/CNAME takeover fingerprints, Host header reflection, reverse tabnabbing, SRI, mixed content, CORS, CSP quality, CSP Report-Only inventory, COOP/COEP/CORP isolation header posture, Permissions-Policy quality and deprecated Feature-Policy checks, cookie scope, cookie prefix requirements, SameSite=None/Partitioned Secure checks, dynamic route cache-deception candidate inventory, logout cache/Clear-Site-Data cleanup signals, OAuth/SSO callback cache/referrer posture, OAuth authorization request hardening inventory, OpenAPI security scheme and operation security posture, OIDC/OAuth discovery metadata quality, JWKS public key quality, WebAuthn/passkey route inventory, WebAuthn related-origin metadata checks, MFA/2FA/OTP/security-setting route inventory and cache posture, registration/signup route and rate-limit header inventory, framework fingerprinting, redirect/HPP parameter inventory, external redirect destination inventory, SSRF-style URL/webhook/proxy input inventory, mass-assignment sensitive field inventory, auth form GET checks, CSRF token candidate inventory, external/cleartext form action checks, sensitive URL query/fragment parameter checks, auth-flow token URL inventory, account-recovery route inventory, visible auth rate-limit header inventory, auth API cache/nosniff checks, robots/sitemap sensitive path metadata checks, security.txt canonical/contact/expires quality inventory, mobile App/Universal Link association inventory, file upload form inventory, unauthenticated user/session API checks, client bundle leakage, DOM XSS, Web Messaging, resource manipulation, client template injection, prototype pollution, browser storage, WebSocket, JWT, XSSI JSON, cloud storage references, backup/extension exposure, directory listings, source maps, API docs, API version/legacy route inventory, GraphQL endpoints and schema/IDE exposure signals, upload/import/export surfaces, identity metadata, attack-surface matrix, admin/debug surfaces, metafiles, error disclosure, HTTP methods, header misconfiguration, and TLS posture.",
     { probes: targetAdvisory?.summary?.probes, contentReviews: targetAdvisory?.summary?.contentReviews }
   );
-  const hardeningFailedIds = failedFindingIds(hardening);
-  const hardeningBlockedByScope = hardening?.status === "FAIL" && hardeningFailedIds.every((id) => id === "scope.local.loopback");
+  const hardeningErrorIds = failedFindingIds(hardening, { level: "error" });
+  const hardeningWarningIds = failedFindingIds(hardening, { level: "warning" });
+  const hardeningBlockedByScope = hardening?.status === "FAIL" && hardeningErrorIds.length > 0 && hardeningErrorIds.every((id) => id === "scope.local.loopback");
   add(
     checks,
     "security",
@@ -171,7 +181,7 @@ function main() {
     hardeningBlockedByScope
       ? "Hardening is blocked by the current local scope pointing at external hosts; confirm authorization or switch back to loopback."
       : "OWASP/GitHub hardening report is generated and has no blocking errors.",
-    { status: hardening?.status, summary: hardening?.summary, failed: hardeningFailedIds },
+    { status: hardening?.status, summary: hardening?.summary, failedErrors: hardeningErrorIds, failedWarnings: hardeningWarningIds },
     hardeningBlockedByScope
   );
   add(

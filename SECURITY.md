@@ -17,6 +17,7 @@ third-party systems unless written authorization is recorded in `aegis.scope.jso
 Run the local gate before upload:
 
 ```sh
+npm run site:check
 npm run ci:aegis
 npm run gate:ready
 ```

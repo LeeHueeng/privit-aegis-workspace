@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a passive check, documentation improvement, or workflow upgrade.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user, reviewer, or security workflow problem would this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Describe the smallest useful version.
+    validations:
+      required: true
+  - type: dropdown
+    id: safety
+    attributes:
+      label: Safety profile
+      options:
+        - Passive only
+        - Requires explicit opt-in scope flag
+        - Documentation only
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Report impact
+      description: What evidence, pass criteria, or remediation text should appear?

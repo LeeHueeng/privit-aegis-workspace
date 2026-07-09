@@ -36,6 +36,8 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Audit workspace dependencies
         run: npm run security:audit
+      - name: Docs and Pages check
+        run: npm run site:check
       - name: Security hardening baseline
         run: npm run security:hardening -- --format json
       - name: Install Aegis and AIGate

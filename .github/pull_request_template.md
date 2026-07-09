@@ -6,6 +6,7 @@
 
 ## Validation
 
+- [ ] `npm run site:check`
 - [ ] `npm run ci:aegis`
 - [ ] `npm run gate:ready`
 - [ ] `npm run ai:doctor`

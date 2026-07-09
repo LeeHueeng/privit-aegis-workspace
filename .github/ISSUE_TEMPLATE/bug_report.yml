@@ -1,0 +1,60 @@
+name: Bug report
+description: Report a reproducible problem in the workspace, web console, or docs.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this. Please remove secrets, tokens, cookies, and private target data before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Which commit, tag, or branch did you test?
+      placeholder: main@abcdef0
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Web console
+        - CLI workflow
+        - Report localization
+        - Security detection
+        - GitHub Actions
+        - Documentation
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Keep target URLs and evidence sanitized.
+      placeholder: |
+        1. Run ...
+        2. Open ...
+        3. Observe ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation commands
+      description: Share command output only after redaction.
+      placeholder: |
+        npm run site:check
+        npm run ci:aegis

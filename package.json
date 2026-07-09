@@ -10,6 +10,7 @@
     "web": "node ./scripts/aegis-web.js",
     "setup": "node ./scripts/setup-aegis.js",
     "start:aegis": "node ./scripts/start-aegis.js",
+    "site:check": "node ./scripts/check-pages-site.js",
     "catalog:generate": "aegis catalog generate",
     "docs:generate": "aegis docs generate --lang all",
     "security:init": "aegis init",
