@@ -57,6 +57,9 @@ AIGate は git push と CI 品質ゲート用です。Web コンソールは Aeg
 
 - Pages 有効化後の公開サイト: <https://leehueeng.github.io/privit-aegis-workspace/>
 - セキュリティ検査ガイド: [`docs/security-scanning.md`](./docs/security-scanning.md)
+- ショーケース: [`docs/SHOWCASE.md`](./docs/SHOWCASE.md)
+- 例: [`docs/EXAMPLES.md`](./docs/EXAMPLES.md)
+- 公開ローンチチェックリスト: [`docs/LAUNCH_CHECKLIST.md`](./docs/LAUNCH_CHECKLIST.md)
 - GitHub Pages 設定: [`docs/github-pages.md`](./docs/github-pages.md)
 - 多言語ドキュメント: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)
 - ロードマップ: [`docs/ROADMAP.md`](./docs/ROADMAP.md)

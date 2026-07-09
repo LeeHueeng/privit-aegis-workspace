@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1180" height="620" viewBox="0 0 1180 620" role="img" aria-labelledby="title desc">
+  <title id="title">Privit Aegis preview</title>
+  <desc id="desc">A preview of the local Aegis web console, passive checks, multilingual reports, and AIGate readiness.</desc>
+  <rect width="1180" height="620" rx="28" fill="#f8faf9"/>
+  <rect x="34" y="34" width="1112" height="552" rx="22" fill="#ffffff" stroke="#d9e2e8" stroke-width="2"/>
+  <g font-family="Inter, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" letter-spacing="0">
+    <rect x="70" y="70" width="1040" height="62" rx="14" fill="#172026"/>
+    <circle cx="102" cy="101" r="8" fill="#ef4444"/>
+    <circle cx="128" cy="101" r="8" fill="#f59e0b"/>
+    <circle cx="154" cy="101" r="8" fill="#22c55e"/>
+    <text x="188" y="108" fill="#ffffff" font-size="20" font-weight="800">Privit Aegis Workspace</text>
+    <text x="914" y="107" fill="#d7fff1" font-size="15" font-weight="700">KO · EN · JA · ZH</text>
+
+    <g transform="translate(70 168)">
+      <rect width="314" height="330" rx="16" fill="#f8faf9" stroke="#d9e2e8"/>
+      <text x="24" y="42" fill="#172026" font-size="22" font-weight="900">Authorized flow</text>
+      <text x="24" y="74" fill="#5f6b76" font-size="14">Scope guarded and passive by default</text>
+      <rect x="24" y="112" width="266" height="38" rx="8" fill="#0f766e"/>
+      <text x="44" y="137" fill="#ffffff" font-size="14" font-weight="800">1. Verify scope</text>
+      <rect x="24" y="166" width="266" height="38" rx="8" fill="#2563eb"/>
+      <text x="44" y="191" fill="#ffffff" font-size="14" font-weight="800">2. Discover routes</text>
+      <rect x="24" y="220" width="266" height="38" rx="8" fill="#b45309"/>
+      <text x="44" y="245" fill="#ffffff" font-size="14" font-weight="800">3. Review posture</text>
+      <rect x="24" y="274" width="266" height="38" rx="8" fill="#172026"/>
+      <text x="44" y="299" fill="#ffffff" font-size="14" font-weight="800">4. Publish report</text>
+    </g>
+
+    <g transform="translate(418 168)">
+      <rect width="314" height="330" rx="16" fill="#ffffff" stroke="#d9e2e8"/>
+      <text x="24" y="42" fill="#172026" font-size="22" font-weight="900">Report snapshot</text>
+      <text x="24" y="74" fill="#5f6b76" font-size="14">Checks, pass criteria, redacted evidence</text>
+      <rect x="24" y="110" width="80" height="72" rx="12" fill="#dcfce7"/>
+      <text x="48" y="148" fill="#15803d" font-size="26" font-weight="900">0</text>
+      <text x="42" y="170" fill="#15803d" font-size="12" font-weight="800">critical</text>
+      <rect x="118" y="110" width="80" height="72" rx="12" fill="#ffedd5"/>
+      <text x="142" y="148" fill="#b45309" font-size="26" font-weight="900">1</text>
+      <text x="142" y="170" fill="#b45309" font-size="12" font-weight="800">medium</text>
+      <rect x="212" y="110" width="78" height="72" rx="12" fill="#dbeafe"/>
+      <text x="236" y="148" fill="#2563eb" font-size="26" font-weight="900">8</text>
+      <text x="236" y="170" fill="#2563eb" font-size="12" font-weight="800">routes</text>
+      <rect x="24" y="214" width="266" height="18" rx="9" fill="#e2e8f0"/>
+      <rect x="24" y="246" width="220" height="18" rx="9" fill="#e2e8f0"/>
+      <rect x="24" y="278" width="250" height="18" rx="9" fill="#e2e8f0"/>
+    </g>
+
+    <g transform="translate(766 168)">
+      <rect width="344" height="330" rx="16" fill="#101820"/>
+      <text x="24" y="42" fill="#ffffff" font-size="22" font-weight="900">CLI and CI ready</text>
+      <text x="24" y="74" fill="#d7fff1" font-size="14">AIGate stays attached to git workflows</text>
+      <text x="24" y="124" fill="#d7fff1" font-size="15">$ npm run site:check</text>
+      <text x="24" y="158" fill="#d7fff1" font-size="15">$ npm run security:report</text>
+      <text x="24" y="192" fill="#d7fff1" font-size="15">$ npm run gate:ready</text>
+      <rect x="24" y="236" width="296" height="52" rx="12" fill="#15803d"/>
+      <text x="48" y="268" fill="#ffffff" font-size="17" font-weight="900">Score 89/100 · no blockers</text>
+    </g>
+  </g>
+</svg>

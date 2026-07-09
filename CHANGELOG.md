@@ -10,3 +10,5 @@
 - Made Pages deployment skip cleanly when GitHub Pages is unavailable.
 - Added repository contributor, conduct, roadmap, language index, and docs-site
   validation files.
+- Added showcase, examples, launch checklist, README preview art, release note
+  categories, and discussion idea template.

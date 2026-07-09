@@ -1,0 +1,27 @@
+changelog:
+  exclude:
+    labels:
+      - ignore-for-release
+    authors:
+      - dependabot
+  categories:
+    - title: Security checks
+      labels:
+        - security
+        - detection
+        - hardening
+    - title: Web console
+      labels:
+        - web
+        - ui
+    - title: Documentation
+      labels:
+        - documentation
+        - i18n
+    - title: AI and automation
+      labels:
+        - ai
+        - automation
+    - title: Other changes
+      labels:
+        - "*"

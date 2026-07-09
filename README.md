@@ -24,6 +24,10 @@ The project is built for approved assets only. It is passive by default,
 scope-guarded, and designed to show exactly what was checked, what passed, what
 failed, and what evidence was retained.
 
+<p align="center">
+  <img alt="Privit Aegis console and report preview" src="./docs/assets/aegis-readme-preview.svg">
+</p>
+
 ## Why Star It
 
 - Web console and CLI workflows live together, so local testing and CI use the
@@ -45,6 +49,9 @@ failed, and what evidence was retained.
 - AI integration: [`docs/ai-integration.md`](./docs/ai-integration.md)
 - GitHub workflow security: [`docs/github-security-hardening.md`](./docs/github-security-hardening.md)
 - GitHub Pages setup: [`docs/github-pages.md`](./docs/github-pages.md)
+- Showcase: [`docs/SHOWCASE.md`](./docs/SHOWCASE.md)
+- Examples: [`docs/EXAMPLES.md`](./docs/EXAMPLES.md)
+- Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](./docs/LAUNCH_CHECKLIST.md)
 - Language index: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)
 
 ## Quick Start
@@ -56,6 +63,19 @@ npm run web
 
 Open `http://127.0.0.1:4317` to review scope settings, run checks, and view the
 latest localized HTML report.
+
+## Demo in 60 Seconds
+
+```sh
+npm run site:check
+npm run security:map
+npm run security:target
+npm run security:report
+npm run security:penetration
+```
+
+The web console runs the same flow from a browser and streams progress while the
+CLI keeps the commands copyable for CI, documentation, and reviews.
 
 ## Security Checks
 
