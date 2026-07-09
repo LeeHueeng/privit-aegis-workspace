@@ -58,6 +58,15 @@ OWASP-style response header coverage, `Cache-Control: no-store` on
 authentication-like pages, defensive cookie attributes, and password-manager
 autocomplete hints. It does not submit forms or send attack payloads.
 
+The target advisory also runs low-impact passive penetration probes based on
+OWASP WSTG and OWASP API Security Top 10 themes. These probes use GET/OPTIONS
+only and check for anonymously reachable sensitive files, VCS metadata, backup
+or database dumps, phpinfo pages, OpenAPI/Swagger/ReDoc docs, admin/debug
+surfaces, metrics/actuator/server-status endpoints, risky HTTP methods, and
+ID-bearing routes that should receive BOLA/BFLA review. Response bodies are not
+stored in reports; only URL, status, headers, redirect, and detection signals
+are recorded.
+
 Use `npm run completion:audit` when iterating on the workspace. It reports code
 TODO items separately from external GitHub blockers such as repository secrets
 or private-repository branch protection limits.

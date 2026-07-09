@@ -41,11 +41,15 @@ function globMatches(pathname, pattern) {
   return regex.test(pathname);
 }
 
-function isAllowedUrl(url, scope) {
-  const frontend = scope?.targets?.frontend || {};
-  const allowedHosts = new Set(frontend.allowed_hosts || []);
-  const allowedPaths = frontend.allowed_paths?.length ? frontend.allowed_paths : ["/*"];
-  const deniedPaths = frontend.denied_paths || [];
+function targetScope(scope, targetName = "frontend") {
+  return scope?.targets?.[targetName] || {};
+}
+
+function isAllowedUrl(url, scope, targetName = "frontend") {
+  const target = targetScope(scope, targetName);
+  const allowedHosts = new Set(target.allowed_hosts || []);
+  const allowedPaths = target.allowed_paths?.length ? target.allowed_paths : ["/*"];
+  const deniedPaths = target.denied_paths || [];
   try {
     const parsed = new URL(url);
     const hostAllowed = allowedHosts.size === 0 || allowedHosts.has(parsed.hostname);
@@ -125,21 +129,23 @@ function normalizeHeaders(rawHeaders) {
   return headers;
 }
 
-function requestHeaders(url, redirects = 0) {
+function requestHeaders(url, redirects = 0, options = {}, originalUrl = url) {
   return new Promise((resolveRequest) => {
     let parsed;
     try {
       parsed = new URL(url);
     } catch (error) {
-      resolveRequest({ ok: false, url, finalUrl: url, error: error.message, headers: {}, setCookies: [] });
+      resolveRequest({ ok: false, requestedUrl: originalUrl, url, finalUrl: url, error: error.message, headers: {}, setCookies: [] });
       return;
     }
 
     const client = parsed.protocol === "https:" ? httpsRequest : httpRequest;
+    const method = String(options.method || "GET").toUpperCase();
+    const maxBodyBytes = Number(options.maxBodyBytes || 0);
     const req = client(
       parsed,
       {
-        method: "GET",
+        method,
         timeout: 7000,
         headers: {
           "user-agent": USER_AGENT,
@@ -149,20 +155,35 @@ function requestHeaders(url, redirects = 0) {
       (res) => {
         const status = res.statusCode || 0;
         const location = res.headers.location;
-        res.resume();
+        const chunks = [];
+        let received = 0;
+        if (!maxBodyBytes) {
+          res.resume();
+        } else {
+          res.on("data", (chunk) => {
+            if (received >= maxBodyBytes) return;
+            const remaining = maxBodyBytes - received;
+            const slice = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+            chunks.push(slice);
+            received += slice.length;
+          });
+        }
         res.on("end", async () => {
           if ([301, 302, 303, 307, 308].includes(status) && location && redirects < 5) {
             const nextUrl = new URL(location, parsed).toString();
-            resolveRequest(await requestHeaders(nextUrl, redirects + 1));
+            resolveRequest(await requestHeaders(nextUrl, redirects + 1, options, originalUrl));
             return;
           }
           resolveRequest({
             ok: true,
+            requestedUrl: originalUrl,
             url,
             finalUrl: parsed.toString(),
+            method,
             status,
             headers: normalizeHeaders(res.headers),
             setCookies: Array.isArray(res.headers["set-cookie"]) ? res.headers["set-cookie"] : [],
+            bodyPreview: maxBodyBytes ? Buffer.concat(chunks).toString("utf8") : "",
             redirects
           });
         });
@@ -173,7 +194,7 @@ function requestHeaders(url, redirects = 0) {
       req.destroy(new Error("request timed out"));
     });
     req.on("error", (error) => {
-      resolveRequest({ ok: false, url, finalUrl: url, error: error.message, headers: {}, setCookies: [] });
+      resolveRequest({ ok: false, requestedUrl: originalUrl, url, finalUrl: url, method, error: error.message, headers: {}, setCookies: [] });
     });
     req.end();
   });
@@ -377,6 +398,296 @@ function evaluateForms(findings, discovery) {
   );
 }
 
+function configuredProbePaths(baseline, key, fallback) {
+  const values = baseline?.frontendAdvisory?.passiveProbes?.[key];
+  return Array.isArray(values) && values.length ? values : fallback;
+}
+
+function urlForPath(baseUrl, path) {
+  try {
+    return new URL(path, baseUrl).toString();
+  } catch {
+    return "";
+  }
+}
+
+function targetBaseUrls(scope) {
+  const targets = [];
+  const frontend = targetScope(scope, "frontend");
+  if (frontend.enabled !== false && frontend.base_url) {
+    targets.push({ targetName: "frontend", baseUrl: frontend.base_url });
+  }
+  const backend = targetScope(scope, "backend_api");
+  if (backend.enabled && backend.base_url) {
+    targets.push({ targetName: "backend_api", baseUrl: backend.base_url });
+  }
+  return targets;
+}
+
+function probeFactory(scope, targetName, baseUrl, category, paths, method = "GET") {
+  return paths
+    .map((path) => ({ targetName, category, path, method, url: urlForPath(baseUrl, path) }))
+    .filter((probe) => probe.url && isAllowedUrl(probe.url, scope, targetName));
+}
+
+function buildPassiveProbes(scope, latestScan, baseline) {
+  const probeConfig = baseline?.frontendAdvisory?.passiveProbes || {};
+  const sensitiveFiles = configuredProbePaths(baseline, "sensitiveFiles", [
+    "/.env",
+    "/.git/config",
+    "/.svn/entries",
+    "/config.json",
+    "/backup.zip",
+    "/db.sql",
+    "/phpinfo.php"
+  ]);
+  const apiDocs = configuredProbePaths(baseline, "apiDocs", [
+    "/openapi.json",
+    "/swagger.json",
+    "/swagger-ui",
+    "/swagger-ui/index.html",
+    "/api-docs",
+    "/redoc"
+  ]);
+  const adminPaths = configuredProbePaths(baseline, "adminPaths", [
+    "/admin",
+    "/admin/login",
+    "/dashboard",
+    "/manage",
+    "/console"
+  ]);
+  const debugPaths = configuredProbePaths(baseline, "debugPaths", [
+    "/debug",
+    "/actuator",
+    "/actuator/env",
+    "/metrics",
+    "/health",
+    "/server-status",
+    "/_next/webpack-hmr"
+  ]);
+
+  const routeMethodPaths = unique([
+    "/",
+    "/api",
+    ...(latestScan?.discovery?.routes || [])
+      .filter((route) => Number(route.depth || 0) <= 1)
+      .map((route) => route.path || "")
+  ]).slice(0, Number(probeConfig.maxMethodTargets || 12));
+
+  const probes = [];
+  for (const target of targetBaseUrls(scope)) {
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sensitiveFiles", sensitiveFiles));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiDocs", apiDocs));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "httpMethods", routeMethodPaths, "OPTIONS"));
+  }
+
+  return probes.slice(0, Number(probeConfig.maxProbeRequests || 60));
+}
+
+function responseText(response) {
+  return String(response.bodyPreview || "").slice(0, 4096);
+}
+
+function isSuccessStatus(response) {
+  return response.ok && response.status >= 200 && response.status < 300;
+}
+
+function isLoginLikeBody(response) {
+  const text = responseText(response).toLowerCase();
+  return /(?:login|sign in|signin|password|csrf|session|forgot password)/i.test(text);
+}
+
+function contentType(response) {
+  return headerValue(response, "content-type").toLowerCase();
+}
+
+function sensitiveSignal(probe, response) {
+  if (!isSuccessStatus(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  const path = probe.path.toLowerCase();
+  if (path === "/.env" && /(?:^|\n)[A-Z0-9_]{2,}=.{1,}/.test(text) && !/<html/i.test(text)) return "dotenv";
+  if (path === "/.git/config" && /\[(?:core|remote|branch)\]/i.test(text)) return "git_config";
+  if (path === "/.svn/entries" && /(?:dir|file|\d{4}-\d{2}-\d{2})/i.test(text) && !/<html/i.test(text)) return "svn_entries";
+  if (path.endsWith(".json") && type.includes("application/json")) return "json_config";
+  if (path.endsWith(".sql") && /(?:create table|insert into|mysqldump|postgresql)/i.test(text)) return "database_dump";
+  if (path.endsWith(".zip") && /(?:application\/zip|application\/octet-stream)/i.test(type)) return "archive";
+  if (path.endsWith("phpinfo.php") && /php version|phpinfo\(\)/i.test(text)) return "phpinfo";
+  return "";
+}
+
+function apiDocsSignal(response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  if (type.includes("application/json") && /"(?:openapi|swagger)"\s*:/.test(text)) return "openapi_json";
+  if (/swagger ui|redoc|openapi|api documentation/i.test(text)) return "api_docs";
+  return "";
+}
+
+function exposedRouteSignal(scope, discovery, probe, response) {
+  if (!isSuccessStatus(response)) return "";
+  const finalUrl = response.finalUrl || response.url;
+  if (isAuthLikeUrl(finalUrl, scope, discovery) || isLoginLikeBody(response)) return "";
+  if (contentType(response).includes("text/html") && /<title>\s*(?:404|not found)/i.test(responseText(response))) return "";
+  return `${response.status}`;
+}
+
+function methodSignal(response) {
+  const allow = headerValue(response, "allow");
+  if (!allow) return "";
+  const methods = allow.split(",").map((method) => method.trim().toUpperCase()).filter(Boolean);
+  const risky = methods.filter((method) => ["TRACE", "PUT", "DELETE", "PATCH"].includes(method));
+  return risky.length ? risky.join(",") : "";
+}
+
+function probeEvidence(probe, response, signal) {
+  return {
+    target: probe.targetName,
+    category: probe.category,
+    path: probe.path,
+    method: response.method || probe.method,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    contentType: headerValue(response, "content-type"),
+    allow: headerValue(response, "allow"),
+    redirects: response.redirects || 0,
+    signal
+  };
+}
+
+function objectIdentifierEvidence(discovery) {
+  const queryIdLike = /[?&](?:id|userId|accountId|tenantId|orderId)=/i;
+  const segmentIdLike = (path) => String(path || "")
+    .split("/")
+    .some((segment) => /^\d{2,}$/.test(segment) || /^[0-9a-f]{8,}$/i.test(segment));
+  return (discovery?.routes || [])
+    .filter((route) => queryIdLike.test(route.url || "") || segmentIdLike(route.path || ""))
+    .slice(0, 20)
+    .map((route) => ({ path: route.path || route.url, status: route.status, depth: route.depth }));
+}
+
+function evaluateTransport(findings, discovery) {
+  const authUrls = unique(
+    (discovery?.forms || [])
+      .filter((form) => form.auth_like)
+      .flatMap((form) => [form.page_url, form.action_url])
+  );
+  const cleartext = authUrls.filter((url) => {
+    try {
+      const parsed = new URL(url);
+      return parsed.protocol !== "https:" && !isLoopback(parsed.hostname);
+    } catch {
+      return false;
+    }
+  });
+  addFinding(
+    findings,
+    "warning",
+    "frontend.transport.auth_https",
+    "Authentication surfaces avoid cleartext transport outside loopback",
+    cleartext.length === 0,
+    "Login and account flows should use HTTPS on non-local targets.",
+    { cleartext }
+  );
+}
+
+async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
+  const discovery = latestScan?.discovery || {};
+  const probes = buildPassiveProbes(scope, latestScan, baseline);
+  const probeResponses = [];
+  for (const probe of probes) {
+    probeResponses.push({
+      probe,
+      response: await requestHeaders(probe.url, 0, {
+        method: probe.method,
+        maxBodyBytes: probe.method === "GET" ? 4096 : 0
+      })
+    });
+  }
+
+  const sensitiveExposures = [];
+  const apiDocExposures = [];
+  const adminExposures = [];
+  const debugExposures = [];
+  const riskyMethods = [];
+  for (const { probe, response } of probeResponses) {
+    if (probe.category === "sensitiveFiles") {
+      const signal = sensitiveSignal(probe, response);
+      if (signal) sensitiveExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "apiDocs") {
+      const signal = apiDocsSignal(response);
+      if (signal) apiDocExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "adminPaths") {
+      const signal = exposedRouteSignal(scope, discovery, probe, response);
+      if (signal) adminExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "debugPaths") {
+      const signal = exposedRouteSignal(scope, discovery, probe, response);
+      if (signal) debugExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "httpMethods") {
+      const signal = methodSignal(response);
+      if (signal) riskyMethods.push(probeEvidence(probe, response, signal));
+    }
+  }
+
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.sensitive_files",
+    "Common sensitive files are not publicly readable",
+    sensitiveExposures.length === 0,
+    "Passive probes check for exposed dotenv, VCS metadata, config, archive, dump, and phpinfo files without storing response bodies.",
+    { checked: probes.filter((probe) => probe.category === "sensitiveFiles").length, exposed: sensitiveExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.api_docs",
+    "API documentation is not anonymously exposed",
+    apiDocExposures.length === 0,
+    "OpenAPI, Swagger, ReDoc, and API docs endpoints should be intentionally published or access controlled.",
+    { checked: probes.filter((probe) => probe.category === "apiDocs").length, exposed: apiDocExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.admin_debug",
+    "Admin and debug surfaces are absent or require authentication",
+    adminExposures.length === 0 && debugExposures.length === 0,
+    "Admin consoles, debug endpoints, metrics, actuator, server-status, and framework hot-reload endpoints should not be anonymously available.",
+    { admin: adminExposures, debug: debugExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.http_methods",
+    "OPTIONS does not advertise risky HTTP methods",
+    riskyMethods.length === 0,
+    "TRACE and unintended state-changing methods expand the attack surface when exposed anonymously.",
+    { checked: probes.filter((probe) => probe.category === "httpMethods").length, risky: riskyMethods }
+  );
+
+  const objectIds = objectIdentifierEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.object_ids",
+    "Object identifier routes are inventoried for BOLA/BFLA review",
+    true,
+    "OWASP API testing should review ID-bearing routes manually or with authenticated role matrices; this passive check records candidates only.",
+    { candidates: objectIds, count: objectIds.length }
+  );
+
+  return probeResponses.map(({ probe, response }) => ({
+    ...probeEvidence(probe, response, ""),
+    ok: response.ok,
+    error: response.error || ""
+  }));
+}
+
 function parseArgs(argv) {
   const flags = new Set(argv.slice(2));
   return {
@@ -402,6 +713,8 @@ async function main() {
   evaluateHeaders(findings, responses, scope, discovery);
   evaluateCookies(findings, responses);
   evaluateForms(findings, discovery);
+  evaluateTransport(findings, discovery);
+  const probes = await evaluatePassiveProbes(findings, scope, latestScan, baseline);
 
   const warnings = findings.filter((finding) => finding.level === "warning" && !finding.passed);
   const errors = findings.filter((finding) => finding.level === "error" && !finding.passed);
@@ -414,6 +727,7 @@ async function main() {
     summary: {
       targets: targets.length,
       reachable: responses.filter((response) => response.ok).length,
+      probes: probes.length,
       total: findings.length,
       passed: findings.filter((finding) => finding.passed).length,
       warnings: warnings.length,
@@ -437,6 +751,7 @@ async function main() {
       },
       setCookieCount: response.setCookies?.length || 0
     })),
+    probes,
     findings
   };
 

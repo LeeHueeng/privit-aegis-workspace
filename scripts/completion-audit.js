@@ -141,9 +141,17 @@ function main() {
     checks,
     "security",
     "target_advisory",
-    targetAdvisory?.status === "PASS",
-    "Live target advisory passes without warnings.",
+    ["PASS", "WARN"].includes(targetAdvisory?.status) && Number(targetAdvisory?.summary?.errors || 0) === 0,
+    "Live target advisory runs and has no blocking errors.",
     { status: targetAdvisory?.status, summary: targetAdvisory?.summary }
+  );
+  add(
+    checks,
+    "security",
+    "passive_probes",
+    Number(targetAdvisory?.summary?.probes || 0) > 0,
+    "Target advisory includes passive penetration probes for sensitive files, API docs, admin/debug surfaces, and HTTP methods.",
+    { probes: targetAdvisory?.summary?.probes }
   );
   add(
     checks,

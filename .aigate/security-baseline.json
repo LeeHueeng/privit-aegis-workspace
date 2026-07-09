@@ -15,6 +15,14 @@
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
     },
     {
+      "name": "OWASP Web Security Testing Guide",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/"
+    },
+    {
+      "name": "OWASP API Security Top 10 2023",
+      "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+    },
+    {
       "name": "GitHub Actions Secure Use Reference",
       "url": "https://docs.github.com/en/actions/reference/security/secure-use"
     },
@@ -68,7 +76,44 @@
       "referrer-policy",
       "permissions-policy",
       "cache-control"
-    ]
+    ],
+    "passiveProbes": {
+      "maxProbeRequests": 60,
+      "maxMethodTargets": 12,
+      "sensitiveFiles": [
+        "/.env",
+        "/.git/config",
+        "/.svn/entries",
+        "/config.json",
+        "/backup.zip",
+        "/db.sql",
+        "/phpinfo.php"
+      ],
+      "apiDocs": [
+        "/openapi.json",
+        "/swagger.json",
+        "/swagger-ui",
+        "/swagger-ui/index.html",
+        "/api-docs",
+        "/redoc"
+      ],
+      "adminPaths": [
+        "/admin",
+        "/admin/login",
+        "/dashboard",
+        "/manage",
+        "/console"
+      ],
+      "debugPaths": [
+        "/debug",
+        "/actuator",
+        "/actuator/env",
+        "/metrics",
+        "/health",
+        "/server-status",
+        "/_next/webpack-hmr"
+      ]
+    }
   },
   "githubActions": {
     "forbidPullRequestTarget": true,
