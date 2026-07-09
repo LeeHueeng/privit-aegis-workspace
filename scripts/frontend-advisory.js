@@ -1136,6 +1136,79 @@ function cookieAttribute(cookie, name) {
   return part ? part.slice(prefix.length).trim() : "";
 }
 
+function cookieHasFlag(flags, name) {
+  return flags.includes(String(name || "").toLowerCase());
+}
+
+function cookiePrefixIssues(response, cookie) {
+  const name = cookieName(cookie);
+  const flags = cookieFlags(cookie);
+  const secure = cookieHasFlag(flags, "secure");
+  const httpOnly = cookieHasFlag(flags, "httponly");
+  const domain = cookieAttribute(cookie, "domain");
+  const path = cookieAttribute(cookie, "path");
+  const parsed = new URL(response.finalUrl || response.url);
+  const secureOrigin = parsed.protocol === "https:" || isLoopback(parsed.hostname);
+  const add = (prefix, issues) => issues.length ? [{
+    url: response.finalUrl || response.url,
+    name,
+    prefix,
+    issues,
+    domainPresent: Boolean(domain),
+    path: path || "(missing)"
+  }] : [];
+
+  if (name.startsWith("__Host-Http-")) {
+    return add("__Host-Http-", [
+      !secureOrigin && "secure origin",
+      !secure && "Secure",
+      !httpOnly && "HttpOnly",
+      domain && "no Domain",
+      path !== "/" && "Path=/"
+    ].filter(Boolean));
+  }
+  if (name.startsWith("__Host-")) {
+    return add("__Host-", [
+      !secureOrigin && "secure origin",
+      !secure && "Secure",
+      domain && "no Domain",
+      path !== "/" && "Path=/"
+    ].filter(Boolean));
+  }
+  if (name.startsWith("__Http-")) {
+    return add("__Http-", [
+      !secureOrigin && "secure origin",
+      !secure && "Secure",
+      !httpOnly && "HttpOnly"
+    ].filter(Boolean));
+  }
+  if (name.startsWith("__Secure-")) {
+    return add("__Secure-", [
+      !secureOrigin && "secure origin",
+      !secure && "Secure"
+    ].filter(Boolean));
+  }
+  return [];
+}
+
+function cookieCrossSiteIssues(response, cookie) {
+  const name = cookieName(cookie);
+  const flags = cookieFlags(cookie);
+  const secure = cookieHasFlag(flags, "secure");
+  const sameSite = cookieAttribute(cookie, "samesite");
+  const partitioned = cookieHasFlag(flags, "partitioned");
+  const issues = [];
+  if (String(sameSite || "").toLowerCase() === "none" && !secure) issues.push("SameSite=None requires Secure");
+  if (partitioned && !secure) issues.push("Partitioned requires Secure");
+  return issues.length ? [{
+    url: response.finalUrl || response.url,
+    name,
+    issues,
+    sameSite: sameSite || "(missing)",
+    partitioned
+  }] : [];
+}
+
 function isSensitiveCookieName(name) {
   return /(?:session|auth|jwt|sid|access|refresh|token)/i.test(name) && !/(?:csrf|xsrf)/i.test(name);
 }
@@ -1143,6 +1216,8 @@ function isSensitiveCookieName(name) {
 function evaluateCookies(findings, responses) {
   const cookieEvidence = [];
   const scopeEvidence = [];
+  const prefixEvidence = [];
+  const crossSiteEvidence = [];
   for (const response of responses.filter((item) => item.ok)) {
     const parsed = new URL(response.finalUrl || response.url);
     for (const cookie of response.setCookies || []) {
@@ -1166,6 +1241,8 @@ function evaluateCookies(findings, responses) {
         if (path === "/") scope.push("Path=/");
         if (scope.length) scopeEvidence.push({ url: response.finalUrl || response.url, name, scope, domain, path });
       }
+      prefixEvidence.push(...cookiePrefixIssues(response, cookie));
+      crossSiteEvidence.push(...cookieCrossSiteIssues(response, cookie));
     }
   }
 
@@ -1186,6 +1263,24 @@ function evaluateCookies(findings, responses) {
     scopeEvidence.length === 0,
     "OWASP WSTG cookie testing checks Domain and Path scope because loose scoping can expose session cookies to sibling applications or subdomains.",
     { cookies: scopeEvidence }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.cookies.prefixes",
+    "Cookie name prefixes satisfy browser-enforced requirements",
+    prefixEvidence.length === 0,
+    "OWASP and MDN document __Host-, __Secure-, __Http-, and __Host-Http- prefixes as browser-enforced cookie hardening controls when their required attributes are present.",
+    { cookies: prefixEvidence }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.cookies.cross_site_secure",
+    "Cross-site and partitioned cookies use Secure",
+    crossSiteEvidence.length === 0,
+    "SameSite=None and Partitioned cookies are intended for cross-site contexts and must include Secure so browsers only send them over HTTPS.",
+    { cookies: crossSiteEvidence }
   );
 }
 

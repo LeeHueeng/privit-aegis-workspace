@@ -147,6 +147,10 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/06-Session_Management_Testing/02-Testing_for_Cookies_Attributes"
     },
     {
+      "name": "MDN Set-Cookie Header",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Set-Cookie"
+    },
+    {
       "name": "OWASP Transport Layer Security Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html"
     },
@@ -318,7 +322,9 @@
     "sessionCookiesRequireFlags": [
       "HttpOnly",
       "SameSite",
-      "Secure when applicable"
+      "Secure when applicable",
+      "__Host-/__Secure- prefix requirements",
+      "SameSite=None and Partitioned require Secure"
     ],
     "recommendedHeaders": [
       "content-security-policy",

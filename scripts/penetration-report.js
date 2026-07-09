@@ -370,6 +370,16 @@ const criteria = {
     criteria: "Sensitive cookies do not use broad Domain scope or Path=/ unless explicitly justified.",
     remediation: "Host-scope sensitive cookies where possible and narrow Path to the smallest application area that needs the cookie."
   },
+  "frontend.cookies.prefixes": {
+    category: "Session",
+    criteria: "__Host-, __Secure-, __Http-, and __Host-Http- cookie prefixes satisfy their browser-enforced Secure, HttpOnly, Domain, Path, and secure-origin requirements.",
+    remediation: "Set Secure on prefixed cookies, add HttpOnly for __Http- variants, remove Domain and set Path=/ for __Host- variants, and issue them from HTTPS origins."
+  },
+  "frontend.cookies.cross_site_secure": {
+    category: "Session",
+    criteria: "SameSite=None and Partitioned cookies include Secure.",
+    remediation: "Add Secure to SameSite=None and Partitioned cookies or avoid cross-site cookie attributes when they are not required."
+  },
   "frontend.forms.autocomplete": {
     category: "Authentication UX",
     criteria: "Authentication fields provide explicit password-manager autocomplete hints.",
@@ -929,6 +939,18 @@ const localizedCriteria = {
       category: "세션",
       criteria: "민감 쿠키는 명시적 근거 없이 넓은 Domain 범위나 Path=/를 사용하지 않아야 합니다.",
       remediation: "가능하면 host-scope 쿠키를 사용하고 Path를 필요한 최소 애플리케이션 영역으로 좁히세요."
+    },
+    "frontend.cookies.prefixes": {
+      title: "쿠키 이름 prefix가 브라우저 강제 요구사항을 만족함",
+      category: "세션",
+      criteria: "__Host-, __Secure-, __Http-, __Host-Http- prefix 쿠키는 Secure, HttpOnly, Domain, Path, secure-origin 요구사항을 만족해야 합니다.",
+      remediation: "prefix 쿠키에 Secure를 설정하고 __Http- 계열에는 HttpOnly를 추가하며 __Host- 계열은 Domain을 제거하고 Path=/와 HTTPS origin에서 발급되도록 하세요."
+    },
+    "frontend.cookies.cross_site_secure": {
+      title: "cross-site 및 partitioned 쿠키가 Secure를 사용함",
+      category: "세션",
+      criteria: "SameSite=None 및 Partitioned 쿠키는 Secure를 포함해야 합니다.",
+      remediation: "SameSite=None 및 Partitioned 쿠키에 Secure를 추가하거나 필요하지 않은 cross-site 쿠키 속성은 제거하세요."
     },
     "frontend.forms.autocomplete": {
       title: "인증 필드가 명시적 autocomplete 힌트를 사용함",

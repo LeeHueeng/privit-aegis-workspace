@@ -67,8 +67,9 @@ performs header-misconfiguration checks for deprecated HPKP, obsolete
 `X-Frame-Options: ALLOW-FROM`, permissive cross-domain policy headers, HSTS
 placement, CSP Report-Only rollout, and COOP/COEP/CORP browser isolation
 posture, plus CNAME takeover fingerprints, Host-style header reflection,
-sensitive cookie scope, and logout cache/browser-cleanup signals. It also reads
-a small HTML preview to identify reverse tabnabbing link patterns. It does not
+sensitive cookie scope, cookie prefix requirements, SameSite=None/Partitioned
+Secure requirements, and logout cache/browser-cleanup signals. It also reads a
+small HTML preview to identify reverse tabnabbing link patterns. It does not
 submit forms or send attack payloads.
 
 The target advisory also runs low-impact passive penetration probes based on
@@ -93,7 +94,8 @@ Feature-Policy detection, authentication form GET submissions, state-changing fo
 token candidates, external form actions, sensitive cleartext form submissions,
 file-upload form controls, account-recovery and well-known change-password routes,
 logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
-clearing signals, visible Retry-After/RateLimit headers on authentication surfaces,
+clearing signals, cookie prefix and SameSite=None/Partitioned Secure checks,
+visible Retry-After/RateLimit headers on authentication surfaces,
 WebAuthn/passkey/security-key route inventory, WebAuthn related-origin metadata
 checks for parseable JSON, HTTPS-only non-local origins, and narrow origin
 review, MFA/2FA/OTP/security-setting route inventory with cache posture, signup

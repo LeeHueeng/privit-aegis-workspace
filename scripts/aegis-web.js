@@ -1252,22 +1252,22 @@ function page() {
           zh: "Cookie、会话与 JWT"
         },
         detects: {
-          ko: "HttpOnly/SameSite/Secure, cookie Domain/Path, JWT alg/kid/claim 신호, 브라우저 저장소 token 키, logout/sign-out 경로의 cache 및 Clear-Site-Data 신호를 확인합니다.",
-          en: "Checks HttpOnly/SameSite/Secure, cookie Domain/Path, JWT alg/kid/claim signals, token-like browser-storage keys, and logout/sign-out cache plus Clear-Site-Data signals.",
-          ja: "HttpOnly/SameSite/Secure、cookie Domain/Path、JWT alg/kid/claimシグナル、ブラウザストレージのtokenキー、logout/sign-outのcacheとClear-Site-Dataシグナルを確認します。",
-          zh: "检查 HttpOnly/SameSite/Secure、Cookie Domain/Path、JWT alg/kid/claim 信号、浏览器存储中的 token 类键，以及 logout/sign-out 的缓存和 Clear-Site-Data 信号。"
+          ko: "HttpOnly/SameSite/Secure, cookie Domain/Path, __Host-/__Secure-/__Http- prefix, SameSite=None/Partitioned Secure 요구사항, JWT alg/kid/claim 신호, 브라우저 저장소 token 키, logout/sign-out 경로의 cache 및 Clear-Site-Data 신호를 확인합니다.",
+          en: "Checks HttpOnly/SameSite/Secure, cookie Domain/Path, __Host-/__Secure-/__Http- prefixes, SameSite=None/Partitioned Secure requirements, JWT alg/kid/claim signals, token-like browser-storage keys, and logout/sign-out cache plus Clear-Site-Data signals.",
+          ja: "HttpOnly/SameSite/Secure、cookie Domain/Path、__Host-/__Secure-/__Http- prefix、SameSite=None/PartitionedのSecure要件、JWT alg/kid/claimシグナル、ブラウザストレージのtokenキー、logout/sign-outのcacheとClear-Site-Dataシグナルを確認します。",
+          zh: "检查 HttpOnly/SameSite/Secure、Cookie Domain/Path、__Host-/__Secure-/__Http- prefix、SameSite=None/Partitioned 的 Secure 要求、JWT alg/kid/claim 信号、浏览器存储中的 token 类键，以及 logout/sign-out 的缓存和 Clear-Site-Data 信号。"
         },
         criteria: {
-          ko: "세션성 쿠키는 방어 속성을 갖고, 민감 token은 클라이언트 코드에 하드코딩되지 않으며, 로그아웃 응답은 no-store 계열 캐시 정책을 사용해야 합니다.",
-          en: "Session-like cookies should use defensive flags, sensitive tokens should not be hard-coded in client code, and logout responses should use no-store style cache policy.",
-          ja: "セッション系cookieは防御属性を持ち、機密tokenはクライアントコードにハードコードされず、logout応答はno-store系cache policyを使う必要があります。",
-          zh: "会话类 Cookie 应带防护属性，敏感 token 不应硬编码在客户端代码中，logout 响应应使用 no-store 类缓存策略。"
+          ko: "세션성 쿠키는 방어 속성과 올바른 prefix 요구사항을 갖고, SameSite=None/Partitioned 쿠키는 Secure를 사용하며, 민감 token은 클라이언트 코드에 하드코딩되지 않고 로그아웃 응답은 no-store 계열 캐시 정책을 사용해야 합니다.",
+          en: "Session-like cookies should use defensive flags and valid prefix requirements, SameSite=None/Partitioned cookies should use Secure, sensitive tokens should not be hard-coded in client code, and logout responses should use no-store style cache policy.",
+          ja: "セッション系cookieは防御属性と正しいprefix要件を持ち、SameSite=None/Partitioned cookieはSecureを使い、機密tokenはクライアントコードにハードコードされず、logout応答はno-store系cache policyを使う必要があります。",
+          zh: "会话类 Cookie 应带防护属性并满足 prefix 要求，SameSite=None/Partitioned Cookie 应使用 Secure，敏感 token 不应硬编码在客户端代码中，logout 响应应使用 no-store 类缓存策略。"
         },
         evidence: {
-          ko: "쿠키 이름과 누락 flag, JWT header 신호, 저장소 키 이름, logout 경로의 cache-control, Clear-Site-Data 지시자, 삭제 cookie 이름만 마스킹해 기록합니다.",
-          en: "Records cookie names with missing flags, JWT header signals, storage key names, logout cache-control, Clear-Site-Data directives, and cleared cookie names with redaction.",
-          ja: "cookie名と不足flag、JWTヘッダーシグナル、ストレージキー名、logoutのcache-control、Clear-Site-Data directive、削除cookie名をマスクして記録します。",
-          zh: "记录 Cookie 名称及缺失标志、JWT 头部信号、存储键名、logout cache-control、Clear-Site-Data 指令和已删除 Cookie 名称，并进行脱敏。"
+          ko: "쿠키 이름과 누락 flag/prefix 요구사항, SameSite/Partitioned 상태, JWT header 신호, 저장소 키 이름, logout 경로의 cache-control, Clear-Site-Data 지시자, 삭제 cookie 이름만 마스킹해 기록합니다.",
+          en: "Records cookie names with missing flags/prefix requirements, SameSite/Partitioned state, JWT header signals, storage key names, logout cache-control, Clear-Site-Data directives, and cleared cookie names with redaction.",
+          ja: "cookie名と不足flag/prefix要件、SameSite/Partitioned状態、JWTヘッダーシグナル、ストレージキー名、logoutのcache-control、Clear-Site-Data directive、削除cookie名をマスクして記録します。",
+          zh: "记录 Cookie 名称及缺失标志/prefix 要求、SameSite/Partitioned 状态、JWT 头部信号、存储键名、logout cache-control、Clear-Site-Data 指令和已删除 Cookie 名称，并进行脱敏。"
         }
       },
       {
