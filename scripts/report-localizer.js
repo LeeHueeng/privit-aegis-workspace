@@ -19,6 +19,17 @@ const translations = {
     low: "낮음",
     info: "정보",
     scope: "범위 및 승인",
+    targetDetails: "검사 대상 정보",
+    inspectedAddress: "검사 주소",
+    frontendBaseUrl: "프론트엔드 주소",
+    backendBaseUrl: "백엔드 API 주소",
+    allowedHosts: "허용 호스트",
+    allowedPaths: "허용 경로",
+    deniedPaths: "차단 경로",
+    scanStarted: "스캔 시작",
+    scanCompleted: "스캔 완료",
+    discoveryConfig: "탐색 설정",
+    safetyLimits: "안전 제한",
     owner: "소유자",
     proofType: "증명 유형",
     expiresAt: "만료일",
@@ -54,7 +65,15 @@ const translations = {
     newStatus: "신규",
     resolvedStatus: "해결됨",
     fixedGetFinding: "로그인 유사 폼이 GET을 사용함",
-    fixedGetRecommendation: "인증 폼은 POST로 제출하고 자격 증명이나 토큰이 URL에 노출되지 않게 하세요."
+    fixedGetRecommendation: "인증 폼은 POST로 제출하고 자격 증명이나 토큰이 URL에 노출되지 않게 하세요.",
+    missingCspFinding: "content-security-policy 헤더 누락",
+    missingNosniffFinding: "x-content-type-options 헤더 누락",
+    missingCspRecommendation: "애플리케이션 위험도에 맞는 Content-Security-Policy를 설정하세요. 예: script-src, style-src, frame-ancestors 정책을 명시해 XSS와 클릭재킹 영향을 줄입니다.",
+    missingNosniffRecommendation: "웹 서버 또는 애플리케이션 게이트웨이에서 X-Content-Type-Options: nosniff 헤더를 설정하세요.",
+    frontendTarget: "프론트엔드",
+    backendTarget: "백엔드 API",
+    databaseTarget: "데이터베이스",
+    ciTarget: "CI/CD"
   },
   en: {
     lang: "en",
@@ -69,6 +88,17 @@ const translations = {
     low: "Low",
     info: "Info",
     scope: "Scope and Authorization",
+    targetDetails: "Target Details",
+    inspectedAddress: "Inspected address",
+    frontendBaseUrl: "Frontend URL",
+    backendBaseUrl: "Backend API URL",
+    allowedHosts: "Allowed hosts",
+    allowedPaths: "Allowed paths",
+    deniedPaths: "Denied paths",
+    scanStarted: "Scan started",
+    scanCompleted: "Scan completed",
+    discoveryConfig: "Discovery config",
+    safetyLimits: "Safety limits",
     owner: "Owner",
     proofType: "Proof type",
     expiresAt: "Expires at",
@@ -104,7 +134,15 @@ const translations = {
     newStatus: "new",
     resolvedStatus: "resolved",
     fixedGetFinding: "Login-like form uses GET",
-    fixedGetRecommendation: "Submit authentication forms with POST and avoid placing credentials or tokens in URLs."
+    fixedGetRecommendation: "Submit authentication forms with POST and avoid placing credentials or tokens in URLs.",
+    missingCspFinding: "Missing content-security-policy header",
+    missingNosniffFinding: "Missing x-content-type-options header",
+    missingCspRecommendation: "Configure Content-Security-Policy according to the application risk profile. For example, define script-src, style-src, and frame-ancestors to reduce XSS and clickjacking impact.",
+    missingNosniffRecommendation: "Configure X-Content-Type-Options: nosniff at the web server or application gateway.",
+    frontendTarget: "Frontend",
+    backendTarget: "Backend API",
+    databaseTarget: "Database",
+    ciTarget: "CI/CD"
   },
   ja: {
     lang: "ja",
@@ -119,6 +157,17 @@ const translations = {
     low: "低",
     info: "情報",
     scope: "スコープと承認",
+    targetDetails: "検査対象情報",
+    inspectedAddress: "検査アドレス",
+    frontendBaseUrl: "フロントエンドURL",
+    backendBaseUrl: "バックエンドAPI URL",
+    allowedHosts: "許可ホスト",
+    allowedPaths: "許可パス",
+    deniedPaths: "拒否パス",
+    scanStarted: "スキャン開始",
+    scanCompleted: "スキャン完了",
+    discoveryConfig: "探索設定",
+    safetyLimits: "安全制限",
     owner: "所有者",
     proofType: "証明種別",
     expiresAt: "有効期限",
@@ -154,7 +203,15 @@ const translations = {
     newStatus: "新規",
     resolvedStatus: "解決済み",
     fixedGetFinding: "ログイン類似フォームが GET を使用しています",
-    fixedGetRecommendation: "認証フォームは POST で送信し、認証情報やトークンを URL に含めないでください。"
+    fixedGetRecommendation: "認証フォームは POST で送信し、認証情報やトークンを URL に含めないでください。",
+    missingCspFinding: "content-security-policy ヘッダー不足",
+    missingNosniffFinding: "x-content-type-options ヘッダー不足",
+    missingCspRecommendation: "アプリケーションのリスクに合わせて Content-Security-Policy を設定してください。例: script-src、style-src、frame-ancestors を明示して XSS やクリックジャッキングの影響を抑えます。",
+    missingNosniffRecommendation: "Webサーバーまたはアプリケーションゲートウェイで X-Content-Type-Options: nosniff を設定してください。",
+    frontendTarget: "フロントエンド",
+    backendTarget: "バックエンドAPI",
+    databaseTarget: "データベース",
+    ciTarget: "CI/CD"
   },
   zh: {
     lang: "zh",
@@ -169,6 +226,17 @@ const translations = {
     low: "低",
     info: "信息",
     scope: "范围与授权",
+    targetDetails: "检查目标信息",
+    inspectedAddress: "检查地址",
+    frontendBaseUrl: "前端 URL",
+    backendBaseUrl: "后端 API URL",
+    allowedHosts: "允许主机",
+    allowedPaths: "允许路径",
+    deniedPaths: "阻止路径",
+    scanStarted: "扫描开始",
+    scanCompleted: "扫描完成",
+    discoveryConfig: "发现配置",
+    safetyLimits: "安全限制",
     owner: "所有者",
     proofType: "证明类型",
     expiresAt: "到期时间",
@@ -204,7 +272,15 @@ const translations = {
     newStatus: "新建",
     resolvedStatus: "已解决",
     fixedGetFinding: "类似登录的表单使用 GET",
-    fixedGetRecommendation: "认证表单应使用 POST 提交，避免凭据或令牌出现在 URL 中。"
+    fixedGetRecommendation: "认证表单应使用 POST 提交，避免凭据或令牌出现在 URL 中。",
+    missingCspFinding: "缺少 content-security-policy 响应头",
+    missingNosniffFinding: "缺少 x-content-type-options 响应头",
+    missingCspRecommendation: "根据应用风险配置 Content-Security-Policy，例如明确 script-src、style-src 和 frame-ancestors，以降低 XSS 与点击劫持影响。",
+    missingNosniffRecommendation: "在 Web 服务器或应用网关配置 X-Content-Type-Options: nosniff。",
+    frontendTarget: "前端",
+    backendTarget: "后端 API",
+    databaseTarget: "数据库",
+    ciTarget: "CI/CD"
   }
 };
 
@@ -250,6 +326,8 @@ function displayStatus(status, t) {
 
 function translateFindingTitle(finding, t) {
   if (finding.title === "Login-like form uses GET") return t.fixedGetFinding;
+  if (finding.title === "Missing content-security-policy header") return t.missingCspFinding;
+  if (finding.title === "Missing x-content-type-options header") return t.missingNosniffFinding;
   return finding.title || t.unknown;
 }
 
@@ -257,7 +335,49 @@ function translateRecommendation(value, t) {
   if (value === "Submit authentication forms with POST and avoid placing credentials or tokens in URLs.") {
     return t.fixedGetRecommendation;
   }
+  if (value === "Configure content-security-policy according to the application risk profile.") {
+    return t.missingCspRecommendation;
+  }
+  if (value === "Configure x-content-type-options according to the application risk profile.") {
+    return t.missingNosniffRecommendation;
+  }
   return value;
+}
+
+function displayTarget(value, t) {
+  const key = String(value || "").toLowerCase();
+  if (key === "frontend") return t.frontendTarget;
+  if (key === "backend_api") return t.backendTarget;
+  if (key === "database") return t.databaseTarget;
+  if (key === "ci_cd") return t.ciTarget;
+  return value || t.unknown;
+}
+
+function listValue(value, fallback = "-") {
+  if (Array.isArray(value)) return value.length ? value.join(", ") : fallback;
+  if (value == null || value === "") return fallback;
+  return String(value);
+}
+
+function discoveryConfigText(discovery) {
+  const config = discovery?.config || {};
+  return [
+    `depth=${config.max_depth ?? "-"}`,
+    `pages=${config.max_pages ?? "-"}`,
+    `forms=${config.include_forms === false ? "false" : "true"}`,
+    `redirects=${config.follow_redirects === false ? "false" : "true"}`
+  ].join(" / ");
+}
+
+function safetyText(scope) {
+  const safety = scope?.safety || {};
+  return [
+    `rps=${safety.max_rps ?? "-"}`,
+    `concurrency=${safety.max_concurrency ?? "-"}`,
+    `destructive=${Boolean(safety.destructive_tests)}`,
+    `bruteForce=${Boolean(safety.brute_force)}`,
+    `exfiltration=${Boolean(safety.data_exfiltration)}`
+  ].join(" / ");
 }
 
 function isGetLoginFindingStillActive(finding, latestScan) {
@@ -320,7 +440,7 @@ function findingsRows(findings, t) {
       return `<tr>
         <td><code>${escapeHtml(finding.id)}</code></td>
         <td><span class="severity severity-${escapeHtml(severity)}">${escapeHtml(displaySeverity(severity, t))}</span></td>
-        <td>${escapeHtml(finding.target_type || finding.target || "")}</td>
+        <td>${escapeHtml(displayTarget(finding.target_type || finding.target, t))}</td>
         <td>${escapeHtml(translateFindingTitle(finding, t))}</td>
         <td>${escapeHtml(displayStatus(finding.status, t))}</td>
       </tr>`;
@@ -350,6 +470,9 @@ function render(report) {
   const badgeTone = total === 0 ? "ok" : counts.critical || counts.high ? "danger" : "warn";
   const badgeText = total === 0 ? t.reviewOk : t.reviewRecommended;
   const generatedText = [scope?.project || latestScan?.project || "privit", scope?.environment || latestScan?.environment || "local", `${t.generated} ${generatedAt}`].join(" / ");
+  const frontend = scope?.targets?.frontend || {};
+  const backend = scope?.targets?.backend_api || {};
+  const inspectedAddress = discovery.base_url || frontend.base_url || latestScan?.target || t.unknown;
 
   return `<!doctype html>
 <html lang="${escapeHtml(t.lang)}" data-aegis-localized="true">
@@ -378,6 +501,7 @@ function render(report) {
     .metric span { display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; }
     .metric strong { display: block; font-size: 28px; line-height: 1.2; margin-top: 4px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .target-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
     section { padding: 18px; margin-bottom: 14px; }
     dl { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px 14px; margin: 0; }
     dt { color: var(--muted); }
@@ -394,6 +518,7 @@ function render(report) {
     .severity-info { background: var(--muted); }
     .empty { color: var(--muted); text-align: center; padding: 16px; }
     footer { color: var(--muted); font-size: 13px; padding: 8px 0 0; }
+    @media (max-width: 980px) { .target-grid { grid-template-columns: 1fr; } }
     @media (max-width: 820px) { main { width: min(100% - 20px, 1180px); padding-top: 18px; } header, .grid, .metrics { grid-template-columns: 1fr; } dl { grid-template-columns: 1fr; } table { display: block; overflow-x: auto; white-space: nowrap; } }
   </style>
 </head>
@@ -415,6 +540,28 @@ function render(report) {
       <div class="metric"><span>${escapeHtml(t.info)}</span><strong>${counts.info}</strong></div>
     </div>
 
+    <section>
+      <h2>${escapeHtml(t.targetDetails)}</h2>
+      <div class="target-grid">
+        <dl>
+          <dt>${escapeHtml(t.inspectedAddress)}</dt><dd>${escapeHtml(inspectedAddress)}</dd>
+          <dt>${escapeHtml(t.frontendBaseUrl)}</dt><dd>${escapeHtml(frontend.base_url || "-")}</dd>
+          <dt>${escapeHtml(t.backendBaseUrl)}</dt><dd>${escapeHtml(backend.enabled ? backend.base_url || "-" : "-")}</dd>
+        </dl>
+        <dl>
+          <dt>${escapeHtml(t.allowedHosts)}</dt><dd>${escapeHtml(listValue(frontend.allowed_hosts))}</dd>
+          <dt>${escapeHtml(t.allowedPaths)}</dt><dd>${escapeHtml(listValue(frontend.allowed_paths))}</dd>
+          <dt>${escapeHtml(t.deniedPaths)}</dt><dd>${escapeHtml(listValue(frontend.denied_paths))}</dd>
+        </dl>
+        <dl>
+          <dt>${escapeHtml(t.scanStarted)}</dt><dd>${escapeHtml(latestScan?.started_at || t.unknown)}</dd>
+          <dt>${escapeHtml(t.scanCompleted)}</dt><dd>${escapeHtml(latestScan?.completed_at || t.unknown)}</dd>
+          <dt>${escapeHtml(t.discoveryConfig)}</dt><dd>${escapeHtml(discoveryConfigText(discovery))}</dd>
+          <dt>${escapeHtml(t.safetyLimits)}</dt><dd>${escapeHtml(safetyText(scope))}</dd>
+        </dl>
+      </div>
+    </section>
+
     <div class="grid">
       <section>
         <h2>${escapeHtml(t.scope)}</h2>
@@ -429,7 +576,7 @@ function render(report) {
         <dl>
           <dt>${escapeHtml(t.latestScan)}</dt><dd>${escapeHtml(latestScan?.scan_id || t.unknown)}</dd>
           <dt>${escapeHtml(t.mode)}</dt><dd>${escapeHtml(latestScan?.mode || t.unknown)}</dd>
-          <dt>${escapeHtml(t.target)}</dt><dd>${escapeHtml(latestScan?.target || t.unknown)}</dd>
+          <dt>${escapeHtml(t.target)}</dt><dd>${escapeHtml(displayTarget(latestScan?.target, t))}</dd>
           <dt>${escapeHtml(t.selectedChecks)}</dt><dd>${escapeHtml(latestScan?.selected_check_count ?? 0)}</dd>
           <dt>${escapeHtml(t.executedChecks)}</dt><dd>${escapeHtml(latestScan?.executed_check_count ?? 0)}</dd>
         </dl>
