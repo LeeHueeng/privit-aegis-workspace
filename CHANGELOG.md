@@ -17,3 +17,5 @@
 - Added support, privacy/data handling, threat model, safe scope template, safe
   demo scope validation, issue contact links, and GitHub Actions Dependabot
   coverage.
+- Limited Dependabot automation to npm dependencies because GitHub Actions
+  updates are SHA-pinned and require manual review with private CI credentials.

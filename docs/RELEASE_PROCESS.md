@@ -28,6 +28,13 @@ Use GitHub's generated release notes. `.github/release.yml` groups changes into:
 - AI and automation
 - Other changes
 
+## Dependency Updates
+
+Dependabot is enabled for npm workspace dependencies. GitHub Actions updates are
+handled manually because this repository pins actions to commit SHAs and CI
+depends on private Aegis CLI credentials that are not available to automated
+Dependabot pull requests.
+
 ## Versioning
 
 Use small version increments for workspace milestones. A release should include:

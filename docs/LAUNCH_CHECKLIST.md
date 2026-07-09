@@ -25,6 +25,8 @@ Use this before turning the repository public or promoting it for stars.
       skipped.
 - [ ] `SUPPORT.md`, `docs/PRIVACY_AND_DATA.md`, and `docs/THREAT_MODEL.md` are
       linked and current.
+- [ ] No open automated dependency PR is failing only because private CI secrets
+      are unavailable.
 
 ## Quality Gate
 
