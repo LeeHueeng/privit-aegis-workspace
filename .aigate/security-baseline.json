@@ -19,6 +19,18 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/"
     },
     {
+      "name": "OWASP WSTG Testing Cross Origin Resource Sharing",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing"
+    },
+    {
+      "name": "OWASP WSTG Test for Content Security Policy",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/12-Test_for_Content_Security_Policy"
+    },
+    {
+      "name": "OWASP WSTG Review Web Page Content for Information Leakage",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/05-Review_Web_Page_Content_for_Information_Leakage"
+    },
+    {
       "name": "OWASP API Security Top 10 2023",
       "url": "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
     },
@@ -59,6 +71,7 @@
   },
   "frontendAdvisory": {
     "maxHeaderAuditPages": 20,
+    "maxContentReviewAssets": 12,
     "authFormsMustUsePost": true,
     "csrfRequiredForStateChangingForms": true,
     "passwordAutocompleteRecommended": true,
@@ -78,7 +91,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 60,
+      "maxProbeRequests": 80,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -112,6 +125,12 @@
         "/health",
         "/server-status",
         "/_next/webpack-hmr"
+      ],
+      "sourceMaps": [
+        "/main.js.map",
+        "/app.js.map",
+        "/static/js/main.js.map",
+        "/_next/static/chunks/main.js.map"
       ]
     }
   },

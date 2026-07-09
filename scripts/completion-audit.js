@@ -158,8 +158,8 @@ function main() {
     "security",
     "passive_probes",
     Number(targetAdvisory?.summary?.probes || 0) > 0,
-    "Target advisory includes passive penetration probes for sensitive files, API docs, admin/debug surfaces, and HTTP methods.",
-    { probes: targetAdvisory?.summary?.probes }
+    "Target advisory includes passive probes plus CORS, CSP quality, client bundle leakage, source maps, API docs, admin/debug surfaces, and HTTP methods.",
+    { probes: targetAdvisory?.summary?.probes, contentReviews: targetAdvisory?.summary?.contentReviews }
   );
   const hardeningFailedIds = failedFindingIds(hardening);
   const hardeningBlockedByScope = hardening?.status === "FAIL" && hardeningFailedIds.every((id) => id === "scope.local.loopback");

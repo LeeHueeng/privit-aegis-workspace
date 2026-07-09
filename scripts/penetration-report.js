@@ -204,6 +204,11 @@ const criteria = {
     criteria: "Every discovered HTML response sends a Content-Security-Policy header.",
     remediation: "Configure a CSP that matches the application and includes safe script/style/frame policies."
   },
+  "frontend.headers.csp_quality": {
+    category: "Browser hardening",
+    criteria: "CSP avoids weak script directives, wildcard sources, data/http script sources, and missing object-src/base-uri/frame-ancestors safeguards.",
+    remediation: "Tighten CSP by removing unsafe-eval, using nonce/hash based script allowances, avoiding wildcards, and setting object-src/base-uri/frame-ancestors."
+  },
   "frontend.headers.nosniff": {
     category: "Browser hardening",
     criteria: "Every checked response sends X-Content-Type-Options: nosniff.",
@@ -239,6 +244,11 @@ const criteria = {
     criteria: "Non-loopback HTTPS targets send Strict-Transport-Security; loopback/local HTTP targets are skipped.",
     remediation: "Enable HSTS on real HTTPS environments after confirming HTTPS is enforced."
   },
+  "frontend.headers.cors": {
+    category: "CORS",
+    criteria: "Responses do not reflect an arbitrary untrusted Origin and do not combine wildcard or reflected origins with credentials.",
+    remediation: "Replace dynamic origin reflection with an explicit allowlist and avoid Access-Control-Allow-Credentials unless strictly needed."
+  },
   "frontend.cookies.flags": {
     category: "Session",
     criteria: "Session-like cookies use HttpOnly, SameSite, and Secure when applicable.",
@@ -254,6 +264,11 @@ const criteria = {
     criteria: "Authentication surfaces avoid cleartext transport outside loopback hosts.",
     remediation: "Serve authentication/account flows over HTTPS on non-local environments."
   },
+  "frontend.content.client_secrets": {
+    category: "Information leakage",
+    criteria: "Discovered client-side JavaScript and JSON assets do not expose obvious private keys, provider keys, JWT literals, or secret assignments.",
+    remediation: "Remove client-side secrets, rotate exposed credentials, and move privileged tokens to server-side storage."
+  },
   "frontend.probes.sensitive_files": {
     category: "Exposure",
     criteria: "Common sensitive files, VCS metadata, backup archives, database dumps, and phpinfo pages are not publicly readable.",
@@ -268,6 +283,11 @@ const criteria = {
     category: "Administration/debug",
     criteria: "Admin consoles, debug endpoints, metrics, actuator, server-status, and hot-reload endpoints are absent or require authentication.",
     remediation: "Block debug/admin endpoints from anonymous internet access and restrict them to internal networks or authenticated admins."
+  },
+  "frontend.probes.source_maps": {
+    category: "Information leakage",
+    criteria: "Production source map files are not publicly reachable unless intentionally approved for the environment.",
+    remediation: "Disable production source map publishing or restrict access to internal/debug environments."
   },
   "frontend.probes.http_methods": {
     category: "HTTP method exposure",

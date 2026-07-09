@@ -142,6 +142,7 @@ function requestHeaders(url, redirects = 0, options = {}, originalUrl = url) {
     const client = parsed.protocol === "https:" ? httpsRequest : httpRequest;
     const method = String(options.method || "GET").toUpperCase();
     const maxBodyBytes = Number(options.maxBodyBytes || 0);
+    const extraHeaders = options.headers || {};
     const req = client(
       parsed,
       {
@@ -149,7 +150,8 @@ function requestHeaders(url, redirects = 0, options = {}, originalUrl = url) {
         timeout: 7000,
         headers: {
           "user-agent": USER_AGENT,
-          accept: "text/html,application/xhtml+xml,application/json;q=0.8,*/*;q=0.5"
+          accept: "text/html,application/xhtml+xml,application/json;q=0.8,*/*;q=0.5",
+          ...extraHeaders
         }
       },
       (res) => {
@@ -214,6 +216,49 @@ function headerValue(response, name) {
   return String(response.headers?.[name] || "");
 }
 
+function parseCspDirectives(policy) {
+  const directives = {};
+  for (const part of String(policy || "").split(";")) {
+    const tokens = part.trim().split(/\s+/).filter(Boolean);
+    if (!tokens.length) continue;
+    directives[tokens[0].toLowerCase()] = tokens.slice(1).map((token) => token.toLowerCase());
+  }
+  return directives;
+}
+
+function cspQualityIssues(policy) {
+  const directives = parseCspDirectives(policy);
+  if (!Object.keys(directives).length) return [];
+  const issues = [];
+  const script = directives["script-src"] || directives["default-src"] || [];
+  const object = directives["object-src"] || [];
+  const base = directives["base-uri"] || [];
+  const frameAncestors = directives["frame-ancestors"] || [];
+  const hasNonceOrHash = script.some((token) => /^'(?:nonce-|sha)/.test(token));
+
+  if (script.includes("'unsafe-eval'")) issues.push("script-src unsafe-eval");
+  if (script.includes("'unsafe-inline'") && !hasNonceOrHash) issues.push("script-src unsafe-inline without nonce/hash");
+  if (script.includes("*")) issues.push("script-src wildcard");
+  if (script.includes("data:")) issues.push("script-src data:");
+  if (script.includes("http:")) issues.push("script-src cleartext source");
+  if (!object.length || !object.includes("'none'")) issues.push("object-src not locked to none");
+  if (!base.length || !base.includes("'none'")) issues.push("base-uri not locked to none");
+  if (!frameAncestors.length) issues.push("frame-ancestors missing");
+  return issues;
+}
+
+function corsIssues(response, testOrigin) {
+  const allowOrigin = headerValue(response, "access-control-allow-origin");
+  const allowCredentials = /\btrue\b/i.test(headerValue(response, "access-control-allow-credentials"));
+  if (!allowOrigin) return [];
+  const issues = [];
+  if (allowOrigin === "*" && allowCredentials) issues.push("wildcard_origin_with_credentials");
+  if (allowOrigin === testOrigin && allowCredentials) issues.push("reflected_origin_with_credentials");
+  if (allowOrigin === testOrigin && !allowCredentials) issues.push("reflected_untrusted_origin");
+  if (/^https?:\/\/\*/i.test(allowOrigin)) issues.push("wildcard_subdomain_origin");
+  return issues;
+}
+
 function evaluateHeaders(findings, responses, scope, discovery) {
   const reachable = responses.filter((response) => response.ok);
   const htmlResponses = reachable.filter(isHtmlResponse);
@@ -248,6 +293,23 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     Boolean,
     "CSP helps reduce XSS and client-side injection impact on discovered HTML pages."
   );
+
+  const cspQuality = htmlResponses
+    .map((response) => ({
+      url: response.finalUrl || response.url,
+      issues: cspQualityIssues(headerValue(response, "content-security-policy"))
+    }))
+    .filter((item) => item.issues.length);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.csp_quality",
+    "Content-Security-Policy avoids weak directives",
+    cspQuality.length === 0,
+    "OWASP WSTG recommends reviewing CSP meaningfully, not only checking that the header exists.",
+    { checked: htmlResponses.filter((response) => headerValue(response, "content-security-policy")).length, issues: cspQuality }
+  );
+
   checkHeader(
     "frontend.headers.nosniff",
     "Responses send X-Content-Type-Options: nosniff",
@@ -327,6 +389,50 @@ function evaluateHeaders(findings, responses, scope, discovery) {
   );
 }
 
+async function evaluateCors(findings, scope) {
+  const testOrigin = "https://aegis.invalid";
+  const targets = targetBaseUrls(scope)
+    .map((target) => ({ ...target, url: target.baseUrl }))
+    .filter((target) => isAllowedUrl(target.url, scope, target.targetName));
+  const checks = [];
+  for (const target of targets) {
+    const getResponse = await requestHeaders(target.url, 0, {
+      method: "GET",
+      headers: { origin: testOrigin }
+    });
+    const optionsResponse = await requestHeaders(target.url, 0, {
+      method: "OPTIONS",
+      headers: {
+        origin: testOrigin,
+        "access-control-request-method": "GET"
+      }
+    });
+    checks.push({ target, response: getResponse, phase: "GET" });
+    checks.push({ target, response: optionsResponse, phase: "OPTIONS" });
+  }
+
+  const issues = checks.flatMap(({ target, response, phase }) => corsIssues(response, testOrigin).map((signal) => ({
+    target: target.targetName,
+    phase,
+    requestedUrl: response.requestedUrl || target.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    allowOrigin: headerValue(response, "access-control-allow-origin"),
+    allowCredentials: headerValue(response, "access-control-allow-credentials"),
+    signal
+  })));
+
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.cors",
+    "CORS does not trust arbitrary origins",
+    issues.length === 0,
+    "OWASP WSTG CORS testing checks whether untrusted origins are reflected or allowed with credentials.",
+    { checked: checks.length, testOrigin, issues }
+  );
+}
+
 function cookieName(cookie) {
   return String(cookie || "").split("=")[0].trim();
 }
@@ -403,6 +509,11 @@ function configuredProbePaths(baseline, key, fallback) {
   return Array.isArray(values) && values.length ? values : fallback;
 }
 
+function configuredNumber(baseline, key, fallback) {
+  const value = Number(baseline?.frontendAdvisory?.[key]);
+  return Number.isFinite(value) ? value : fallback;
+}
+
 function urlForPath(baseUrl, path) {
   try {
     return new URL(path, baseUrl).toString();
@@ -428,6 +539,20 @@ function probeFactory(scope, targetName, baseUrl, category, paths, method = "GET
   return paths
     .map((path) => ({ targetName, category, path, method, url: urlForPath(baseUrl, path) }))
     .filter((probe) => probe.url && isAllowedUrl(probe.url, scope, targetName));
+}
+
+function discoveredSourceMapPaths(latestScan) {
+  const paths = [];
+  for (const route of latestScan?.discovery?.routes || []) {
+    try {
+      const parsed = new URL(route.url);
+      if (/\.map$/i.test(parsed.pathname)) paths.push(parsed.pathname);
+      if (/\.js$/i.test(parsed.pathname)) paths.push(`${parsed.pathname}.map`);
+    } catch {
+      // Ignore malformed discovery entries.
+    }
+  }
+  return unique(paths);
 }
 
 function buildPassiveProbes(scope, latestScan, baseline) {
@@ -465,6 +590,15 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/server-status",
     "/_next/webpack-hmr"
   ]);
+  const sourceMapPaths = unique([
+    ...configuredProbePaths(baseline, "sourceMaps", [
+      "/main.js.map",
+      "/app.js.map",
+      "/static/js/main.js.map",
+      "/_next/static/chunks/main.js.map"
+    ]),
+    ...discoveredSourceMapPaths(latestScan)
+  ]);
 
   const routeMethodPaths = unique([
     "/",
@@ -480,6 +614,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiDocs", apiDocs));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sourceMaps", sourceMapPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "httpMethods", routeMethodPaths, "OPTIONS"));
   }
 
@@ -527,6 +662,16 @@ function apiDocsSignal(response) {
   return "";
 }
 
+function sourceMapSignal(response) {
+  if (!isSuccessStatus(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  if ((type.includes("json") || /\.map(?:$|\?)/i.test(response.finalUrl || response.url)) && /"version"\s*:\s*\d/.test(text) && /"mappings"\s*:/.test(text)) {
+    return "source_map";
+  }
+  return "";
+}
+
 function exposedRouteSignal(scope, discovery, probe, response) {
   if (!isSuccessStatus(response)) return "";
   const finalUrl = response.finalUrl || response.url;
@@ -568,6 +713,58 @@ function objectIdentifierEvidence(discovery) {
     .filter((route) => queryIdLike.test(route.url || "") || segmentIdLike(route.path || ""))
     .slice(0, 20)
     .map((route) => ({ path: route.path || route.url, status: route.status, depth: route.depth }));
+}
+
+function contentReviewTargets(scope, latestScan, baseline) {
+  const maxAssets = configuredNumber(baseline, "maxContentReviewAssets", 12);
+  const routes = latestScan?.discovery?.routes || [];
+  return unique(
+    routes
+      .map((route) => route.url)
+      .filter((url) => /\.(?:js|mjs|json)(?:$|\?)/i.test(String(url || "")))
+      .filter((url) => isAllowedUrl(url, scope, "frontend"))
+  ).slice(0, Math.max(0, maxAssets));
+}
+
+function clientSecretSignals(response) {
+  if (!isSuccessStatus(response)) return [];
+  const text = responseText(response);
+  const patterns = [
+    ["private_key", /-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----/i],
+    ["aws_access_key", /\bAKIA[0-9A-Z]{16}\b/],
+    ["google_api_key", /\bAIza[0-9A-Za-z_-]{20,}\b/],
+    ["jwt_literal", /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/],
+    ["secret_assignment", /\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|secret)\b\s*[:=]\s*["'][^"']{8,}["']/i]
+  ];
+  return patterns.filter(([, pattern]) => pattern.test(text)).map(([name]) => name);
+}
+
+async function evaluateClientContentLeakage(findings, scope, latestScan, baseline) {
+  const targets = contentReviewTargets(scope, latestScan, baseline);
+  const reviews = [];
+  for (const url of targets) {
+    const response = await requestHeaders(url, 0, { method: "GET", maxBodyBytes: 8192 });
+    const signals = clientSecretSignals(response);
+    reviews.push({
+      url,
+      finalUrl: response.finalUrl || response.url,
+      status: response.status || 0,
+      contentType: headerValue(response, "content-type"),
+      signals,
+      ok: response.ok
+    });
+  }
+  const exposures = reviews.filter((review) => review.signals.length);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.client_secrets",
+    "Client-side bundles do not expose obvious secrets",
+    exposures.length === 0,
+    "OWASP WSTG information leakage review includes frontend JavaScript and public content. This check stores signal names only, not secret values.",
+    { checked: reviews.length, exposed: exposures }
+  );
+  return reviews;
 }
 
 function evaluateTransport(findings, discovery) {
@@ -613,6 +810,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const apiDocExposures = [];
   const adminExposures = [];
   const debugExposures = [];
+  const sourceMapExposures = [];
   const riskyMethods = [];
   for (const { probe, response } of probeResponses) {
     if (probe.category === "sensitiveFiles") {
@@ -627,6 +825,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "debugPaths") {
       const signal = exposedRouteSignal(scope, discovery, probe, response);
       if (signal) debugExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "sourceMaps") {
+      const signal = sourceMapSignal(response);
+      if (signal) sourceMapExposures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "httpMethods") {
       const signal = methodSignal(response);
       if (signal) riskyMethods.push(probeEvidence(probe, response, signal));
@@ -659,6 +860,15 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     adminExposures.length === 0 && debugExposures.length === 0,
     "Admin consoles, debug endpoints, metrics, actuator, server-status, and framework hot-reload endpoints should not be anonymously available.",
     { admin: adminExposures, debug: debugExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.source_maps",
+    "Production source maps are not publicly exposed",
+    sourceMapExposures.length === 0,
+    "Source maps can disclose source paths, internal comments, and client-side implementation details.",
+    { checked: probes.filter((probe) => probe.category === "sourceMaps").length, exposed: sourceMapExposures }
   );
   addFinding(
     findings,
@@ -711,9 +921,11 @@ async function main() {
 
   const findings = [];
   evaluateHeaders(findings, responses, scope, discovery);
+  await evaluateCors(findings, scope);
   evaluateCookies(findings, responses);
   evaluateForms(findings, discovery);
   evaluateTransport(findings, discovery);
+  const contentReviews = await evaluateClientContentLeakage(findings, scope, latestScan, baseline);
   const probes = await evaluatePassiveProbes(findings, scope, latestScan, baseline);
 
   const warnings = findings.filter((finding) => finding.level === "warning" && !finding.passed);
@@ -728,6 +940,7 @@ async function main() {
       targets: targets.length,
       reachable: responses.filter((response) => response.ok).length,
       probes: probes.length,
+      contentReviews: contentReviews.length,
       total: findings.length,
       passed: findings.filter((finding) => finding.passed).length,
       warnings: warnings.length,
@@ -741,6 +954,8 @@ async function main() {
       error: response.error,
       headers: {
         "cache-control": response.headers?.["cache-control"] || "",
+        "access-control-allow-origin": response.headers?.["access-control-allow-origin"] || "",
+        "access-control-allow-credentials": response.headers?.["access-control-allow-credentials"] || "",
         "content-security-policy": response.headers?.["content-security-policy"] || "",
         "permissions-policy": response.headers?.["permissions-policy"] || "",
         "referrer-policy": response.headers?.["referrer-policy"] || "",
@@ -751,6 +966,7 @@ async function main() {
       },
       setCookieCount: response.setCookies?.length || 0
     })),
+    contentReviews,
     probes,
     findings
   };

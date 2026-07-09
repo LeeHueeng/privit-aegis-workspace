@@ -1488,6 +1488,7 @@ function page() {
         ].join(" / ")),
         summaryRow(t("passiveProbeSummary"), [
           (targetAdvisory.summary?.probes || 0) + " probes",
+          (targetAdvisory.summary?.contentReviews || 0) + " content",
           (targetAdvisory.summary?.errors || 0) + " errors"
         ].join(" / ")),
         summaryRow(t("penetrationReportSummary"), [
