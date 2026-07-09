@@ -530,6 +530,16 @@ const criteria = {
     criteria: "OIDC, OAuth, and JWKS metadata endpoints are inventoried so issuer, key, scope, and token posture can be reviewed.",
     remediation: "Confirm metadata is intentionally public, rotate signing keys safely, restrict token endpoints, and validate issuer/audience consistently."
   },
+  "frontend.probes.identity_metadata_quality": {
+    category: "Identity",
+    criteria: "OIDC and OAuth discovery metadata is parseable JSON, uses HTTPS for non-local issuers/endpoints, and does not advertise the unsecured none signing algorithm.",
+    remediation: "Serve valid discovery metadata, require HTTPS endpoint URLs, remove unsecured signing algorithms, and keep issuer/audience validation aligned with the published issuer."
+  },
+  "frontend.probes.jwks_quality": {
+    category: "Identity keys",
+    criteria: "Public JWKS documents expose only public, distinguishable signing keys with no duplicate kid values, no symmetric/private key material, and no weak algorithms.",
+    remediation: "Rotate malformed keys, remove symmetric or private key material from public JWKS, use distinct kid values, and publish only supported public signing keys."
+  },
   "frontend.probes.oauth_callback_routes": {
     category: "Identity",
     criteria: "Common OAuth, OIDC, SSO, and SAML callback routes are inventoried without credentials or authorization parameters.",
@@ -1111,6 +1121,18 @@ const localizedCriteria = {
       category: "인증/식별",
       criteria: "issuer, key, scope, token posture 검토를 위해 OIDC, OAuth, JWKS 메타데이터 엔드포인트가 기록되어야 합니다.",
       remediation: "메타데이터 공개가 의도된 것인지 확인하고 signing key rotation, token endpoint 제한, issuer/audience 검증을 점검하세요."
+    },
+    "frontend.probes.identity_metadata_quality": {
+      title: "OIDC 및 OAuth discovery metadata가 안전한 endpoint posture를 사용함",
+      category: "인증/식별",
+      criteria: "OIDC 및 OAuth discovery metadata는 parseable JSON이어야 하며 non-local issuer/endpoint는 HTTPS를 사용하고 unsecured none signing algorithm을 광고하지 않아야 합니다.",
+      remediation: "유효한 discovery metadata를 제공하고 endpoint URL에 HTTPS를 요구하며 unsecured signing algorithm을 제거하고 게시된 issuer와 issuer/audience 검증을 일치시키세요."
+    },
+    "frontend.probes.jwks_quality": {
+      title: "JWKS 문서가 공개 검증용 key만 구분 가능하게 노출함",
+      category: "인증 키",
+      criteria: "공개 JWKS 문서는 duplicate kid, symmetric/private key material, empty key set, weak algorithm 없이 공개 signing key만 노출해야 합니다.",
+      remediation: "잘못된 key를 rotation하고 public JWKS에서 symmetric/private key material을 제거하며 distinct kid와 지원되는 public signing key만 게시하세요."
     },
     "frontend.probes.oauth_callback_routes": {
       title: "OAuth, OIDC, SSO, SAML 콜백 경로가 인벤토리됨",

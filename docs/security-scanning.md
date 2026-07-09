@@ -85,7 +85,8 @@ generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, GraphQL endpoints and public
 IDE/schema-like exposure signals, versioned API route inventory, legacy/beta/
 internal API exposure, upload/import/
-export surfaces, OIDC/OAuth/JWKS metadata, CORS trust decisions, CSP quality,
+export surfaces, OIDC/OAuth discovery metadata quality, JWKS public key quality,
+CORS trust decisions, CSP quality,
 CSP Report-Only policy inventory, COOP/COEP/CORP isolation header inventory and
 value validation, Permissions-Policy least-privilege quality and deprecated
 Feature-Policy detection, authentication form GET submissions, state-changing form CSRF

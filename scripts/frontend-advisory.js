@@ -1494,7 +1494,11 @@ function buildPassiveProbes(scope, latestScan, baseline) {
   ]);
   const identityEndpoints = configuredProbePaths(baseline, "identityEndpoints", [
     "/.well-known/openid-configuration",
+    "/.well-known/oauth-authorization-server",
     "/.well-known/jwks.json",
+    "/jwks.json",
+    "/oauth/jwks",
+    "/oauth2/jwks",
     "/oauth/authorize",
     "/oauth/token",
     "/oauth2/authorize",
@@ -1694,6 +1698,10 @@ function responseText(response) {
   return String(response.bodyPreview || "").slice(0, 4096);
 }
 
+function responsePreviewText(response) {
+  return String(response.bodyPreview || "").slice(0, 16384);
+}
+
 function isSuccessStatus(response) {
   return response.ok && response.status >= 200 && response.status < 300;
 }
@@ -1847,9 +1855,114 @@ function identityMetadataSignal(probe, response) {
   if (path.includes("openid-configuration") && type.includes("json") && /"(?:issuer|authorization_endpoint|jwks_uri)"\s*:/.test(text)) {
     return "openid_configuration";
   }
+  if (path.includes("oauth-authorization-server") && type.includes("json") && /"(?:issuer|authorization_endpoint|token_endpoint|jwks_uri)"\s*:/.test(text)) {
+    return "oauth_authorization_server_metadata";
+  }
   if (path.includes("jwks") && type.includes("json") && /"keys"\s*:\s*\[/.test(text)) return "jwks_metadata";
   if (/\/oauth2?\/(?:authorize|token)(?:$|[/?#])/i.test(path) && !isSoftNotFoundResponse(response)) return "oauth_endpoint";
   return "";
+}
+
+function urlSummary(value, baseUrl = "") {
+  if (!value) return null;
+  try {
+    const parsed = new URL(String(value), baseUrl || undefined);
+    return {
+      protocol: parsed.protocol.replace(":", ""),
+      host: parsed.hostname,
+      path: parsed.pathname || "/",
+      cleartext: parsed.protocol === "http:" && !isLoopback(parsed.hostname)
+    };
+  } catch {
+    return { invalid: true };
+  }
+}
+
+function arrayField(value) {
+  return Array.isArray(value) ? value.map((item) => String(item || "")).filter(Boolean) : [];
+}
+
+function identityMetadataEvidence(probe, response, signal) {
+  const evidence = probeEvidence(probe, response, signal);
+  const parsed = parseJsonPreview(responsePreviewText(response));
+  evidence.parseableJson = Boolean(parsed);
+  if (!parsed || typeof parsed !== "object") return evidence;
+
+  if (signal === "openid_configuration" || signal === "oauth_authorization_server_metadata") {
+    const baseUrl = response.finalUrl || response.url || probe.url;
+    const issuer = urlSummary(parsed.issuer, baseUrl);
+    const endpoints = {
+      authorization: urlSummary(parsed.authorization_endpoint, baseUrl),
+      token: urlSummary(parsed.token_endpoint, baseUrl),
+      jwks: urlSummary(parsed.jwks_uri, baseUrl),
+      userinfo: urlSummary(parsed.userinfo_endpoint, baseUrl),
+      introspection: urlSummary(parsed.introspection_endpoint, baseUrl),
+      revocation: urlSummary(parsed.revocation_endpoint, baseUrl)
+    };
+    evidence.issuer = issuer;
+    evidence.endpointHosts = unique(Object.values(endpoints).map((item) => item?.host)).slice(0, 10);
+    evidence.cleartextEndpoints = Object.entries(endpoints)
+      .filter(([, item]) => item?.cleartext)
+      .map(([name, item]) => ({ name, host: item.host, path: item.path }));
+    evidence.invalidEndpointFields = Object.entries(endpoints)
+      .filter(([, item]) => item?.invalid)
+      .map(([name]) => name);
+    evidence.responseTypes = arrayField(parsed.response_types_supported).slice(0, 12);
+    evidence.grantTypes = arrayField(parsed.grant_types_supported).slice(0, 12);
+    evidence.codeChallengeMethods = arrayField(parsed.code_challenge_methods_supported).slice(0, 12);
+    evidence.signingAlgs = arrayField(parsed.id_token_signing_alg_values_supported || parsed.token_endpoint_auth_signing_alg_values_supported).slice(0, 12);
+    evidence.supportsNoneAlg = evidence.signingAlgs.some((alg) => alg.toLowerCase() === "none");
+    return evidence;
+  }
+
+  if (signal === "jwks_metadata") {
+    const keys = Array.isArray(parsed.keys) ? parsed.keys : [];
+    const kids = keys.map((key) => String(key?.kid || "")).filter(Boolean);
+    const duplicateKids = unique(kids.filter((kid, index) => kids.indexOf(kid) !== index));
+    evidence.keyCount = keys.length;
+    evidence.keyTypes = unique(keys.map((key) => key?.kty).filter(Boolean).map(String)).slice(0, 12);
+    evidence.uses = unique(keys.map((key) => key?.use).filter(Boolean).map(String)).slice(0, 12);
+    evidence.algorithms = unique(keys.map((key) => key?.alg).filter(Boolean).map(String)).slice(0, 12);
+    evidence.missingKidCount = keys.filter((key) => !key?.kid).length;
+    evidence.duplicateKidCount = duplicateKids.length;
+    evidence.symmetricKeyCount = keys.filter((key) => String(key?.kty || "").toLowerCase() === "oct").length;
+    evidence.privateMaterialCount = keys.filter((key) => ["d", "p", "q", "dp", "dq", "qi", "oth", "k"].some((field) => key && key[field])).length;
+    evidence.weakAlgorithms = evidence.algorithms.filter((alg) => /^(?:none|hs\d+)/i.test(alg));
+  }
+
+  return evidence;
+}
+
+function identityMetadataQualityIssues(endpoints) {
+  return endpoints
+    .filter((item) => ["openid_configuration", "oauth_authorization_server_metadata"].includes(item.signal))
+    .flatMap((item) => {
+      const issues = [];
+      if (!item.parseableJson) issues.push({ ...item, signal: "identity_metadata_not_parseable_json" });
+      if (item.issuer?.cleartext) issues.push({ ...item, signal: "identity_metadata_cleartext_issuer" });
+      if (item.issuer?.invalid) issues.push({ ...item, signal: "identity_metadata_invalid_issuer" });
+      for (const endpoint of item.cleartextEndpoints || []) {
+        issues.push({ ...item, signal: "identity_metadata_cleartext_endpoint", endpoint });
+      }
+      if ((item.invalidEndpointFields || []).length) issues.push({ ...item, signal: "identity_metadata_invalid_endpoint_url" });
+      if (item.supportsNoneAlg) issues.push({ ...item, signal: "identity_metadata_supports_none_alg" });
+      return issues;
+    });
+}
+
+function jwksQualityIssues(endpoints) {
+  return endpoints
+    .filter((item) => item.signal === "jwks_metadata")
+    .flatMap((item) => {
+      const issues = [];
+      if (!item.parseableJson) issues.push({ ...item, signal: "jwks_not_parseable_json" });
+      if (item.keyCount === 0) issues.push({ ...item, signal: "jwks_empty_key_set" });
+      if (item.duplicateKidCount) issues.push({ ...item, signal: "jwks_duplicate_kid" });
+      if (item.symmetricKeyCount) issues.push({ ...item, signal: "jwks_symmetric_key_exposed" });
+      if (item.privateMaterialCount) issues.push({ ...item, signal: "jwks_private_key_material_exposed" });
+      if ((item.weakAlgorithms || []).length) issues.push({ ...item, signal: "jwks_weak_algorithm" });
+      return issues;
+    });
 }
 
 function unauthenticatedUserApiSignal(probe, response) {
@@ -3521,7 +3634,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
       probe,
       response: await requestHeaders(probe.url, 0, {
         method: probe.method,
-        maxBodyBytes: probe.method === "GET" ? 4096 : 0
+        maxBodyBytes: probe.method === "GET" ? 8192 : 0
       })
     });
   }
@@ -3577,7 +3690,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
       if (signal) uploadSurfaces.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "identityEndpoints") {
       const signal = identityMetadataSignal(probe, response);
-      if (signal) identityMetadata.push(probeEvidence(probe, response, signal));
+      if (signal) identityMetadata.push(identityMetadataEvidence(probe, response, signal));
     } else if (probe.category === "oauthCallbackPaths") {
       const signal = oauthCallbackSignal(probe, response);
       if (signal) oauthCallbackSurfaces.push(oauthCallbackEvidence(probe, response, signal));
@@ -3718,6 +3831,26 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "Identity metadata can be intentionally public, but discovered issuer, JWKS, authorization, and token endpoints should be reviewed for scope, audience, and key-rotation posture.",
     { checked: probes.filter((probe) => probe.category === "identityEndpoints").length, endpoints: identityMetadata }
+  );
+  const identityMetadataIssues = identityMetadataQualityIssues(identityMetadata);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.identity_metadata_quality",
+    "OIDC and OAuth discovery metadata uses safe endpoint posture",
+    identityMetadataIssues.length === 0,
+    "OpenID Connect Discovery and OAuth Authorization Server Metadata should be parseable JSON, use HTTPS for non-local issuers and endpoints, and avoid advertising the unsecured none signing algorithm.",
+    { checked: identityMetadata.filter((item) => ["openid_configuration", "oauth_authorization_server_metadata"].includes(item.signal)).length, issues: identityMetadataIssues }
+  );
+  const jwksIssues = jwksQualityIssues(identityMetadata);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.jwks_quality",
+    "JWKS documents expose only public, distinguishable signing keys",
+    jwksIssues.length === 0,
+    "RFC 7517 JWK sets should avoid duplicate key IDs, symmetric or private key material, empty key sets, and weak algorithms in public JWKS endpoints.",
+    { checked: identityMetadata.filter((item) => item.signal === "jwks_metadata").length, issues: jwksIssues }
   );
   addFinding(
     findings,

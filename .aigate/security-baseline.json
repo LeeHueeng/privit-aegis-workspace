@@ -227,6 +227,18 @@
       "url": "https://www.sitemaps.org/protocol.html"
     },
     {
+      "name": "OpenID Connect Discovery 1.0",
+      "url": "https://openid.net/specs/openid-connect-discovery-1_0.html"
+    },
+    {
+      "name": "RFC 8414 OAuth 2.0 Authorization Server Metadata",
+      "url": "https://datatracker.ietf.org/doc/html/rfc8414"
+    },
+    {
+      "name": "RFC 7517 JSON Web Key",
+      "url": "https://datatracker.ietf.org/doc/html/rfc7517"
+    },
+    {
       "name": "RFC 9700 OAuth 2.0 Security Best Current Practice",
       "url": "https://datatracker.ietf.org/doc/html/rfc9700"
     },
@@ -317,7 +329,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 430,
+      "maxProbeRequests": 450,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -409,7 +421,11 @@
       ],
       "identityEndpoints": [
         "/.well-known/openid-configuration",
+        "/.well-known/oauth-authorization-server",
         "/.well-known/jwks.json",
+        "/jwks.json",
+        "/oauth/jwks",
+        "/oauth2/jwks",
         "/oauth/authorize",
         "/oauth/token",
         "/oauth2/authorize",
