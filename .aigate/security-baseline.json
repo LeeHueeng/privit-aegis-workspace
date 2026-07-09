@@ -165,6 +165,10 @@
     {
       "name": "MDN Content Security Policy",
       "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP"
+    },
+    {
+      "name": "MDN Subresource Integrity",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity"
     }
   ],
   "scope": {

@@ -290,6 +290,16 @@ const criteria = {
     criteria: "HTML links that open new tabs with target=_blank also include rel=noopener or rel=noreferrer.",
     remediation: "Add rel=noopener or rel=noreferrer to new-tab links, especially for external destinations."
   },
+  "frontend.content.subresource_integrity": {
+    category: "Client-side testing",
+    criteria: "External scripts and stylesheet resources referenced by HTML pages use Subresource Integrity where applicable.",
+    remediation: "Add integrity attributes to third-party script/style resources and pin them to reviewed versions."
+  },
+  "frontend.content.mixed_content": {
+    category: "Transport",
+    criteria: "HTTPS pages do not load active resources or submit forms over cleartext HTTP.",
+    remediation: "Replace cleartext subresources and form actions with HTTPS URLs or same-origin secure routes."
+  },
   "frontend.headers.auth_cache": {
     category: "Authentication",
     criteria: "Authentication-like pages use Cache-Control: no-store.",
@@ -485,6 +495,16 @@ const criteria = {
     criteria: "Auth and session API probes are inventoried for visible Retry-After or RateLimit headers.",
     remediation: "Pair this passive evidence with authenticated brute-force/throttling tests and avoid leaking sensitive rate-limit state."
   },
+  "frontend.probes.auth_api_cache": {
+    category: "API caching",
+    criteria: "Auth and session API JSON responses use private/no-store/no-cache style cache controls and avoid public caching.",
+    remediation: "Set Cache-Control: no-store or private/no-cache on user, account, and session JSON responses."
+  },
+  "frontend.probes.auth_api_nosniff": {
+    category: "API hardening",
+    criteria: "Auth and session API JSON responses send X-Content-Type-Options: nosniff.",
+    remediation: "Add X-Content-Type-Options: nosniff to JSON API responses at the app server or edge."
+  },
   "frontend.probes.admin_debug": {
     category: "Administration/debug",
     criteria: "Admin consoles, debug endpoints, metrics, actuator, server-status, and hot-reload endpoints are absent or require authentication.",
@@ -638,6 +658,18 @@ const localizedCriteria = {
       category: "클라이언트 측 테스트",
       criteria: "target=_blank로 새 탭을 여는 HTML 링크는 rel=noopener 또는 rel=noreferrer를 포함해야 합니다.",
       remediation: "특히 외부 링크에 rel=noopener 또는 rel=noreferrer를 추가하세요."
+    },
+    "frontend.content.subresource_integrity": {
+      title: "외부 script/style 리소스가 Subresource Integrity를 사용함",
+      category: "클라이언트 측 테스트",
+      criteria: "HTML 페이지가 참조하는 외부 script 및 stylesheet 리소스는 가능한 경우 Subresource Integrity를 사용해야 합니다.",
+      remediation: "제3자 script/style 리소스에 integrity 속성을 추가하고 검토된 버전으로 고정하세요."
+    },
+    "frontend.content.mixed_content": {
+      title: "HTTPS 페이지가 평문 리소스 또는 form action을 피함",
+      category: "전송 보안",
+      criteria: "HTTPS 페이지는 active resource를 cleartext HTTP로 로드하거나 form을 cleartext HTTP로 제출하지 않아야 합니다.",
+      remediation: "cleartext subresource와 form action을 HTTPS URL 또는 same-origin secure route로 교체하세요."
     },
     "frontend.headers.auth_cache": {
       title: "인증 유사 페이지가 Cache-Control: no-store를 사용함",
@@ -872,6 +904,18 @@ const localizedCriteria = {
       category: "남용 방지",
       criteria: "인증 및 세션 API probe는 보이는 Retry-After 또는 RateLimit 헤더 신호를 인벤토리해야 합니다.",
       remediation: "이 passive 증거를 인증된 brute-force/throttling 테스트와 함께 사용하고 민감한 rate-limit 상태 노출은 피하세요."
+    },
+    "frontend.probes.auth_api_cache": {
+      title: "인증/세션 API JSON 응답이 공유 캐시 노출을 피함",
+      category: "API 캐싱",
+      criteria: "인증 및 세션 API JSON 응답은 private/no-store/no-cache 계열 cache control을 사용하고 public caching을 피해야 합니다.",
+      remediation: "사용자, 계정, 세션 JSON 응답에 Cache-Control: no-store 또는 private/no-cache를 설정하세요."
+    },
+    "frontend.probes.auth_api_nosniff": {
+      title: "인증/세션 API JSON 응답이 nosniff를 사용함",
+      category: "API 하드닝",
+      criteria: "인증 및 세션 API JSON 응답은 X-Content-Type-Options: nosniff를 전송해야 합니다.",
+      remediation: "앱 서버 또는 edge에서 JSON API 응답에 X-Content-Type-Options: nosniff를 추가하세요."
     },
     "frontend.probes.admin_debug": {
       title: "관리자 및 디버그 표면이 없거나 인증을 요구함",

@@ -85,8 +85,9 @@ external form actions, sensitive cleartext form submissions, file-upload form
 controls, account-recovery and well-known change-password routes, visible
 Retry-After/RateLimit headers on authentication surfaces, sensitive URL query
 parameter names, anonymously readable user/account/profile/session API JSON,
-security.txt contact metadata, client-side bundle leakage signals, DOM XSS
-source/sink patterns, Web Messaging patterns, URL-controlled
+auth/session API cache and `nosniff` headers, security.txt contact metadata,
+client-side bundle leakage signals, external subresource integrity, HTTPS mixed
+content references, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled
 redirect/resource-loading patterns, client-side template sinks,
 prototype-pollution candidate flows, sensitive browser-storage keys, cleartext
 public WebSocket endpoints, JWT header algorithm signals, XSSI JSON candidates,

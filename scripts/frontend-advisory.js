@@ -425,6 +425,78 @@ function reverseTabnabbingIssues(response) {
   return issues.slice(0, 20);
 }
 
+function sameOriginUrl(a, b) {
+  try {
+    return new URL(a).origin === new URL(b).origin;
+  } catch {
+    return false;
+  }
+}
+
+function externalSubresourceIntegrityIssues(response) {
+  if (!isSuccessStatus(response) || !isHtmlResponse(response)) return [];
+  const baseUrl = response.finalUrl || response.url;
+  const issues = [];
+  const html = clientCodeText(response);
+  for (const match of html.matchAll(/<script\b[^>]*\bsrc\b[^>]*>/gi)) {
+    const tag = match[0];
+    const src = attrValue(tag, "src");
+    if (!src) continue;
+    try {
+      const url = new URL(src, baseUrl).toString();
+      if (!/^https?:\/\//i.test(url) || sameOriginUrl(url, baseUrl)) continue;
+      if (!attrValue(tag, "integrity")) {
+        issues.push({ url: baseUrl, resource: url.slice(0, 240), tag: "script", signal: "external_script_without_sri" });
+      }
+    } catch {
+      // Ignore malformed resource references in passive HTML inventory.
+    }
+  }
+  for (const match of html.matchAll(/<link\b[^>]*\bhref\b[^>]*>/gi)) {
+    const tag = match[0];
+    const rel = attrValue(tag, "rel").toLowerCase();
+    if (!/\b(?:stylesheet|preload|modulepreload)\b/.test(rel)) continue;
+    const href = attrValue(tag, "href");
+    if (!href) continue;
+    try {
+      const url = new URL(href, baseUrl).toString();
+      if (!/^https?:\/\//i.test(url) || sameOriginUrl(url, baseUrl)) continue;
+      if (!attrValue(tag, "integrity")) {
+        issues.push({ url: baseUrl, resource: url.slice(0, 240), tag: "link", rel, signal: "external_stylesheet_without_sri" });
+      }
+    } catch {
+      // Ignore malformed resource references in passive HTML inventory.
+    }
+  }
+  return issues.slice(0, 30);
+}
+
+function mixedContentIssues(response) {
+  if (!isSuccessStatus(response) || !isHtmlResponse(response)) return [];
+  const baseUrl = response.finalUrl || response.url;
+  try {
+    if (new URL(baseUrl).protocol !== "https:") return [];
+  } catch {
+    return [];
+  }
+  const issues = [];
+  const html = clientCodeText(response);
+  for (const match of html.matchAll(/<(script|link|iframe|img|form)\b[^>]*(?:\bsrc\b|\bhref\b|\baction\b)[^>]*>/gi)) {
+    const tag = match[0];
+    const tagName = match[1].toLowerCase();
+    const value = attrValue(tag, "src") || attrValue(tag, "href") || attrValue(tag, "action");
+    if (!value) continue;
+    try {
+      const url = new URL(value, baseUrl);
+      if (url.protocol !== "http:" || isLoopback(url.hostname)) continue;
+      issues.push({ url: baseUrl, resource: url.toString().slice(0, 240), tag: tagName, signal: "http_subresource_on_https_page" });
+    } catch {
+      // Ignore malformed resource references in passive HTML inventory.
+    }
+  }
+  return issues.slice(0, 30);
+}
+
 function rateLimitHeaders(response) {
   const names = [
     "ratelimit-limit",
@@ -448,6 +520,26 @@ function rateLimitEvidence(response, extra = {}) {
     status: response.status || 0,
     headers: rateLimitHeaders(response),
     ...extra
+  };
+}
+
+function cacheControlProtected(value) {
+  const header = String(value || "");
+  if (/\bpublic\b/i.test(header)) return false;
+  return /\b(?:no-store|no-cache|private|max-age=0|s-maxage=0)\b/i.test(header);
+}
+
+function authApiHeaderEvidence(probe, response, signal) {
+  return {
+    target: probe.targetName,
+    path: probe.path,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    contentType: contentType(response),
+    cacheControl: headerValue(response, "cache-control"),
+    xContentTypeOptions: headerValue(response, "x-content-type-options"),
+    signal
   };
 }
 
@@ -602,6 +694,34 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     tabnabbingIssues.length === 0,
     "OWASP WSTG reverse tabnabbing testing reviews target=_blank links that omit opener isolation.",
     { checked: htmlResponses.length, issues: tabnabbingIssues }
+  );
+
+  const sriIssues = htmlResponses.flatMap(externalSubresourceIntegrityIssues);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.subresource_integrity",
+    "External scripts and styles use Subresource Integrity",
+    sriIssues.length === 0,
+    "Subresource Integrity helps detect unexpected changes in third-party scripts and styles loaded by discovered HTML pages.",
+    { checked: htmlResponses.length, issues: sriIssues }
+  );
+
+  const mixedContent = htmlResponses.flatMap(mixedContentIssues);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.mixed_content",
+    "HTTPS pages avoid cleartext subresources and form actions",
+    mixedContent.length === 0,
+    "HTTPS pages should not load active resources or submit forms over cleartext HTTP because that weakens transport guarantees.",
+    { checked: htmlResponses.filter((response) => {
+      try {
+        return new URL(response.finalUrl || response.url).protocol === "https:";
+      } catch {
+        return false;
+      }
+    }).length, issues: mixedContent }
   );
 
   const authResponses = htmlResponses.filter((response) => isAuthLikeUrl(response.finalUrl || response.url, scope, discovery));
@@ -2448,6 +2568,36 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
       present: authApiRateLimitSignals.filter((item) => Object.keys(item.headers).length),
       missing: authApiRateLimitSignals.filter((item) => !Object.keys(item.headers).length).map((item) => ({ target: item.target, path: item.path, status: item.status }))
     }
+  );
+  const authApiJsonResponses = probeResponses.filter(({ probe, response }) =>
+    probe.category === "authApiPaths"
+    && isSuccessStatus(response)
+    && !isSoftNotFoundResponse(response)
+    && contentType(response).includes("json")
+  );
+  const authApiCacheIssues = authApiJsonResponses
+    .filter(({ response }) => !cacheControlProtected(headerValue(response, "cache-control")))
+    .map(({ probe, response }) => authApiHeaderEvidence(probe, response, "missing_private_or_no_store_cache_control"));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.auth_api_cache",
+    "Auth and session API JSON responses avoid shared-cache exposure",
+    authApiCacheIssues.length === 0,
+    "User, account, and session JSON should use private/no-store/no-cache style cache controls and avoid public caching.",
+    { checked: authApiJsonResponses.length, issues: authApiCacheIssues }
+  );
+  const authApiNosniffIssues = authApiJsonResponses
+    .filter(({ response }) => !/\bnosniff\b/i.test(headerValue(response, "x-content-type-options")))
+    .map(({ probe, response }) => authApiHeaderEvidence(probe, response, "missing_x_content_type_options_nosniff"));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.auth_api_nosniff",
+    "Auth and session API JSON responses use nosniff",
+    authApiNosniffIssues.length === 0,
+    "JSON API responses should use X-Content-Type-Options: nosniff to reduce MIME confusion risks.",
+    { checked: authApiJsonResponses.length, issues: authApiNosniffIssues }
   );
   addFinding(
     findings,
