@@ -167,6 +167,22 @@
       "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/CSP"
     },
     {
+      "name": "MDN Content-Security-Policy-Report-Only",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy-Report-Only"
+    },
+    {
+      "name": "MDN Cross-Origin-Opener-Policy",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Opener-Policy"
+    },
+    {
+      "name": "MDN Cross-Origin-Embedder-Policy",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Embedder-Policy"
+    },
+    {
+      "name": "MDN Cross-Origin-Resource-Policy",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Resource-Policy"
+    },
+    {
       "name": "MDN Subresource Integrity",
       "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity"
     }

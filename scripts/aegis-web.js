@@ -1224,22 +1224,22 @@ function page() {
           zh: "安全响应头与浏览器防护"
         },
         detects: {
-          ko: "CSP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache header를 확인합니다.",
-          en: "Checks CSP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, and cache headers.",
-          ja: "CSP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、cache headerを確認します。",
-          zh: "检查 CSP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS 和缓存响应头。"
+          ko: "CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache header를 확인합니다.",
+          en: "Checks CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, and cache headers.",
+          ja: "CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、cache headerを確認します。",
+          zh: "检查 CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS 和缓存响应头。"
         },
         criteria: {
-          ko: "위험한 누락/완화 설정이 없어야 하며, 인증 페이지는 민감 cache를 남기지 않아야 합니다.",
-          en: "Risky missing or weak headers should be absent, and auth pages should avoid sensitive caching.",
-          ja: "危険な欠落や弱いヘッダーがなく、認証ページは機密cacheを残さない必要があります。",
-          zh: "不应缺失或弱化关键响应头，认证页面不应留下敏感缓存。"
+          ko: "위험한 누락/완화 설정이 없어야 하며, 교차 출처 격리 헤더는 잘못된 값이나 unsafe-none을 피하고 인증 페이지는 민감 cache를 남기지 않아야 합니다.",
+          en: "Risky missing or weak headers should be absent, cross-origin isolation headers should avoid invalid values or unsafe-none, and auth pages should avoid sensitive caching.",
+          ja: "危険な欠落や弱いヘッダーがなく、cross-origin isolationヘッダーは不正な値やunsafe-noneを避け、認証ページは機密cacheを残さない必要があります。",
+          zh: "不应缺失或弱化关键响应头，跨源隔离响应头应避免无效值或 unsafe-none，认证页面不应留下敏感缓存。"
         },
         evidence: {
-          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP 신호를 저장합니다.",
-          en: "Stores header names, values, URLs, status codes, and CORS/CSP signals.",
-          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSPシグナルを保存します。",
-          zh: "保存响应头名称、值、URL、状态码和 CORS/CSP 信号。"
+          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP/격리 헤더 신호와 Report-Only 보고 지시자 존재 여부를 저장합니다.",
+          en: "Stores header names, values, URLs, status codes, CORS/CSP/isolation-header signals, and Report-Only reporting-directive presence.",
+          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSP/isolation-headerシグナル、Report-Only reporting directiveの有無を保存します。",
+          zh: "保存响应头名称、值、URL、状态码、CORS/CSP/隔离响应头信号以及 Report-Only 报告指令是否存在。"
         }
       },
       {

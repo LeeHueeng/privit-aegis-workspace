@@ -64,8 +64,9 @@ authentication-like pages, defensive cookie attributes, and password-manager
 autocomplete hints. It also reviews public transport posture for cleartext HTTP,
 basic TLS certificate validity, and precise web server version banners. It also
 performs header-misconfiguration checks for deprecated HPKP, obsolete
-`X-Frame-Options: ALLOW-FROM`, permissive cross-domain policy headers, and HSTS
-placement, plus CNAME takeover fingerprints, Host-style header reflection, and
+`X-Frame-Options: ALLOW-FROM`, permissive cross-domain policy headers, HSTS
+placement, CSP Report-Only rollout, and COOP/COEP/CORP browser isolation
+posture, plus CNAME takeover fingerprints, Host-style header reflection, and
 sensitive cookie scope. It also reads a small HTML preview to identify reverse
 tabnabbing link patterns. It does not submit forms or send attack payloads.
 
@@ -80,11 +81,12 @@ webserver metafiles
 `clientaccesspolicy.xml`), generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, GraphQL endpoints, upload/import/
 export surfaces, OIDC/OAuth/JWKS metadata, CORS trust decisions, CSP quality,
-authentication form GET submissions, state-changing form CSRF token candidates,
-external form actions, sensitive cleartext form submissions, file-upload form
-controls, account-recovery and well-known change-password routes, visible
-Retry-After/RateLimit headers on authentication surfaces, sensitive URL query
-parameter names, anonymously readable user/account/profile/session API JSON,
+CSP Report-Only policy inventory, COOP/COEP/CORP isolation header inventory and
+value validation, authentication form GET submissions, state-changing form CSRF
+token candidates, external form actions, sensitive cleartext form submissions,
+file-upload form controls, account-recovery and well-known change-password routes,
+visible Retry-After/RateLimit headers on authentication surfaces, sensitive URL
+query parameter names, anonymously readable user/account/profile/session API JSON,
 auth/session API cache and `nosniff` headers, security.txt contact metadata,
 client-side bundle leakage signals, external subresource integrity, HTTPS mixed
 content references, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled

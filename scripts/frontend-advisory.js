@@ -372,6 +372,81 @@ function headerMisconfigurationIssues(response) {
   return issues;
 }
 
+function firstHeaderToken(value) {
+  return String(value || "").split(";")[0].trim().toLowerCase();
+}
+
+function crossOriginIsolationEvidence(response) {
+  const finalUrl = response.finalUrl || response.url;
+  const headerNames = [
+    "cross-origin-opener-policy",
+    "cross-origin-embedder-policy",
+    "cross-origin-embedder-policy-report-only",
+    "cross-origin-resource-policy"
+  ];
+  const headers = Object.fromEntries(
+    headerNames
+      .map((name) => [name, headerValue(response, name)])
+      .filter(([, value]) => value)
+  );
+  return {
+    url: finalUrl,
+    status: response.status || 0,
+    headers,
+    missing: headerNames.filter((name) => !headers[name])
+  };
+}
+
+function crossOriginIsolationIssues(response) {
+  const finalUrl = response.finalUrl || response.url;
+  const headerChecks = [
+    {
+      header: "cross-origin-opener-policy",
+      allowed: new Set(["same-origin", "same-origin-allow-popups", "unsafe-none"]),
+      weak: new Set(["unsafe-none"])
+    },
+    {
+      header: "cross-origin-embedder-policy",
+      allowed: new Set(["require-corp", "credentialless", "unsafe-none"]),
+      weak: new Set(["unsafe-none"])
+    },
+    {
+      header: "cross-origin-embedder-policy-report-only",
+      allowed: new Set(["require-corp", "credentialless", "unsafe-none"]),
+      weak: new Set(["unsafe-none"])
+    },
+    {
+      header: "cross-origin-resource-policy",
+      allowed: new Set(["same-origin", "same-site", "cross-origin"]),
+      weak: new Set()
+    }
+  ];
+  const issues = [];
+  for (const check of headerChecks) {
+    const raw = headerValue(response, check.header);
+    if (!raw) continue;
+    const value = firstHeaderToken(raw);
+    if (!check.allowed.has(value)) {
+      issues.push({ url: finalUrl, header: check.header, value: raw, signal: "invalid_cross_origin_policy_value" });
+    } else if (check.weak.has(value)) {
+      issues.push({ url: finalUrl, header: check.header, value: raw, signal: "explicit_unsafe_none" });
+    }
+  }
+  return issues;
+}
+
+function cspReportOnlyEvidence(response) {
+  const policy = headerValue(response, "content-security-policy-report-only");
+  return {
+    url: response.finalUrl || response.url,
+    status: response.status || 0,
+    present: Boolean(policy),
+    hasReportEndpoint: /\b(?:report-to|report-uri)\b/i.test(policy),
+    issues: cspQualityIssues(policy),
+    policyPreview: policy.slice(0, 240)
+  };
+}
+
 function frameworkFingerprintEvidence(response) {
   const finalUrl = response.finalUrl || response.url;
   const headerNames = [
@@ -617,6 +692,50 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     (response) => isHtmlResponse(response),
     Boolean,
     "Permissions-Policy disables unused browser capabilities such as camera, microphone, and geolocation."
+  );
+
+  const isolationEvidence = htmlResponses.map(crossOriginIsolationEvidence);
+  const isolationPresent = isolationEvidence.filter((item) => Object.keys(item.headers).length);
+  addFinding(
+    findings,
+    "info",
+    "frontend.headers.cross_origin_isolation",
+    "Cross-origin isolation headers are inventoried",
+    true,
+    "COOP, COEP, COEP-Report-Only, and CORP are defense-in-depth browser isolation headers. Missing values are informational because rollout depends on application embedding requirements.",
+    {
+      checked: htmlResponses.length,
+      present: isolationPresent,
+      missing: isolationEvidence
+        .filter((item) => !Object.keys(item.headers).length)
+        .map((item) => item.url)
+    }
+  );
+
+  const isolationIssues = htmlResponses.flatMap(crossOriginIsolationIssues);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.cross_origin_isolation_values",
+    "Cross-origin isolation headers avoid weak or invalid values",
+    isolationIssues.length === 0,
+    "MDN and OWASP guidance treats COOP/COEP/CORP as browser isolation controls; explicit unsafe-none or unknown values should be reviewed.",
+    { checked: isolationPresent.length, issues: isolationIssues }
+  );
+
+  const cspReportOnly = htmlResponses.map(cspReportOnlyEvidence);
+  addFinding(
+    findings,
+    "info",
+    "frontend.headers.csp_report_only",
+    "CSP Report-Only policies are inventoried",
+    true,
+    "Content-Security-Policy-Report-Only helps trial CSP changes without enforcement. The report records whether a reporting directive is present and reuses CSP quality signals for review.",
+    {
+      checked: htmlResponses.length,
+      present: cspReportOnly.filter((item) => item.present),
+      missing: cspReportOnly.filter((item) => !item.present).map((item) => item.url)
+    }
   );
 
   const poweredByPresent = reachable.filter((response) => headerValue(response, "x-powered-by"));

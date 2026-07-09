@@ -260,6 +260,21 @@ const criteria = {
     criteria: "Every discovered HTML response sends Permissions-Policy.",
     remediation: "Disable unused browser capabilities such as camera, microphone, geolocation, and payment."
   },
+  "frontend.headers.cross_origin_isolation": {
+    category: "Browser hardening",
+    criteria: "Discovered HTML responses are inventoried for COOP, COEP, COEP-Report-Only, and CORP browser isolation headers.",
+    remediation: "Review missing isolation headers against the application embedding model; add COOP/COEP/CORP when the app can safely isolate cross-origin opener, embedder, or resource access."
+  },
+  "frontend.headers.cross_origin_isolation_values": {
+    category: "Browser hardening",
+    criteria: "Present COOP, COEP, COEP-Report-Only, and CORP headers use recognized values and do not explicitly opt out with unsafe-none.",
+    remediation: "Use values such as COOP same-origin, COEP require-corp or credentialless, and CORP same-origin/same-site/cross-origin as appropriate; remove invalid or explicit unsafe-none values."
+  },
+  "frontend.headers.csp_report_only": {
+    category: "Browser hardening",
+    criteria: "Discovered HTML responses are inventoried for Content-Security-Policy-Report-Only policies, reporting directives, and CSP quality signals.",
+    remediation: "Use CSP Report-Only to trial policy changes with report-to or report-uri before enforcing them with Content-Security-Policy."
+  },
   "frontend.headers.powered_by": {
     category: "Fingerprinting",
     criteria: "No checked response exposes X-Powered-By.",
@@ -622,6 +637,24 @@ const localizedCriteria = {
       category: "브라우저 하드닝",
       criteria: "발견된 모든 HTML 응답이 Permissions-Policy를 전송해야 합니다.",
       remediation: "camera, microphone, geolocation, payment 등 사용하지 않는 브라우저 기능을 비활성화하세요."
+    },
+    "frontend.headers.cross_origin_isolation": {
+      title: "교차 출처 격리 헤더가 인벤토리됨",
+      category: "브라우저 하드닝",
+      criteria: "발견된 HTML 응답의 COOP, COEP, COEP-Report-Only, CORP 브라우저 격리 헤더를 기록해야 합니다.",
+      remediation: "애플리케이션의 임베딩/리소스 공유 모델을 검토하고 가능한 경우 COOP/COEP/CORP를 적용하세요."
+    },
+    "frontend.headers.cross_origin_isolation_values": {
+      title: "교차 출처 격리 헤더가 약하거나 잘못된 값을 피함",
+      category: "브라우저 하드닝",
+      criteria: "설정된 COOP, COEP, COEP-Report-Only, CORP 헤더는 알려진 값을 사용하고 unsafe-none으로 명시적 비활성화하지 않아야 합니다.",
+      remediation: "필요에 따라 COOP same-origin, COEP require-corp 또는 credentialless, CORP same-origin/same-site/cross-origin 값을 사용하고 잘못된 값이나 unsafe-none을 제거하세요."
+    },
+    "frontend.headers.csp_report_only": {
+      title: "CSP Report-Only 정책이 인벤토리됨",
+      category: "브라우저 하드닝",
+      criteria: "발견된 HTML 응답의 Content-Security-Policy-Report-Only 정책, 보고 지시자, CSP 품질 신호를 기록해야 합니다.",
+      remediation: "Content-Security-Policy로 강제 적용하기 전에 report-to 또는 report-uri가 포함된 CSP Report-Only로 정책 변경을 검증하세요."
     },
     "frontend.headers.powered_by": {
       title: "응답이 X-Powered-By를 노출하지 않음",
