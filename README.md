@@ -54,6 +54,9 @@ failed, and what evidence was retained.
 - Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 - Detection matrix: [`docs/DETECTION_MATRIX.md`](./docs/DETECTION_MATRIX.md)
 - FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
+- Privacy and data handling: [`docs/PRIVACY_AND_DATA.md`](./docs/PRIVACY_AND_DATA.md)
+- Threat model: [`docs/THREAT_MODEL.md`](./docs/THREAT_MODEL.md)
+- Safe demo scope: [`docs/SAFE_SCOPE_TEMPLATE.md`](./docs/SAFE_SCOPE_TEMPLATE.md)
 - Release process: [`docs/RELEASE_PROCESS.md`](./docs/RELEASE_PROCESS.md)
 - Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](./docs/LAUNCH_CHECKLIST.md)
 - Language index: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)
@@ -155,8 +158,12 @@ unless written authorization is recorded in `aegis.scope.json`. Secrets,
 cookies, tokens, passwords, API keys, private keys, email addresses, and payment
 identifiers are redacted before reporting.
 
+Use [`aegis.scope.example.json`](./aegis.scope.example.json) as the safe public
+demo scope. Keep private or staging targets in local, uncommitted scope files.
+
 ## Contributing
 
 Issues, feature ideas, docs improvements, and carefully scoped security checks
 are welcome. Start with [`CONTRIBUTING.md`](./CONTRIBUTING.md), keep changes
 passive by default, and run the local quality gate before opening a PR.
+For support boundaries, see [`SUPPORT.md`](./SUPPORT.md).

@@ -38,3 +38,4 @@ private target URLs, generated sensitive reports, or secrets are exposed.
 
 Developers may point local scope at an authorized staging target while testing.
 For public launch and CI, the committed default should stay safe and local.
+Use `aegis.scope.example.json` to reset to the public demo default.

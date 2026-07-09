@@ -14,3 +14,6 @@
   categories, and discussion idea template.
 - Added package metadata, architecture, detection matrix, FAQ, and release
   process documentation.
+- Added support, privacy/data handling, threat model, safe scope template, safe
+  demo scope validation, issue contact links, and GitHub Actions Dependabot
+  coverage.

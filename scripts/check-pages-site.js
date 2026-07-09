@@ -8,12 +8,17 @@ const requiredFiles = [
   "README.ko.md",
   "README.ja.md",
   "README.zh-CN.md",
+  "SUPPORT.md",
+  "aegis.scope.example.json",
   "docs/LANGUAGES.md",
   "docs/SHOWCASE.md",
   "docs/EXAMPLES.md",
   "docs/ARCHITECTURE.md",
   "docs/DETECTION_MATRIX.md",
   "docs/FAQ.md",
+  "docs/PRIVACY_AND_DATA.md",
+  "docs/THREAT_MODEL.md",
+  "docs/SAFE_SCOPE_TEMPLATE.md",
   "docs/RELEASE_PROCESS.md",
   "docs/LAUNCH_CHECKLIST.md",
   "docs/github-pages.md",
@@ -53,6 +58,9 @@ if (failures.length === 0) {
     "docs/ARCHITECTURE.md",
     "docs/DETECTION_MATRIX.md",
     "docs/FAQ.md",
+    "docs/PRIVACY_AND_DATA.md",
+    "docs/THREAT_MODEL.md",
+    "docs/SAFE_SCOPE_TEMPLATE.md",
     "docs/RELEASE_PROCESS.md"
   ];
   for (const link of readmeLinks) {
@@ -84,6 +92,26 @@ if (failures.length === 0) {
 
   if (!indexHtml.includes("docs/EXAMPLES.md")) {
     failures.push("GitHub Pages site is missing the examples link.");
+  }
+
+  const safeScope = JSON.parse(read("aegis.scope.example.json"));
+  const frontend = safeScope.targets?.frontend || {};
+  const allowedHosts = frontend.allowed_hosts || [];
+  const safeHosts = allowedHosts.every((host) => ["localhost", "127.0.0.1"].includes(host));
+  const safety = safeScope.safety || {};
+  const disabledFlags = ["destructive_tests", "brute_force", "data_exfiltration", "persistence", "production_active_scan"]
+    .every((flag) => safety[flag] === false);
+  if (safeScope.environment !== "local") {
+    failures.push("aegis.scope.example.json must use local environment.");
+  }
+  if (!String(frontend.base_url || "").startsWith("http://localhost")) {
+    failures.push("aegis.scope.example.json frontend must point at localhost.");
+  }
+  if (!safeHosts || allowedHosts.length !== 2) {
+    failures.push("aegis.scope.example.json allowed_hosts must contain only localhost and 127.0.0.1.");
+  }
+  if (!disabledFlags) {
+    failures.push("aegis.scope.example.json must disable all destructive safety flags.");
   }
 }
 

@@ -5,7 +5,8 @@ Use this before turning the repository public or promoting it for stars.
 ## Repository Safety
 
 - [ ] Remove private target URLs or keep them only in ignored local files.
-- [ ] Confirm `aegis.scope.json` contains safe demo defaults.
+- [ ] Reset public demo scope from `aegis.scope.example.json` if needed.
+- [ ] Confirm `aegis.scope.json` contains safe demo defaults before committing.
 - [ ] Confirm `.aegis/` and generated reports are ignored unless intentionally
       sanitized.
 - [ ] Run `npm run gate:ready` and confirm no secrets are detected.
@@ -22,6 +23,8 @@ Use this before turning the repository public or promoting it for stars.
       remediation terms.
 - [ ] GitHub Pages is enabled or the workflow summary explains why deployment is
       skipped.
+- [ ] `SUPPORT.md`, `docs/PRIVACY_AND_DATA.md`, and `docs/THREAT_MODEL.md` are
+      linked and current.
 
 ## Quality Gate
 

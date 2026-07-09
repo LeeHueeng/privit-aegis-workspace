@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security policy
+    url: https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/SECURITY.md
+    about: Report sensitive security issues through the security policy.
+  - name: Safe scope template
+    url: https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/docs/SAFE_SCOPE_TEMPLATE.md
+    about: Reset local testing to the safe localhost demo scope before sharing.
+  - name: FAQ
+    url: https://github.com/LeeHueeng/privit-aegis-workspace/blob/main/docs/FAQ.md
+    about: Check common questions before opening an issue.
