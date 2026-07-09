@@ -85,7 +85,8 @@ IDE/schema-like exposure signals, versioned API route inventory, legacy/beta/
 internal API exposure, upload/import/
 export surfaces, OIDC/OAuth/JWKS metadata, CORS trust decisions, CSP quality,
 CSP Report-Only policy inventory, COOP/COEP/CORP isolation header inventory and
-value validation, authentication form GET submissions, state-changing form CSRF
+value validation, Permissions-Policy least-privilege quality and deprecated
+Feature-Policy detection, authentication form GET submissions, state-changing form CSRF
 token candidates, external form actions, sensitive cleartext form submissions,
 file-upload form controls, account-recovery and well-known change-password routes,
 logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
@@ -103,9 +104,11 @@ prototype-pollution candidate flows, sensitive browser-storage keys, cleartext
 public WebSocket endpoints, JWT header algorithm signals, XSSI JSON candidates,
 cloud storage references, framework fingerprint markers, duplicate URL
 parameters for HTTP Parameter Pollution review, SSRF-style URL/webhook/proxy/
-remote-media input names, redirect-like URL parameters for open-redirect
+remote-media input names, redirect-like URL parameters and observed external
+redirect destination hosts for open-redirect
 review, mass-assignment sensitive role/permission/tenant/account-state/billing
-field names, ID-bearing routes that should receive BOLA/BFLA review, and an
+field names, mobile App/Universal Link association file inventory, ID-bearing
+routes that should receive BOLA/BFLA review, and an
 OWASP attack-surface matrix for XSS/HTML injection,
 SQL/NoSQL/ORM injection, LDAP/XML/XPath parser risks, SSRF, file inclusion,
 command/code/template injection, HTTP splitting/smuggling, mass assignment,

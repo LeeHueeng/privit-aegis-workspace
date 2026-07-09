@@ -260,6 +260,16 @@ const criteria = {
     criteria: "Every discovered HTML response sends Permissions-Policy.",
     remediation: "Disable unused browser capabilities such as camera, microphone, geolocation, and payment."
   },
+  "frontend.headers.feature_policy_deprecated": {
+    category: "Browser hardening",
+    criteria: "HTML responses use Permissions-Policy instead of the deprecated Feature-Policy header.",
+    remediation: "Migrate legacy Feature-Policy directives to Permissions-Policy syntax and remove the deprecated header."
+  },
+  "frontend.headers.permissions_policy_quality": {
+    category: "Browser hardening",
+    criteria: "Permissions-Policy does not grant wildcard access to sensitive browser features.",
+    remediation: "Restrict camera, microphone, geolocation, payment, USB, serial, HID, clipboard, and display-capture features to the narrowest required origins or disable them."
+  },
   "frontend.headers.cross_origin_isolation": {
     category: "Browser hardening",
     criteria: "Discovered HTML responses are inventoried for COOP, COEP, COEP-Report-Only, and CORP browser isolation headers.",
@@ -590,6 +600,16 @@ const criteria = {
     criteria: "The security.txt endpoint is inventoried for Contact, Expires, Policy, and Preferred-Languages fields.",
     remediation: "Publish /.well-known/security.txt with a monitored Contact field and keep Expires current if the organization accepts vulnerability reports."
   },
+  "frontend.probes.mobile_association_files": {
+    category: "Mobile deep links",
+    criteria: "Android assetlinks.json and iOS apple-app-site-association files are inventoried when present.",
+    remediation: "Use this inventory to verify app identifiers, certificate fingerprints, and claimed URL scopes before mobile deep-link testing."
+  },
+  "frontend.probes.mobile_deep_link_scope": {
+    category: "Mobile deep links",
+    criteria: "Mobile association files are parseable JSON and avoid broad wildcard URL scopes unless explicitly approved.",
+    remediation: "Serve valid JSON association files and narrow universal/app link path scopes to the routes the mobile app actually owns."
+  },
   "frontend.probes.error_disclosure": {
     category: "Error handling",
     criteria: "Safe error-page probes do not reveal stack traces, framework internals, SQL errors, or verbose implementation details.",
@@ -619,6 +639,11 @@ const criteria = {
     category: "Redirect review",
     criteria: "Redirect-like URL parameters are inventoried for manual open-redirect review; passive discovery itself does not prove exploitability.",
     remediation: "Validate redirect targets against an allowlist and prefer server-side route identifiers over arbitrary URL parameters."
+  },
+  "frontend.discovery.redirect_external_destinations": {
+    category: "Redirect review",
+    criteria: "Redirect-like parameters in discovered URLs do not already carry off-site HTTP/HTTPS destinations.",
+    remediation: "Avoid accepting arbitrary external redirect URLs, validate destinations against an allowlist, and prefer server-side route identifiers."
   },
   "frontend.discovery.duplicate_parameters": {
     category: "Input validation",
@@ -717,6 +742,18 @@ const localizedCriteria = {
       category: "브라우저 하드닝",
       criteria: "발견된 모든 HTML 응답이 Permissions-Policy를 전송해야 합니다.",
       remediation: "camera, microphone, geolocation, payment 등 사용하지 않는 브라우저 기능을 비활성화하세요."
+    },
+    "frontend.headers.feature_policy_deprecated": {
+      title: "HTML 응답이 deprecated Feature-Policy 대신 Permissions-Policy를 사용함",
+      category: "브라우저 하드닝",
+      criteria: "HTML 응답은 deprecated Feature-Policy 헤더가 아니라 Permissions-Policy를 사용해야 합니다.",
+      remediation: "기존 Feature-Policy 지시자를 Permissions-Policy 문법으로 이전하고 deprecated 헤더를 제거하세요."
+    },
+    "frontend.headers.permissions_policy_quality": {
+      title: "Permissions-Policy가 민감 브라우저 기능의 wildcard 허용을 피함",
+      category: "브라우저 하드닝",
+      criteria: "Permissions-Policy는 camera, microphone, geolocation, payment, USB, serial, HID, clipboard, display-capture 같은 민감 기능에 wildcard 접근을 허용하지 않아야 합니다.",
+      remediation: "민감 브라우저 기능은 필요한 origin으로만 제한하거나 사용하지 않는 기능은 비활성화하세요."
     },
     "frontend.headers.cross_origin_isolation": {
       title: "교차 출처 격리 헤더가 인벤토리됨",
@@ -1114,6 +1151,18 @@ const localizedCriteria = {
       criteria: "security.txt endpoint는 Contact, Expires, Policy, Preferred-Languages 필드 존재 여부가 기록되어야 합니다.",
       remediation: "조직이 취약점 제보를 받는다면 /.well-known/security.txt에 모니터링되는 Contact 필드를 게시하고 Expires를 최신으로 유지하세요."
     },
+    "frontend.probes.mobile_association_files": {
+      title: "모바일 App/Universal Link association 파일이 인벤토리됨",
+      category: "모바일 딥링크",
+      criteria: "Android assetlinks.json 및 iOS apple-app-site-association 파일이 존재하면 기록되어야 합니다.",
+      remediation: "모바일 딥링크 테스트 전에 app identifier, certificate fingerprint, claim된 URL scope를 검토하세요."
+    },
+    "frontend.probes.mobile_deep_link_scope": {
+      title: "모바일 딥링크 association 파일이 parseable JSON이고 과도한 wildcard scope를 피함",
+      category: "모바일 딥링크",
+      criteria: "모바일 association 파일은 parseable JSON이어야 하며 명시 승인 없이 broad wildcard URL scope를 사용하지 않아야 합니다.",
+      remediation: "유효한 JSON association 파일을 제공하고 Universal/App Link path scope를 모바일 앱이 실제 소유하는 route로 좁히세요."
+    },
     "frontend.probes.error_disclosure": {
       title: "오류 응답이 stack trace 또는 프레임워크 내부 정보를 노출하지 않음",
       category: "오류 처리",
@@ -1149,6 +1198,12 @@ const localizedCriteria = {
       category: "리다이렉트 검토",
       criteria: "리다이렉트 유사 URL 파라미터는 수동 open redirect 검토 대상으로 기록되어야 하며, passive discovery만으로 악용 가능성을 증명하지 않습니다.",
       remediation: "리다이렉트 대상을 allowlist로 검증하고 임의 URL 파라미터보다 서버 측 route identifier를 선호하세요."
+    },
+    "frontend.discovery.redirect_external_destinations": {
+      title: "리다이렉트 유사 파라미터가 발견된 URL 안에서 외부 목적지를 담지 않음",
+      category: "리다이렉트 검토",
+      criteria: "발견된 URL의 리다이렉트 유사 파라미터는 off-site HTTP/HTTPS 목적지를 이미 포함하지 않아야 합니다.",
+      remediation: "임의 외부 redirect URL 수용을 피하고 destination allowlist를 검증하며 서버 측 route identifier를 선호하세요."
     },
     "frontend.discovery.duplicate_parameters": {
       title: "중복 URL 파라미터가 HTTP Parameter Pollution 검토 대상으로 인벤토리됨",

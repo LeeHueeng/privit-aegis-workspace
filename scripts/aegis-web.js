@@ -1224,22 +1224,22 @@ function page() {
           zh: "安全响应头与浏览器防护"
         },
         detects: {
-          ko: "CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache header와 web cache deception 후보를 확인합니다.",
-          en: "Checks CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy, X-Frame-Options, CORS, cache headers, and web-cache-deception candidates.",
-          ja: "CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、cache header、web cache deception候補を確認します。",
-          zh: "检查 CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy、X-Frame-Options、CORS、缓存响应头和 web cache deception 候选项。"
+          ko: "CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy 품질, deprecated Feature-Policy, X-Frame-Options, CORS, cache header와 web cache deception 후보를 확인합니다.",
+          en: "Checks CSP, CSP Report-Only, COOP/COEP/CORP, HSTS, X-Content-Type-Options, Referrer-Policy, Permissions-Policy quality, deprecated Feature-Policy, X-Frame-Options, CORS, cache headers, and web-cache-deception candidates.",
+          ja: "CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy品質、deprecated Feature-Policy、X-Frame-Options、CORS、cache header、web cache deception候補を確認します。",
+          zh: "检查 CSP、CSP Report-Only、COOP/COEP/CORP、HSTS、X-Content-Type-Options、Referrer-Policy、Permissions-Policy 质量、deprecated Feature-Policy、X-Frame-Options、CORS、缓存响应头和 web cache deception 候选项。"
         },
         criteria: {
-          ko: "위험한 누락/완화 설정이 없어야 하며, 동적/인증 유사 HTML route는 public/shared cache 가능성을 광고하지 않아야 합니다.",
-          en: "Risky missing or weak headers should be absent, and dynamic/auth-like HTML routes should not advertise public or shared cacheability.",
-          ja: "危険な欠落や弱いヘッダーがなく、動的/認証系HTML routeはpublic/shared cache可能性を示してはいけません。",
-          zh: "不应缺失或弱化关键响应头，动态/认证类 HTML route 不应声明可被 public/shared cache 存储。"
+          ko: "위험한 누락/완화 설정이 없어야 하며, Permissions-Policy는 민감 브라우저 기능을 wildcard로 열지 않고 동적 HTML route는 shared cache 가능성을 광고하지 않아야 합니다.",
+          en: "Risky missing or weak headers should be absent, Permissions-Policy should not wildcard sensitive browser features, and dynamic HTML routes should not advertise shared cacheability.",
+          ja: "危険な欠落や弱いヘッダーがなく、Permissions-Policyは機密ブラウザ機能をwildcardで開放せず、動的HTML routeはshared cache可能性を示してはいけません。",
+          zh: "不应缺失或弱化关键响应头，Permissions-Policy 不应对敏感浏览器功能使用 wildcard，动态 HTML route 不应声明可被 shared cache 存储。"
         },
         evidence: {
-          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP/격리 헤더 신호, cache layer header, dynamic route label을 저장합니다.",
-          en: "Stores header names, values, URLs, status codes, CORS/CSP/isolation-header signals, cache-layer headers, and dynamic-route labels.",
-          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSP/isolation-headerシグナル、cache layer header、dynamic route labelを保存します。",
-          zh: "保存响应头名称、值、URL、状态码、CORS/CSP/隔离响应头信号、cache-layer 响应头和 dynamic-route 标签。"
+          ko: "헤더 이름, 값, URL, 상태 코드, CORS/CSP/격리/permissions policy 신호, cache layer header, dynamic route label을 저장합니다.",
+          en: "Stores header names, values, URLs, status codes, CORS/CSP/isolation/permissions-policy signals, cache-layer headers, and dynamic-route labels.",
+          ja: "ヘッダー名、値、URL、ステータスコード、CORS/CSP/isolation/permissions-policyシグナル、cache layer header、dynamic route labelを保存します。",
+          zh: "保存响应头名称、值、URL、状态码、CORS/CSP/isolation/permissions-policy 信号、cache-layer 响应头和 dynamic-route 标签。"
         }
       },
       {
@@ -1336,22 +1336,22 @@ function page() {
           zh: "敏感文件与运维表面"
         },
         detects: {
-          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics, security.txt를 GET/OPTIONS로 확인합니다.",
-          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics, and security.txt with GET/OPTIONS.",
-          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metrics、security.txtをGET/OPTIONSで確認します。",
-          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档、admin/debug/metrics 和 security.txt。"
+          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics, security.txt, assetlinks.json, apple-app-site-association을 GET/OPTIONS로 확인합니다.",
+          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics, security.txt, assetlinks.json, and apple-app-site-association with GET/OPTIONS.",
+          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metrics、security.txt、assetlinks.json、apple-app-site-associationをGET/OPTIONSで確認します。",
+          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档、admin/debug/metrics、security.txt、assetlinks.json 和 apple-app-site-association。"
         },
         criteria: {
-          ko: "민감 파일과 운영 endpoint는 익명으로 읽히지 않아야 합니다.",
-          en: "Sensitive files and operational endpoints should not be anonymously readable.",
-          ja: "機密ファイルと運用endpointは匿名で読めてはいけません。",
-          zh: "敏感文件和运维端点不应可匿名读取。"
+          ko: "민감 파일과 운영 endpoint는 익명으로 읽히지 않아야 하며, 모바일 association 파일은 parseable JSON과 좁은 path scope를 사용해야 합니다.",
+          en: "Sensitive files and operational endpoints should not be anonymously readable, and mobile association files should use parseable JSON with narrow path scopes.",
+          ja: "機密ファイルと運用endpointは匿名で読めてはならず、mobile association fileはparseable JSONと狭いpath scopeを使う必要があります。",
+          zh: "敏感文件和运维端点不应可匿名读取，移动 association 文件应使用可解析 JSON 和较窄的 path scope。"
         },
         evidence: {
-          ko: "URL, 상태, content-type, allow header, 탐지 signal만 기록하고 본문은 저장하지 않습니다.",
-          en: "Records URL, status, content type, Allow header, and detection signal without storing response bodies.",
-          ja: "URL、status、content-type、Allow header、検出signalのみ記録し、本文は保存しません。",
-          zh: "记录 URL、状态、content-type、Allow header 和检测信号，不保存响应正文。"
+          ko: "URL, 상태, content-type, allow header, app/package/path count, 탐지 signal만 기록하고 본문은 저장하지 않습니다.",
+          en: "Records URL, status, content type, Allow header, app/package/path counts, and detection signal without storing response bodies.",
+          ja: "URL、status、content-type、Allow header、app/package/path count、検出signalのみ記録し、本文は保存しません。",
+          zh: "记录 URL、状态、content-type、Allow header、app/package/path count 和检测信号，不保存响应正文。"
         }
       },
       {
@@ -1420,22 +1420,22 @@ function page() {
           zh: "输入验证攻击面"
         },
         detects: {
-          ko: "XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF URL/webhook/proxy 입력, LFI/RFI, command/code/template injection, HTTP splitting/smuggling 후보를 분류합니다.",
-          en: "Classifies candidates for XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF URL/webhook/proxy inputs, LFI/RFI, command/code/template injection, and HTTP splitting/smuggling.",
-          ja: "XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF URL/webhook/proxy入力、LFI/RFI、command/code/template injection、HTTP splitting/smuggling候補を分類します。",
-          zh: "分类 XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF URL/webhook/proxy 输入、LFI/RFI、命令/代码/模板注入和 HTTP splitting/smuggling 候选项。"
+          ko: "XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF URL/webhook/proxy 입력, 외부 redirect 목적지, LFI/RFI, command/code/template injection, HTTP splitting/smuggling 후보를 분류합니다.",
+          en: "Classifies candidates for XSS, SQL/NoSQL/ORM, LDAP/XML/XPath, SSRF URL/webhook/proxy inputs, external redirect destinations, LFI/RFI, command/code/template injection, and HTTP splitting/smuggling.",
+          ja: "XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF URL/webhook/proxy入力、外部redirect destination、LFI/RFI、command/code/template injection、HTTP splitting/smuggling候補を分類します。",
+          zh: "分类 XSS、SQL/NoSQL/ORM、LDAP/XML/XPath、SSRF URL/webhook/proxy 输入、外部 redirect destination、LFI/RFI、命令/代码/模板注入和 HTTP splitting/smuggling 候选项。"
         },
         criteria: {
-          ko: "분류는 공격 성공을 뜻하지 않으며, SSRF형 원격 fetch 입력은 allowlist/private-network 차단/redirect 제한 검토 대상으로 표시되어야 합니다.",
-          en: "Classification is not proof of exploitability; SSRF-style remote-fetch inputs are marked for allowlist, private-network blocking, and redirect-limit review.",
-          ja: "分類は悪用可能性の証明ではなく、SSRF系のremote-fetch入力はallowlist、private-network遮断、redirect制限レビュー対象として示します。",
-          zh: "分类不代表可利用；SSRF 类型 remote-fetch 输入会标记为 allowlist、私网阻断和 redirect 限制复核对象。"
+          ko: "분류는 공격 성공을 뜻하지 않으며, SSRF형 원격 fetch 입력과 외부 redirect 목적지는 allowlist/차단/검증 검토 대상으로 표시되어야 합니다.",
+          en: "Classification is not proof of exploitability; SSRF-style remote-fetch inputs and external redirect destinations are marked for allowlist/blocking/validation review.",
+          ja: "分類は悪用可能性の証明ではなく、SSRF系remote-fetch入力と外部redirect destinationはallowlist/遮断/検証レビュー対象として示します。",
+          zh: "分类不代表可利用；SSRF 类型 remote-fetch 输入和外部 redirect destination 会标记为 allowlist/阻断/校验复核对象。"
         },
         evidence: {
-          ko: "route, URL parameter, form field, method, SSRF risk label, OWASP 검토군, sample count를 저장합니다.",
-          en: "Stores route, URL parameter, form field, method, SSRF risk label, OWASP review family, and sample count.",
-          ja: "route、URL parameter、form field、method、SSRF risk label、OWASPレビュー群、sample countを保存します。",
-          zh: "保存路由、URL 参数、表单字段、method、SSRF risk label、OWASP 审查类别和样本数量。"
+          ko: "route, URL parameter, destination host/protocol, form field, method, SSRF risk label, OWASP 검토군, sample count를 저장합니다.",
+          en: "Stores route, URL parameter, destination host/protocol, form field, method, SSRF risk label, OWASP review family, and sample count.",
+          ja: "route、URL parameter、destination host/protocol、form field、method、SSRF risk label、OWASPレビュー群、sample countを保存します。",
+          zh: "保存路由、URL 参数、destination host/protocol、表单字段、method、SSRF risk label、OWASP 审查类别和样本数量。"
         }
       },
       {

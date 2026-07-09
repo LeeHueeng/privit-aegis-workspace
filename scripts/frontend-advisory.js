@@ -435,6 +435,59 @@ function crossOriginIsolationIssues(response) {
   return issues;
 }
 
+function splitPolicyDirectives(value) {
+  return String(value || "")
+    .split(/,(?=\s*[a-z][a-z0-9-]*\s*=)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function permissionsPolicyDirectives(value) {
+  const directives = [];
+  for (const part of splitPolicyDirectives(value)) {
+    const match = part.match(/^([a-z][a-z0-9-]*)\s*=\s*(.+)$/i);
+    if (match) {
+      directives.push({ feature: match[1].toLowerCase(), value: match[2].trim() });
+    } else {
+      directives.push({ feature: "", value: part, malformed: true });
+    }
+  }
+  return directives;
+}
+
+function permissionsPolicyIssues(response) {
+  const finalUrl = response.finalUrl || response.url;
+  const policy = headerValue(response, "permissions-policy");
+  const sensitiveFeatures = new Set([
+    "accelerometer",
+    "bluetooth",
+    "camera",
+    "clipboard-read",
+    "display-capture",
+    "geolocation",
+    "gyroscope",
+    "hid",
+    "local-fonts",
+    "magnetometer",
+    "microphone",
+    "payment",
+    "serial",
+    "usb"
+  ]);
+  const issues = [];
+  for (const directive of permissionsPolicyDirectives(policy)) {
+    if (directive.malformed) {
+      issues.push({ url: finalUrl, feature: "", value: directive.value.slice(0, 160), signal: "malformed_permissions_policy_directive" });
+      continue;
+    }
+    const value = directive.value.toLowerCase();
+    if (sensitiveFeatures.has(directive.feature) && /(?:^|[\s(])\*(?:[\s)]|$)/.test(value)) {
+      issues.push({ url: finalUrl, feature: directive.feature, value: directive.value.slice(0, 160), signal: "sensitive_browser_feature_allows_wildcard" });
+    }
+  }
+  return issues;
+}
+
 function cspReportOnlyEvidence(response) {
   const policy = headerValue(response, "content-security-policy-report-only");
   return {
@@ -766,6 +819,31 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     (response) => isHtmlResponse(response),
     Boolean,
     "Permissions-Policy disables unused browser capabilities such as camera, microphone, and geolocation."
+  );
+  const deprecatedFeaturePolicy = htmlResponses
+    .map((response) => ({
+      url: response.finalUrl || response.url,
+      value: headerValue(response, "feature-policy")
+    }))
+    .filter((item) => item.value);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.feature_policy_deprecated",
+    "HTML responses use Permissions-Policy instead of deprecated Feature-Policy",
+    deprecatedFeaturePolicy.length === 0,
+    "Feature-Policy is the deprecated predecessor of Permissions-Policy and should be migrated to the current header syntax.",
+    { checked: htmlResponses.length, present: deprecatedFeaturePolicy }
+  );
+  const permissionsIssues = htmlResponses.flatMap(permissionsPolicyIssues);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.permissions_policy_quality",
+    "Permissions-Policy avoids wildcard access to sensitive browser features",
+    permissionsIssues.length === 0,
+    "Permissions-Policy should apply least privilege to camera, microphone, geolocation, payment, USB, serial, HID, clipboard, and display-capture features.",
+    { checked: htmlResponses.filter((response) => headerValue(response, "permissions-policy")).length, issues: permissionsIssues }
   );
 
   const isolationEvidence = htmlResponses.map(crossOriginIsolationEvidence);
@@ -1492,6 +1570,12 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/crossdomain.xml",
     "/clientaccesspolicy.xml"
   ]);
+  const mobileAssociationFiles = configuredProbePaths(baseline, "mobileAssociationFiles", [
+    "/.well-known/assetlinks.json",
+    "/assetlinks.json",
+    "/.well-known/apple-app-site-association",
+    "/apple-app-site-association"
+  ]);
   const errorPages = configuredProbePaths(baseline, "errorPages", [
     "/.aegis-error-probe-404"
   ]);
@@ -1541,6 +1625,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "mobileAssociationFiles", mobileAssociationFiles));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "errorPages", errorPages));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "directoryListings", directoryListings));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sourceMaps", sourceMapPaths));
@@ -1859,6 +1944,79 @@ function securityTxtEvidence(probe, response) {
   };
 }
 
+function mobileAssociationSignal(probe, response) {
+  if (!isSuccessStatus(response) || isSoftNotFoundResponse(response)) return "";
+  const path = String(probe.path || "").toLowerCase();
+  const text = responseText(response);
+  const type = contentType(response);
+  if (path.endsWith("assetlinks.json") && (type.includes("json") || /"namespace"\s*:\s*"android_app"|"sha256_cert_fingerprints"/i.test(text))) {
+    return "android_assetlinks";
+  }
+  if (path.endsWith("apple-app-site-association") && (type.includes("json") || /"applinks"\s*:|"appIDs?"\s*:/i.test(text))) {
+    return "apple_app_site_association";
+  }
+  return "";
+}
+
+function parseJsonPreview(text) {
+  try {
+    return JSON.parse(String(text || ""));
+  } catch {
+    return null;
+  }
+}
+
+function mobileAssociationEvidence(probe, response, signal) {
+  const text = responseText(response);
+  const parsed = parseJsonPreview(text);
+  const evidence = {
+    target: probe.targetName,
+    path: probe.path,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    signal,
+    contentType: contentType(response),
+    relationCount: 0,
+    appIdentifierCount: 0,
+    packageCount: 0,
+    pathPatternCount: 0,
+    broadPathPatterns: [],
+    parseableJson: Boolean(parsed)
+  };
+  if (!parsed) return evidence;
+
+  if (Array.isArray(parsed)) {
+    evidence.relationCount = parsed.length;
+    const packages = [];
+    for (const item of parsed) {
+      if (item?.target?.package_name) packages.push(item.target.package_name);
+    }
+    evidence.packageCount = unique(packages).length;
+    evidence.androidNamespaces = unique(parsed.map((item) => item?.target?.namespace)).filter(Boolean);
+    return evidence;
+  }
+
+  const details = Array.isArray(parsed?.applinks?.details) ? parsed.applinks.details : [];
+  const appIds = [];
+  const pathPatterns = [];
+  for (const detail of details) {
+    if (detail?.appID) appIds.push(detail.appID);
+    if (Array.isArray(detail?.appIDs)) appIds.push(...detail.appIDs);
+    if (Array.isArray(detail?.paths)) pathPatterns.push(...detail.paths);
+    if (Array.isArray(detail?.components)) {
+      for (const component of detail.components) {
+        if (component?.["/"]) pathPatterns.push(component["/"]);
+      }
+    }
+  }
+  evidence.relationCount = details.length;
+  evidence.appIdentifierCount = unique(appIds).length;
+  evidence.pathPatternCount = pathPatterns.length;
+  evidence.broadPathPatterns = unique(pathPatterns.filter((pattern) => ["*", "/*", "/"].includes(String(pattern || "").trim()))).slice(0, 10);
+  return evidence;
+}
+
 function sourceMapSignal(response) {
   if (!isSuccessStatus(response)) return "";
   const text = responseText(response);
@@ -1973,6 +2131,50 @@ function redirectParameterEvidence(discovery) {
   for (const form of discovery?.forms || []) {
     inspectUrl("form_page", form.page_url);
     inspectUrl("form_action", form.action_url);
+  }
+  return candidates.slice(0, 30);
+}
+
+function externalRedirectDestinationEvidence(discovery) {
+  const redirectParam = /^(?:next|url|uri|redirect|redirect_uri|return|returnurl|return_url|continue|callback|target|to|dest|destination|forward|goto|return_to)$/i;
+  const candidates = [];
+  const inspectUrl = (source, url, status = undefined, baseUrl = undefined) => {
+    if (!url) return;
+    let parsed;
+    try {
+      parsed = baseUrl ? new URL(url, baseUrl) : new URL(url);
+    } catch {
+      return;
+    }
+    for (const key of unique([...parsed.searchParams.keys()])) {
+      if (!redirectParam.test(key)) continue;
+      const rawValue = String(parsed.searchParams.get(key) || "").trim();
+      if (!/^(?:https?:)?\/\//i.test(rawValue)) continue;
+      try {
+        const destination = new URL(rawValue, parsed);
+        if (!["http:", "https:"].includes(destination.protocol)) continue;
+        if (destination.origin === parsed.origin) continue;
+        candidates.push({
+          source,
+          path: parsed.pathname,
+          parameter: key,
+          status,
+          sourceHost: parsed.hostname,
+          destinationHost: destination.hostname,
+          destinationProtocol: destination.protocol.replace(":", ""),
+          signal: destination.protocol === "http:" ? "external_cleartext_redirect_destination" : "external_redirect_destination"
+        });
+      } catch {
+        // Ignore malformed redirect parameter values in passive inventory.
+      }
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status);
+  }
+  for (const form of discovery?.forms || []) {
+    inspectUrl("form_page", form.page_url);
+    inspectUrl("form_action", form.action_url, undefined, form.page_url);
   }
   return candidates.slice(0, 30);
 }
@@ -3084,6 +3286,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const adminExposures = [];
   const debugExposures = [];
   const metafileExposures = [];
+  const mobileAssociationFiles = [];
   const errorDisclosures = [];
   const directoryListingExposures = [];
   const sourceMapExposures = [];
@@ -3137,6 +3340,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "metafiles") {
       const signal = metafileSignal(probe, response);
       if (signal) metafileExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "mobileAssociationFiles") {
+      const signal = mobileAssociationSignal(probe, response);
+      if (signal) mobileAssociationFiles.push(mobileAssociationEvidence(probe, response, signal));
     } else if (probe.category === "errorPages") {
       const signal = errorDisclosureSignal(response);
       if (signal) errorDisclosures.push(probeEvidence(probe, response, signal));
@@ -3411,6 +3617,30 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   );
   addFinding(
     findings,
+    "info",
+    "frontend.probes.mobile_association_files",
+    "Mobile app link association files are inventoried",
+    true,
+    "OWASP MASTG deep-link testing includes verifying Android App Links and iOS Universal Links association files before testing app-side handlers.",
+    { checked: probes.filter((probe) => probe.category === "mobileAssociationFiles").length, files: mobileAssociationFiles }
+  );
+  const mobileAssociationIssues = mobileAssociationFiles
+    .filter((item) => !item.parseableJson || item.broadPathPatterns.length)
+    .map((item) => ({
+      ...item,
+      signal: !item.parseableJson ? "association_file_not_parseable_json" : "broad_universal_link_path_scope"
+    }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.mobile_deep_link_scope",
+    "Mobile deep-link association files are parseable and avoid broad wildcard scopes",
+    mobileAssociationIssues.length === 0,
+    "Universal/App Link association files should be valid JSON and use the narrowest practical path scope so mobile apps do not claim unintended web paths.",
+    { checked: mobileAssociationFiles.length, issues: mobileAssociationIssues }
+  );
+  addFinding(
+    findings,
     "warning",
     "frontend.probes.error_disclosure",
     "Error responses do not expose stack traces or framework internals",
@@ -3468,6 +3698,16 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "OWASP WSTG client-side URL redirect testing starts by identifying parameters that control URLs or paths; this passive check records candidates only.",
     { candidates: redirectParams, count: redirectParams.length }
+  );
+  const externalRedirectDestinations = externalRedirectDestinationEvidence(discovery);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.discovery.redirect_external_destinations",
+    "Redirect-like parameters do not carry external destinations in discovered URLs",
+    externalRedirectDestinations.length === 0,
+    "OWASP unvalidated redirect testing reviews URL parameters that can send users to untrusted external destinations; this passive check records destination hosts only.",
+    { candidates: externalRedirectDestinations, count: externalRedirectDestinations.length }
   );
 
   const duplicateParams = duplicateParameterEvidence(discovery);

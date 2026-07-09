@@ -163,6 +163,22 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/13-Test_for_Path_Confusion"
     },
     {
+      "name": "OWASP WSTG Client-side URL Redirect Testing",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/v41/4-Web_Application_Security_Testing/11-Client_Side_Testing/04-Testing_for_Client_Side_URL_Redirect"
+    },
+    {
+      "name": "OWASP MASTG Testing Deep Links",
+      "url": "https://mas.owasp.org/MASTG-TEST-0028/"
+    },
+    {
+      "name": "OWASP MASTG Testing Universal Links",
+      "url": "https://mas.owasp.org/MASTG-TEST-0070/"
+    },
+    {
+      "name": "MDN Permissions-Policy",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Permissions-Policy"
+    },
+    {
       "name": "OWASP WSTG Testing GraphQL",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/99-Testing_GraphQL"
     },
@@ -462,6 +478,12 @@
         "/.well-known/security.txt",
         "/crossdomain.xml",
         "/clientaccesspolicy.xml"
+      ],
+      "mobileAssociationFiles": [
+        "/.well-known/assetlinks.json",
+        "/assetlinks.json",
+        "/.well-known/apple-app-site-association",
+        "/apple-app-site-association"
       ],
       "errorPages": [
         "/.aegis-error-probe-404"
