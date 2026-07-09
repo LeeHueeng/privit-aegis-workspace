@@ -1,9 +1,33 @@
 {
   "name": "privit-aegis-workspace",
   "version": "0.1.0",
+  "description": "Authorized passive web security testing workspace with CLI, web console, i18n reports, AI remediation, and AIGate CI.",
   "private": true,
   "type": "module",
   "packageManager": "npm@10.8.2",
+  "keywords": [
+    "security-tools",
+    "web-security",
+    "owasp",
+    "penetration-testing",
+    "passive-scanner",
+    "security-automation",
+    "github-actions",
+    "cli",
+    "i18n",
+    "ai-remediation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LeeHueeng/privit-aegis-workspace.git"
+  },
+  "bugs": {
+    "url": "https://github.com/LeeHueeng/privit-aegis-workspace/issues"
+  },
+  "homepage": "https://github.com/LeeHueeng/privit-aegis-workspace#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "prepare": "git config core.hooksPath \"$(pwd)/.githooks\" && chmod +x .githooks/pre-push || true",
     "aegis": "aegis",

@@ -54,6 +54,8 @@ AIGate 用于 git push 和 CI 质量门禁。Web 控制台专注于 Aegis 检查
 - 安全扫描说明: [`docs/security-scanning.md`](./docs/security-scanning.md)
 - 展示页: [`docs/SHOWCASE.md`](./docs/SHOWCASE.md)
 - 示例: [`docs/EXAMPLES.md`](./docs/EXAMPLES.md)
+- 架构: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
 - 开源发布检查清单: [`docs/LAUNCH_CHECKLIST.md`](./docs/LAUNCH_CHECKLIST.md)
 - GitHub Pages 设置: [`docs/github-pages.md`](./docs/github-pages.md)
 - 多语言文档索引: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)

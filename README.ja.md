@@ -59,6 +59,8 @@ AIGate は git push と CI 品質ゲート用です。Web コンソールは Aeg
 - セキュリティ検査ガイド: [`docs/security-scanning.md`](./docs/security-scanning.md)
 - ショーケース: [`docs/SHOWCASE.md`](./docs/SHOWCASE.md)
 - 例: [`docs/EXAMPLES.md`](./docs/EXAMPLES.md)
+- アーキテクチャ: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
 - 公開ローンチチェックリスト: [`docs/LAUNCH_CHECKLIST.md`](./docs/LAUNCH_CHECKLIST.md)
 - GitHub Pages 設定: [`docs/github-pages.md`](./docs/github-pages.md)
 - 多言語ドキュメント: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)

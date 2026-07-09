@@ -51,6 +51,10 @@ failed, and what evidence was retained.
 - GitHub Pages setup: [`docs/github-pages.md`](./docs/github-pages.md)
 - Showcase: [`docs/SHOWCASE.md`](./docs/SHOWCASE.md)
 - Examples: [`docs/EXAMPLES.md`](./docs/EXAMPLES.md)
+- Architecture: [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- Detection matrix: [`docs/DETECTION_MATRIX.md`](./docs/DETECTION_MATRIX.md)
+- FAQ: [`docs/FAQ.md`](./docs/FAQ.md)
+- Release process: [`docs/RELEASE_PROCESS.md`](./docs/RELEASE_PROCESS.md)
 - Launch checklist: [`docs/LAUNCH_CHECKLIST.md`](./docs/LAUNCH_CHECKLIST.md)
 - Language index: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)
 

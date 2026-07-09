@@ -12,3 +12,5 @@
   validation files.
 - Added showcase, examples, launch checklist, README preview art, release note
   categories, and discussion idea template.
+- Added package metadata, architecture, detection matrix, FAQ, and release
+  process documentation.

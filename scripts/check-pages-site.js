@@ -11,6 +11,10 @@ const requiredFiles = [
   "docs/LANGUAGES.md",
   "docs/SHOWCASE.md",
   "docs/EXAMPLES.md",
+  "docs/ARCHITECTURE.md",
+  "docs/DETECTION_MATRIX.md",
+  "docs/FAQ.md",
+  "docs/RELEASE_PROCESS.md",
   "docs/LAUNCH_CHECKLIST.md",
   "docs/github-pages.md",
   "docs/ROADMAP.md",
@@ -39,7 +43,18 @@ if (failures.length === 0) {
   const indexHtml = read("docs/pages/index.html");
   const siteJs = read("docs/pages/site.js");
 
-  const readmeLinks = ["README.ko.md", "README.ja.md", "README.zh-CN.md", "GitHub Pages", "docs/SHOWCASE.md", "docs/EXAMPLES.md"];
+  const readmeLinks = [
+    "README.ko.md",
+    "README.ja.md",
+    "README.zh-CN.md",
+    "GitHub Pages",
+    "docs/SHOWCASE.md",
+    "docs/EXAMPLES.md",
+    "docs/ARCHITECTURE.md",
+    "docs/DETECTION_MATRIX.md",
+    "docs/FAQ.md",
+    "docs/RELEASE_PROCESS.md"
+  ];
   for (const link of readmeLinks) {
     if (!rootReadme.includes(link)) {
       failures.push(`README.md is missing language or Pages link: ${link}`);
