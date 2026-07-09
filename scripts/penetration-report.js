@@ -505,6 +505,16 @@ const criteria = {
     criteria: "Common account-recovery and password-change routes are inventoried without submitting credentials or reset tokens.",
     remediation: "Review discovered recovery routes for POST-only submissions, CSRF protection, HTTPS, rate limiting, and token handling."
   },
+  "frontend.probes.logout_routes": {
+    category: "Session",
+    criteria: "Common logout and sign-out routes are inventoried without cookies or form submissions, including cache-control, Clear-Site-Data, and cookie-clearing signals.",
+    remediation: "Review logout routes for server-side session invalidation, POST/CSRF protections where state changes occur, cache cleanup, and browser storage cleanup where appropriate."
+  },
+  "frontend.probes.logout_cache": {
+    category: "Session caching",
+    criteria: "Successful logout and sign-out responses use private/no-store/no-cache style cache controls and avoid public caching.",
+    remediation: "Set Cache-Control: no-store or private/no-cache on logout and authentication-state transition responses."
+  },
   "frontend.probes.auth_api_rate_limit": {
     category: "Abuse control",
     criteria: "Auth and session API probes are inventoried for visible Retry-After or RateLimit headers.",
@@ -931,6 +941,18 @@ const localizedCriteria = {
       category: "인증",
       criteria: "일반 계정 복구/비밀번호 변경 경로는 credential 또는 reset token 제출 없이 기록되어야 합니다.",
       remediation: "발견된 복구 경로의 POST-only 제출, CSRF 보호, HTTPS, rate limiting, token 처리를 검토하세요."
+    },
+    "frontend.probes.logout_routes": {
+      title: "로그아웃 및 sign-out 경로가 세션 정리 검토 대상으로 인벤토리됨",
+      category: "세션",
+      criteria: "일반 logout/sign-out 경로는 cookie 또는 form 제출 없이 기록하고 cache-control, Clear-Site-Data, cookie 삭제 신호를 함께 남겨야 합니다.",
+      remediation: "로그아웃 경로의 서버 측 세션 무효화, 상태 변경 시 POST/CSRF 보호, cache 정리, 필요한 브라우저 저장소 정리를 검토하세요."
+    },
+    "frontend.probes.logout_cache": {
+      title: "로그아웃 및 sign-out 응답이 브라우저/공유 캐시 저장을 피함",
+      category: "세션 캐싱",
+      criteria: "성공한 logout/sign-out 응답은 private/no-store/no-cache 계열 cache control을 사용하고 public caching을 피해야 합니다.",
+      remediation: "로그아웃 및 인증 상태 전환 응답에 Cache-Control: no-store 또는 private/no-cache를 설정하세요."
     },
     "frontend.probes.auth_api_rate_limit": {
       title: "인증/세션 API의 rate-limit 헤더가 인벤토리됨",

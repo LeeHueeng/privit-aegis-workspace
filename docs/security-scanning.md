@@ -66,9 +66,10 @@ basic TLS certificate validity, and precise web server version banners. It also
 performs header-misconfiguration checks for deprecated HPKP, obsolete
 `X-Frame-Options: ALLOW-FROM`, permissive cross-domain policy headers, HSTS
 placement, CSP Report-Only rollout, and COOP/COEP/CORP browser isolation
-posture, plus CNAME takeover fingerprints, Host-style header reflection, and
-sensitive cookie scope. It also reads a small HTML preview to identify reverse
-tabnabbing link patterns. It does not submit forms or send attack payloads.
+posture, plus CNAME takeover fingerprints, Host-style header reflection,
+sensitive cookie scope, and logout cache/browser-cleanup signals. It also reads
+a small HTML preview to identify reverse tabnabbing link patterns. It does not
+submit forms or send attack payloads.
 
 The target advisory also runs low-impact passive penetration probes based on
 OWASP WSTG and OWASP API Security Top 10 themes. These probes use GET/OPTIONS
@@ -85,8 +86,9 @@ CSP Report-Only policy inventory, COOP/COEP/CORP isolation header inventory and
 value validation, authentication form GET submissions, state-changing form CSRF
 token candidates, external form actions, sensitive cleartext form submissions,
 file-upload form controls, account-recovery and well-known change-password routes,
-visible Retry-After/RateLimit headers on authentication surfaces, sensitive URL
-query parameter names, anonymously readable user/account/profile/session API JSON,
+logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
+clearing signals, visible Retry-After/RateLimit headers on authentication surfaces,
+sensitive URL query parameter names, anonymously readable user/account/profile/session API JSON,
 auth/session API cache and `nosniff` headers, security.txt contact metadata,
 client-side bundle leakage signals, external subresource integrity, HTTPS mixed
 content references, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled

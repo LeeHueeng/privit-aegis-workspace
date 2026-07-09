@@ -11,6 +11,14 @@
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
     },
     {
+      "name": "OWASP Session Management Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
+    },
+    {
+      "name": "OWASP WSTG Testing for Browser Cache Weaknesses",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/06-Testing_for_Browser_Cache_Weaknesses"
+    },
+    {
       "name": "OWASP Cross-Site Request Forgery Prevention Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html"
     },
@@ -183,6 +191,10 @@
       "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Cross-Origin-Resource-Policy"
     },
     {
+      "name": "MDN Clear-Site-Data",
+      "url": "https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Clear-Site-Data"
+    },
+    {
       "name": "MDN Subresource Integrity",
       "url": "https://developer.mozilla.org/en-US/docs/Web/Security/Subresource_Integrity"
     }
@@ -336,6 +348,21 @@
         "/password/reset",
         "/api/auth/forgot-password",
         "/api/auth/reset-password"
+      ],
+      "logoutPaths": [
+        "/logout",
+        "/log-out",
+        "/signout",
+        "/sign-out",
+        "/sign_out",
+        "/session/logout",
+        "/session/signout",
+        "/sessions/destroy",
+        "/auth/logout",
+        "/auth/signout",
+        "/api/logout",
+        "/api/auth/logout",
+        "/api/auth/signout"
       ],
       "adminPaths": [
         "/admin",

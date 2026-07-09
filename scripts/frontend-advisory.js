@@ -1317,6 +1317,21 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/api/auth/forgot-password",
     "/api/auth/reset-password"
   ]);
+  const logoutPaths = configuredProbePaths(baseline, "logoutPaths", [
+    "/logout",
+    "/log-out",
+    "/signout",
+    "/sign-out",
+    "/sign_out",
+    "/session/logout",
+    "/session/signout",
+    "/sessions/destroy",
+    "/auth/logout",
+    "/auth/signout",
+    "/api/logout",
+    "/api/auth/logout",
+    "/api/auth/signout"
+  ]);
   const adminPaths = configuredProbePaths(baseline, "adminPaths", [
     "/admin",
     "/admin/login",
@@ -1382,6 +1397,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "authApiPaths", authApiPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "accountRecoveryPaths", accountRecoveryPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "logoutPaths", logoutPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
@@ -1560,6 +1576,52 @@ function accountRecoverySignal(probe, response) {
     return response.redirects ? "account_recovery_redirect" : "account_recovery_route";
   }
   return "";
+}
+
+function logoutRouteSignal(probe, response) {
+  if (!response.ok || isSoftNotFoundResponse(response)) return "";
+  const path = String(probe.path || "").toLowerCase();
+  if (!/(?:logout|log-out|signout|sign-out|sign_out|sessions?\/destroy)/i.test(path)) return "";
+  if (response.status >= 200 && response.status < 400) return response.redirects ? "logout_redirect" : "logout_route";
+  if (response.status === 401 || response.status === 403) return "logout_requires_auth";
+  if (response.status === 405) return "logout_requires_non_get_method";
+  return "";
+}
+
+function clearSiteDataDirectives(value) {
+  return String(value || "")
+    .split(",")
+    .map((part) => part.trim().replace(/^"|"$/g, "").toLowerCase())
+    .filter(Boolean);
+}
+
+function cookieClearsValue(cookie) {
+  const value = String(cookie || "");
+  if (/\bmax-age\s*=\s*0\b/i.test(value)) return true;
+  const expires = value.match(/\bexpires\s*=\s*([^;]+)/i);
+  if (!expires) return false;
+  const time = Date.parse(expires[1]);
+  return Number.isFinite(time) && time <= Date.now();
+}
+
+function logoutCleanupEvidence(probe, response, signal) {
+  const clearSiteData = headerValue(response, "clear-site-data");
+  const clearedCookies = (response.setCookies || [])
+    .filter(cookieClearsValue)
+    .map(cookieName)
+    .filter(Boolean);
+  return {
+    target: probe.targetName,
+    path: probe.path,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    signal,
+    cacheControl: headerValue(response, "cache-control"),
+    clearSiteData,
+    clearSiteDataDirectives: clearSiteDataDirectives(clearSiteData),
+    clearedCookies
+  };
 }
 
 function securityTxtEvidence(probe, response) {
@@ -2532,6 +2594,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const identityMetadata = [];
   const unauthenticatedUserApis = [];
   const accountRecoverySurfaces = [];
+  const logoutSurfaces = [];
   const adminExposures = [];
   const debugExposures = [];
   const metafileExposures = [];
@@ -2567,6 +2630,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "accountRecoveryPaths") {
       const signal = accountRecoverySignal(probe, response);
       if (signal) accountRecoverySurfaces.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "logoutPaths") {
+      const signal = logoutRouteSignal(probe, response);
+      if (signal) logoutSurfaces.push(logoutCleanupEvidence(probe, response, signal));
     } else if (probe.category === "adminPaths") {
       const signal = exposedRouteSignal(scope, discovery, probe, response);
       if (signal) adminExposures.push(probeEvidence(probe, response, signal));
@@ -2671,6 +2737,31 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "Passive probes check common forgot/reset/change-password routes and the well-known change-password URL without submitting credentials or tokens.",
     { checked: probes.filter((probe) => probe.category === "accountRecoveryPaths").length, routes: accountRecoverySurfaces }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.logout_routes",
+    "Logout and sign-out routes are inventoried for session cleanup review",
+    true,
+    "Passive probes request common logout/sign-out paths without cookies or form submissions, then record cache-control, Clear-Site-Data, and cookie-clearing signals for review.",
+    { checked: probes.filter((probe) => probe.category === "logoutPaths").length, routes: logoutSurfaces }
+  );
+  const logoutCacheIssues = logoutSurfaces
+    .filter((item) => ["logout_route", "logout_redirect"].includes(item.signal))
+    .filter((item) => !cacheControlProtected(item.cacheControl))
+    .map((item) => ({ ...item, signal: "missing_private_or_no_store_cache_control" }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.logout_cache",
+    "Logout and sign-out responses avoid browser/shared-cache storage",
+    logoutCacheIssues.length === 0,
+    "OWASP browser-cache guidance recommends no-store style cache controls around authentication state changes and logout flows.",
+    {
+      checked: logoutSurfaces.filter((item) => ["logout_route", "logout_redirect"].includes(item.signal)).length,
+      issues: logoutCacheIssues
+    }
   );
   const authApiRateLimitSignals = probeResponses
     .filter(({ probe }) => probe.category === "authApiPaths")
