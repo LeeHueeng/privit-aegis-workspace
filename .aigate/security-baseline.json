@@ -11,12 +11,24 @@
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html"
     },
     {
+      "name": "OWASP Forgot Password Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Forgot_Password_Cheat_Sheet.html"
+    },
+    {
       "name": "OWASP Session Management Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html"
     },
     {
       "name": "OWASP WSTG Testing for Browser Cache Weaknesses",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/06-Testing_for_Browser_Cache_Weaknesses"
+    },
+    {
+      "name": "OWASP WSTG Testing for Weak Password Change or Reset Functionalities",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/09-Testing_for_Weak_Password_Change_or_Reset_Functionalities"
+    },
+    {
+      "name": "OWASP WSTG Testing for OAuth Weaknesses",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/05-Testing_for_OAuth_Weaknesses"
     },
     {
       "name": "OWASP Cross-Site Request Forgery Prevention Cheat Sheet",

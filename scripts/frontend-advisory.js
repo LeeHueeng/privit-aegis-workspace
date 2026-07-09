@@ -1787,20 +1787,44 @@ function duplicateParameterEvidence(discovery) {
   return candidates.slice(0, 30);
 }
 
+function urlParameterEntries(url, baseUrl = undefined) {
+  if (!url) return [];
+  try {
+    const parsed = baseUrl ? new URL(url, baseUrl) : new URL(url);
+    const entries = [];
+    for (const key of unique([...parsed.searchParams.keys()])) {
+      entries.push({ location: "query", path: parsed.pathname, parameter: key });
+    }
+    const fragment = parsed.hash.replace(/^#/, "");
+    if (fragment) {
+      const queryStart = fragment.indexOf("?");
+      const paramText = queryStart >= 0 ? fragment.slice(queryStart + 1) : fragment;
+      const fragmentPath = queryStart >= 0 ? fragment.slice(0, queryStart) : "";
+      if (paramText.includes("=")) {
+        for (const key of unique([...new URLSearchParams(paramText).keys()])) {
+          entries.push({
+            location: "fragment",
+            path: parsed.pathname,
+            fragmentPath: fragmentPath || undefined,
+            parameter: key
+          });
+        }
+      }
+    }
+    return entries;
+  } catch {
+    return [];
+  }
+}
+
 function sensitiveUrlParameterEvidence(discovery) {
   const sensitiveParam = /^(?:access[_-]?token|refresh[_-]?token|id[_-]?token|token|jwt|session|sid|auth|authorization|password|passwd|pwd|secret|api[_-]?key|apikey|key|credential|otp|mfa|code)$/i;
   const candidates = [];
-  const inspectUrl = (source, url, status = undefined) => {
-    if (!url) return;
-    try {
-      const parsed = new URL(url);
-      for (const key of unique([...parsed.searchParams.keys()])) {
-        if (sensitiveParam.test(key)) {
-          candidates.push({ source, path: parsed.pathname, parameter: key, status });
-        }
+  const inspectUrl = (source, url, status = undefined, baseUrl = undefined) => {
+    for (const entry of urlParameterEntries(url, baseUrl)) {
+      if (sensitiveParam.test(entry.parameter)) {
+        candidates.push({ source, ...entry, status });
       }
-    } catch {
-      // Ignore relative or malformed URLs in passive query-parameter inventory.
     }
   };
   for (const route of discovery?.routes || []) {
@@ -1808,7 +1832,37 @@ function sensitiveUrlParameterEvidence(discovery) {
   }
   for (const form of discovery?.forms || []) {
     inspectUrl("form_page", form.page_url);
-    inspectUrl("form_action", form.action_url);
+    inspectUrl("form_action", form.action_url, undefined, form.page_url);
+  }
+  return candidates.slice(0, 30);
+}
+
+function authFlowTokenEvidence(discovery) {
+  const authParam = /^(?:access[_-]?token|refresh[_-]?token|id[_-]?token|token|jwt|code|otp|mfa|ticket|reset[_-]?token|invite[_-]?token|verification[_-]?token)$/i;
+  const flowPath = /(?:reset|forgot|password|verify|verification|activate|activation|invite|invitation|magic|callback|oauth|oidc|sso|auth|login|signin|mfa|otp)/i;
+  const candidates = [];
+  const classify = (entry) => {
+    const context = `${entry.path || ""} ${entry.fragmentPath || ""} ${entry.parameter || ""}`;
+    if (/(?:oauth|oidc|sso|callback|access[_-]?token|id[_-]?token|refresh[_-]?token|\bcode\b)/i.test(context)) return "oauth_or_sso";
+    if (/(?:reset|forgot|password|reset[_-]?token)/i.test(context)) return "password_reset";
+    if (/(?:verify|verification|activate|activation|verification[_-]?token)/i.test(context)) return "verification";
+    if (/(?:invite|invitation|invite[_-]?token)/i.test(context)) return "invitation";
+    if (/(?:magic|otp|mfa|ticket)/i.test(context)) return "magic_link_or_mfa";
+    return "auth_flow";
+  };
+  const inspectUrl = (source, url, status = undefined, baseUrl = undefined) => {
+    for (const entry of urlParameterEntries(url, baseUrl)) {
+      const context = `${entry.path || ""} ${entry.fragmentPath || ""}`;
+      if (!authParam.test(entry.parameter) || !flowPath.test(`${context} ${entry.parameter}`)) continue;
+      candidates.push({ source, ...entry, flow: classify(entry), status });
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status);
+  }
+  for (const form of discovery?.forms || []) {
+    inspectUrl("form_page", form.page_url);
+    inspectUrl("form_action", form.action_url, undefined, form.page_url);
   }
   return candidates.slice(0, 30);
 }
@@ -2914,10 +2968,21 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     findings,
     "warning",
     "frontend.discovery.sensitive_url_parameters",
-    "Sensitive values are not passed through URL query parameters",
+    "Sensitive values are not passed through URL query or fragment parameters",
     sensitiveUrlParams.length === 0,
-    "Tokens, passwords, API keys, and session identifiers in URLs can leak through logs, browser history, referrer headers, and shared links.",
+    "Tokens, passwords, API keys, and session identifiers in URL query strings or fragments can leak through logs, browser history, referrer headers, and shared links.",
     { candidates: sensitiveUrlParams, count: sensitiveUrlParams.length }
+  );
+
+  const authFlowTokens = authFlowTokenEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.auth_flow_token_urls",
+    "Authentication-flow URL tokens are inventoried for leakage review",
+    true,
+    "Password reset, verification, invitation, magic-link, OAuth, and SSO flows sometimes carry token-like parameters in URLs; passive discovery records parameter names only so reviewers can assess leakage risk.",
+    { candidates: authFlowTokens, count: authFlowTokens.length }
   );
 
   const attackSurfaces = attackSurfaceEvidence(discovery);

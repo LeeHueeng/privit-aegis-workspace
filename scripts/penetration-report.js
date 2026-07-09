@@ -582,8 +582,13 @@ const criteria = {
   },
   "frontend.discovery.sensitive_url_parameters": {
     category: "Data leakage",
-    criteria: "Discovered routes and form actions do not pass tokens, passwords, API keys, or session identifiers through URL query parameters.",
-    remediation: "Move sensitive values to POST bodies or headers, rotate exposed secrets, and avoid logging sensitive request data."
+    criteria: "Discovered routes and form actions do not pass tokens, passwords, API keys, or session identifiers through URL query or fragment parameters.",
+    remediation: "Move sensitive values to POST bodies, headers, or server-side state; rotate exposed secrets and avoid logging sensitive request data."
+  },
+  "frontend.discovery.auth_flow_token_urls": {
+    category: "Data leakage",
+    criteria: "Password reset, verification, invitation, magic-link, OAuth, and SSO URL parameters are inventoried without storing token values.",
+    remediation: "Review discovered auth-flow URL parameters for HTTPS-only delivery, short lifetime, single use, strict Referrer-Policy, and form_post or server-side state where appropriate."
   },
   "frontend.discovery.attack_surface_matrix": {
     category: "Input validation",
@@ -1033,10 +1038,16 @@ const localizedCriteria = {
       remediation: "반복 파라미터에 대한 서버 측 동작을 명확히 정의하고 validation bypass 위험 테스트를 추가하세요."
     },
     "frontend.discovery.sensitive_url_parameters": {
-      title: "민감 값이 URL query parameter로 전달되지 않음",
+      title: "민감 값이 URL query 또는 fragment parameter로 전달되지 않음",
       category: "데이터 유출",
-      criteria: "발견된 route와 form action은 token, password, API key, session identifier를 URL query parameter로 전달하지 않아야 합니다.",
-      remediation: "민감 값은 POST body 또는 header로 이동하고, 노출된 secret은 교체하며, 민감 요청 데이터 logging을 피하세요."
+      criteria: "발견된 route와 form action은 token, password, API key, session identifier를 URL query 또는 fragment parameter로 전달하지 않아야 합니다.",
+      remediation: "민감 값은 POST body, header, 서버 측 state로 이동하고, 노출된 secret은 교체하며, 민감 요청 데이터 logging을 피하세요."
+    },
+    "frontend.discovery.auth_flow_token_urls": {
+      title: "인증 흐름 URL token이 유출 검토 대상으로 인벤토리됨",
+      category: "데이터 유출",
+      criteria: "비밀번호 재설정, 인증 확인, 초대, magic link, OAuth, SSO URL parameter는 token 값 저장 없이 이름만 기록되어야 합니다.",
+      remediation: "발견된 인증 흐름 URL parameter는 HTTPS-only 전달, 짧은 만료, 단회 사용, 엄격한 Referrer-Policy, 필요 시 form_post 또는 서버 측 state 전환을 검토하세요."
     },
     "frontend.discovery.attack_surface_matrix": {
       title: "입력 및 API 공격 표면이 OWASP 검토군으로 분류됨",

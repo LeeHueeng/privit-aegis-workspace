@@ -88,7 +88,8 @@ token candidates, external form actions, sensitive cleartext form submissions,
 file-upload form controls, account-recovery and well-known change-password routes,
 logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
 clearing signals, visible Retry-After/RateLimit headers on authentication surfaces,
-sensitive URL query parameter names, anonymously readable user/account/profile/session API JSON,
+sensitive URL query/fragment parameter names, authentication-flow token URL
+inventory for reset/verification/invite/magic-link/OAuth/SSO paths, anonymously readable user/account/profile/session API JSON,
 auth/session API cache and `nosniff` headers, security.txt contact metadata,
 client-side bundle leakage signals, external subresource integrity, HTTPS mixed
 content references, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled
@@ -102,8 +103,9 @@ review, and an OWASP attack-surface matrix for XSS/HTML injection,
 SQL/NoSQL/ORM injection, LDAP/XML/XPath parser risks, SSRF, file inclusion,
 command/code/template injection, HTTP splitting/smuggling, mass assignment,
 GraphQL/API review, and upload business logic review. Response bodies and
-sensitive query values are not stored in reports; only URL, status, headers,
-redirect, DNS, field names, parameter names, and detection signals are recorded.
+sensitive query or fragment values are not stored in reports; only URL path,
+status, headers, redirect, DNS, field names, parameter names, flow types, and
+detection signals are recorded.
 
 The web console includes a Detection Guide tab that explains each detection
 family, pass criteria, and the evidence retained in reports. The same console is

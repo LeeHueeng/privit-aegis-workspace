@@ -1280,22 +1280,22 @@ function page() {
           zh: "表单提交、CSRF 与敏感 URL"
         },
         detects: {
-          ko: "인증 form의 GET 제출, 상태 변경 form의 CSRF token 후보, 외부 action, cleartext 제출, 민감 query parameter, 파일 업로드 control, 계정 복구 경로, rate-limit 헤더 신호를 확인합니다.",
-          en: "Checks auth-form GET submissions, CSRF token candidates on state-changing forms, external actions, cleartext submissions, sensitive query parameters, file-upload controls, account-recovery routes, and rate-limit header signals.",
-          ja: "認証formのGET送信、状態変更formのCSRF token候補、外部action、cleartext送信、機密query parameter、file upload control、アカウント復旧経路、rate-limitヘッダー信号を確認します。",
-          zh: "检查认证表单 GET 提交、状态变更表单的 CSRF token 候选、外部 action、明文提交、敏感 query parameter、文件上传控件、账号恢复路径和 rate-limit 响应头信号。"
+          ko: "인증 form의 GET 제출, 상태 변경 form의 CSRF token 후보, 외부 action, cleartext 제출, 민감 query/fragment parameter, 인증 흐름 token URL, 파일 업로드 control, 계정 복구 경로, rate-limit 헤더 신호를 확인합니다.",
+          en: "Checks auth-form GET submissions, CSRF token candidates on state-changing forms, external actions, cleartext submissions, sensitive query/fragment parameters, auth-flow token URLs, file-upload controls, account-recovery routes, and rate-limit header signals.",
+          ja: "認証formのGET送信、状態変更formのCSRF token候補、外部action、cleartext送信、機密query/fragment parameter、認証フローtoken URL、file upload control、アカウント復旧経路、rate-limitヘッダー信号を確認します。",
+          zh: "检查认证表单 GET 提交、状态变更表单的 CSRF token 候选、外部 action、明文提交、敏感 query/fragment parameter、认证流程 token URL、文件上传控件、账号恢复路径和 rate-limit 响应头信号。"
         },
         criteria: {
-          ko: "credential/token은 URL에 들어가지 않아야 하고, 상태 변경 form은 CSRF 방어 후보를 가져야 하며, 민감 form은 승인된 HTTPS 대상으로 제출되어야 합니다.",
-          en: "Credentials and tokens should not appear in URLs, state-changing forms should expose CSRF defenses, and sensitive forms should submit to approved HTTPS targets.",
-          ja: "credential/tokenはURLに入れず、状態変更formはCSRF防御候補を持ち、機密formは承認済みHTTPS対象へ送信する必要があります。",
-          zh: "凭证和 token 不应出现在 URL 中，状态变更表单应具备 CSRF 防护候选，敏感表单应提交到授权 HTTPS 目标。"
+          ko: "credential/token은 URL query나 fragment에 남지 않아야 하고, 상태 변경 form은 CSRF 방어 후보를 가져야 하며, 민감 form은 승인된 HTTPS 대상으로 제출되어야 합니다.",
+          en: "Credentials and tokens should not remain in URL query strings or fragments, state-changing forms should expose CSRF defenses, and sensitive forms should submit to approved HTTPS targets.",
+          ja: "credential/tokenはURL queryやfragmentに残さず、状態変更formはCSRF防御候補を持ち、機密formは承認済みHTTPS対象へ送信する必要があります。",
+          zh: "凭证和 token 不应留在 URL query 或 fragment 中，状态变更表单应具备 CSRF 防护候选，敏感表单应提交到授权 HTTPS 目标。"
         },
         evidence: {
-          ko: "page, action, method, control 이름/type, 민감 parameter 이름만 기록하고 값은 저장하지 않습니다.",
-          en: "Records page, action, method, control name/type, and sensitive parameter names without storing values.",
-          ja: "page、action、method、control名/type、機密parameter名のみ記録し、値は保存しません。",
-          zh: "仅记录 page、action、method、control 名称/type 和敏感 parameter 名，不保存值。"
+          ko: "page, action, method, control 이름/type, 민감 URL query/fragment parameter 이름, 인증 흐름 유형만 기록하고 값은 저장하지 않습니다.",
+          en: "Records page, action, method, control name/type, sensitive URL query/fragment parameter names, and auth-flow type without storing values.",
+          ja: "page、action、method、control名/type、機密URL query/fragment parameter名、認証フロー種別のみ記録し、値は保存しません。",
+          zh: "仅记录 page、action、method、control 名称/type、敏感 URL query/fragment parameter 名称和认证流程类型，不保存取值。"
         }
       },
       {
