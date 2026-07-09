@@ -446,7 +446,8 @@ function page() {
     .actions button, .primary { border: 0; border-radius: 7px; padding: 10px 11px; cursor: pointer; background: #e8eef8; color: var(--ink); font-weight: 800; min-height: 42px; }
     .primary { background: var(--accent); color: #ffffff; }
     .actions button:hover, .primary:hover { filter: brightness(0.97); }
-    iframe { width: 100%; height: 650px; border: 1px solid var(--line); border-radius: 8px; background: #ffffff; }
+    #report-view { padding-bottom: 24px; }
+    .report-frame { width: 100%; min-height: 720px; height: 720px; border: 0; border-radius: 0; background: transparent; display: block; overflow: hidden; }
     pre { min-height: 190px; max-height: 380px; overflow: auto; background: #0f172a; color: #dbeafe; border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: 13px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th, td { text-align: left; padding: 9px 7px; border-bottom: 1px solid var(--line); vertical-align: top; overflow-wrap: anywhere; }
@@ -481,7 +482,7 @@ function page() {
       header { align-items: flex-start; flex-direction: column; }
       .topbar { justify-content: flex-start; }
       .grid, .row, .actions, .line-item { grid-template-columns: 1fr; }
-      iframe { height: 520px; }
+      .report-frame { min-height: 640px; }
     }
   </style>
 </head>
@@ -713,7 +714,7 @@ function page() {
       </section>
 
       <section id="report-view" class="hidden">
-        <iframe id="report-frame" title="Aegis report"></iframe>
+        <iframe id="report-frame" class="report-frame" title="Aegis report" scrolling="no"></iframe>
       </section>
 
       <section id="logs-view" class="hidden">
@@ -806,11 +807,32 @@ function page() {
       setStatus(currentState?.reportExists ? t("reportReady") : t("ready"), currentState?.reportExists ? "ok" : "");
     }
 
+    function resizeReportFrame() {
+      const frame = document.querySelector("#report-frame");
+      const doc = frame?.contentDocument;
+      if (!frame || !doc) return;
+      doc.documentElement.style.overflow = "hidden";
+      if (doc.body) doc.body.style.overflow = "hidden";
+      const height = Math.max(
+        doc.documentElement?.scrollHeight || 0,
+        doc.body?.scrollHeight || 0,
+        doc.documentElement?.offsetHeight || 0,
+        doc.body?.offsetHeight || 0,
+        720
+      );
+      frame.style.height = height + "px";
+    }
+
+    function loadReportFrame() {
+      const frame = document.querySelector("#report-frame");
+      frame.src = "/report?ts=" + Date.now();
+    }
+
     function view(name) {
       for (const section of document.querySelectorAll("main > section")) section.classList.add("hidden");
       document.querySelector("#" + name + "-view").classList.remove("hidden");
       for (const button of document.querySelectorAll("nav button")) button.classList.toggle("active", button.dataset.view === name);
-      if (name === "report") document.querySelector("#report-frame").src = "/report?ts=" + Date.now();
+      if (name === "report") loadReportFrame();
     }
 
     function setStatus(text, tone) {
@@ -1079,7 +1101,7 @@ function page() {
       document.querySelector("#log-output").textContent = "$ " + (data.command || action) + "\\n\\n" + (data.stdout || "") + (data.stderr ? "\\n[stderr]\\n" + data.stderr : "");
       setStatus(data.ok ? t("passed") : t("failed"), data.ok ? "ok" : "danger");
       await refresh();
-      if (["report", "start", "scan", "map"].includes(action)) document.querySelector("#report-frame").src = "/report?ts=" + Date.now();
+      if (["report", "start", "scan", "map"].includes(action)) loadReportFrame();
     }
 
     async function saveScope() {
@@ -1094,6 +1116,12 @@ function page() {
 
     document.querySelectorAll("nav button").forEach((button) => button.addEventListener("click", () => view(button.dataset.view)));
     document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => run(button.dataset.action)));
+    document.querySelector("#report-frame").addEventListener("load", () => {
+      resizeReportFrame();
+      setTimeout(resizeReportFrame, 100);
+      setTimeout(resizeReportFrame, 500);
+    });
+    window.addEventListener("resize", resizeReportFrame);
     scopeForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       await saveScope();
