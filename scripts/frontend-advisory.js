@@ -228,6 +228,12 @@ function headerValue(response, name) {
   return String(response.headers?.[name] || "");
 }
 
+function attrValue(tag, name) {
+  const pattern = new RegExp(`\\b${escapeRegex(name)}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, "i");
+  const match = String(tag || "").match(pattern);
+  return match ? match[1] || match[2] || match[3] || "" : "";
+}
+
 function parseCspDirectives(policy) {
   const directives = {};
   for (const part of String(policy || "").split(";")) {
@@ -337,6 +343,23 @@ function frameworkFingerprintEvidence(response) {
     if (match) cookies.push({ url: finalUrl, name, signal: match[0] });
   }
   return { headers, cookies };
+}
+
+function reverseTabnabbingIssues(response) {
+  if (!isSuccessStatus(response) || !isHtmlResponse(response)) return [];
+  const finalUrl = response.finalUrl || response.url;
+  const issues = [];
+  for (const match of clientCodeText(response).matchAll(/<a\b[^>]*\btarget\s*=\s*(?:"_blank"|'_blank'|_blank)[^>]*>/gi)) {
+    const tag = match[0];
+    const rel = attrValue(tag, "rel").toLowerCase();
+    if (/\bnoopener\b|\bnoreferrer\b/i.test(rel)) continue;
+    issues.push({
+      url: finalUrl,
+      href: attrValue(tag, "href").slice(0, 200),
+      signal: "target_blank_without_noopener"
+    });
+  }
+  return issues.slice(0, 20);
 }
 
 function evaluateHeaders(findings, responses, scope, discovery) {
@@ -479,6 +502,17 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     framingMissing.length === 0,
     "Use CSP frame-ancestors or X-Frame-Options on HTML pages.",
     { missing: framingMissing.map((response) => response.finalUrl || response.url) }
+  );
+
+  const tabnabbingIssues = htmlResponses.flatMap(reverseTabnabbingIssues);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.reverse_tabnabbing",
+    "External new-tab links use rel=noopener or noreferrer",
+    tabnabbingIssues.length === 0,
+    "OWASP WSTG reverse tabnabbing testing reviews target=_blank links that omit opener isolation.",
+    { checked: htmlResponses.length, issues: tabnabbingIssues }
   );
 
   const authResponses = htmlResponses.filter((response) => isAuthLikeUrl(response.finalUrl || response.url, scope, discovery));
@@ -1045,20 +1079,74 @@ function redirectParameterEvidence(discovery) {
   return candidates.slice(0, 30);
 }
 
-function contentReviewTargets(scope, latestScan, baseline) {
+function duplicateParameterEvidence(discovery) {
+  const candidates = [];
+  const inspectUrl = (source, url, status = undefined) => {
+    if (!url) return;
+    try {
+      const parsed = new URL(url);
+      const counts = new Map();
+      for (const key of parsed.searchParams.keys()) {
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      for (const [parameter, count] of counts.entries()) {
+        if (count > 1) candidates.push({ source, path: parsed.pathname, parameter, count, status });
+      }
+    } catch {
+      // Ignore malformed discovery URLs in passive HPP inventory.
+    }
+  };
+  for (const route of discovery?.routes || []) {
+    inspectUrl("route", route.url, route.status);
+  }
+  for (const form of discovery?.forms || []) {
+    inspectUrl("form_page", form.page_url);
+    inspectUrl("form_action", form.action_url);
+  }
+  return candidates.slice(0, 30);
+}
+
+function isClientReviewAsset(url) {
+  try {
+    return /\.(?:js|mjs|json)(?:$|\?)/i.test(new URL(url).pathname);
+  } catch {
+    return false;
+  }
+}
+
+function extractClientReviewAssets(response) {
+  if (!isSuccessStatus(response) || !isHtmlResponse(response)) return [];
+  const baseUrl = response.finalUrl || response.url;
+  const assets = [];
+  for (const match of clientCodeText(response).matchAll(/<(?:script|link)\b[^>]*(?:\bsrc\b|\bhref\b)[^>]*>/gi)) {
+    const tag = match[0];
+    const asset = attrValue(tag, "src") || attrValue(tag, "href");
+    if (!asset) continue;
+    try {
+      const url = new URL(asset, baseUrl).toString();
+      if (isClientReviewAsset(url)) assets.push(url);
+    } catch {
+      // Ignore malformed asset references from partially captured HTML.
+    }
+  }
+  return unique(assets).slice(0, 30);
+}
+
+function contentReviewTargets(scope, latestScan, baseline, responses = []) {
   const maxAssets = configuredNumber(baseline, "maxContentReviewAssets", 12);
   const routes = latestScan?.discovery?.routes || [];
   return unique(
-    routes
-      .map((route) => route.url)
-      .filter((url) => /\.(?:js|mjs|json)(?:$|\?)/i.test(String(url || "")))
+    [
+      ...routes.map((route) => route.url).filter(isClientReviewAsset),
+      ...responses.flatMap(extractClientReviewAssets)
+    ]
       .filter((url) => isAllowedUrl(url, scope, "frontend"))
   ).slice(0, Math.max(0, maxAssets));
 }
 
 function clientSecretSignals(response) {
   if (!isSuccessStatus(response)) return [];
-  const text = responseText(response);
+  const text = clientCodeText(response);
   const patterns = [
     ["private_key", /-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----/i],
     ["aws_access_key", /\bAKIA[0-9A-Z]{16}\b/],
@@ -1077,9 +1165,19 @@ function clientBehaviorSignals(response) {
   if (!isSuccessStatus(response)) return [];
   const text = clientCodeText(response);
   const signals = [];
+  const clientInput = String.raw`(?:location\.(?:href|search|hash)|document\.(?:URL|documentURI|referrer)|URLSearchParams|searchParams|window\.name)`;
+  const domSink = String.raw`(?:innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval|setTimeout|setInterval|Function\s*\()`;
+  const domPattern = new RegExp(`${domSink}[\\s\\S]{0,260}${clientInput}|${clientInput}[\\s\\S]{0,260}${domSink}`, "i");
+  const templatePattern = new RegExp(String.raw`(?:dangerouslySetInnerHTML|v-html|ng-bind-html|x-html)[\s\S]{0,260}${clientInput}|\{\{[^}]{0,180}${clientInput}[^}]{0,180}\}\}`, "i");
   if (/postMessage\s*\([^)]*,\s*["']\*["']/i.test(text)) signals.push("postmessage_wildcard_target");
   if (/addEventListener\s*\(\s*["']message["']/i.test(text) && !/(?:^|[.\s])origin\b|event\.origin|e\.origin/i.test(text)) {
     signals.push("message_listener_without_origin_check");
+  }
+  if (domPattern.test(text)) signals.push("dom_xss_source_to_sink");
+  if (templatePattern.test(text)) signals.push("client_template_injection");
+  if (/(?:__proto__|constructor\s*\[\s*["']prototype["']\s*\]|constructor\.prototype)/i.test(text)
+    && /(?:URLSearchParams|location\.(?:search|hash)|qs\.parse|queryString\.parse|JSON\.parse|merge|assign|defaultsDeep|cloneDeep)/i.test(text)) {
+    signals.push("prototype_pollution_candidate");
   }
   if (/(?:window\.)?location(?:\.(?:href|assign|replace))?\s*(?:=|\()\s*[^;]{0,220}(?:URLSearchParams|location\.(?:search|hash)|document\.(?:URL|location))/is.test(text)) {
     signals.push("client_redirect_from_url");
@@ -1117,14 +1215,96 @@ function cloudStorageReferences(response) {
   return [...new Map(refs.map((ref) => [`${ref.provider}:${ref.host}`, ref])).values()].slice(0, 20);
 }
 
-async function evaluateClientContentLeakage(findings, scope, latestScan, baseline) {
-  const targets = contentReviewTargets(scope, latestScan, baseline);
+function decodeBase64UrlJson(value) {
+  try {
+    const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+    const padding = "=".repeat((4 - (normalized.length % 4)) % 4);
+    return JSON.parse(Buffer.from(`${normalized}${padding}`, "base64").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function jwtLiteralEvidence(response) {
+  if (!isSuccessStatus(response)) return [];
+  const seen = new Set();
+  const tokens = [];
+  for (const match of clientCodeText(response).matchAll(/\b(eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*)\b/g)) {
+    const token = match[1];
+    if (seen.has(token)) continue;
+    seen.add(token);
+    const [headerPart, payloadPart, signaturePart = ""] = token.split(".");
+    const header = decodeBase64UrlJson(headerPart) || {};
+    const payload = decodeBase64UrlJson(payloadPart) || {};
+    const alg = String(header.alg || "");
+    const signals = [];
+    if (!alg) signals.push("missing_alg");
+    if (/^none$/i.test(alg)) signals.push("unsigned_alg_none");
+    if (!signaturePart) signals.push("empty_signature");
+    tokens.push({
+      url: response.finalUrl || response.url,
+      alg,
+      typ: String(header.typ || ""),
+      kidPresent: Boolean(header.kid),
+      payloadClaims: Object.keys(payload).filter((key) => /^(?:iss|sub|aud|exp|nbf|iat|jti|role|scope|email)$/i.test(key)).slice(0, 12),
+      signals
+    });
+  }
+  return tokens.slice(0, 20);
+}
+
+function websocketReferences(response) {
+  if (!isSuccessStatus(response)) return [];
+  const refs = [];
+  const text = clientCodeText(response);
+  for (const match of text.matchAll(/\b(wss?:\/\/[^\s"'`),;]+)\b/gi)) {
+    try {
+      const parsed = new URL(match[1]);
+      const signal = parsed.protocol === "ws:" && !isLoopback(parsed.hostname) ? "cleartext_public_websocket" : "websocket_endpoint";
+      refs.push({
+        url: response.finalUrl || response.url,
+        endpointHost: parsed.hostname,
+        scheme: parsed.protocol.replace(":", ""),
+        signal
+      });
+    } catch {
+      // Ignore malformed WebSocket-like strings from minified bundles.
+    }
+  }
+  return [...new Map(refs.map((ref) => [`${ref.scheme}:${ref.endpointHost}:${ref.signal}`, ref])).values()].slice(0, 20);
+}
+
+function xssiJsonEvidence(response) {
+  if (!isSuccessStatus(response)) return null;
+  const finalUrl = response.finalUrl || response.url;
+  const type = contentType(response);
+  if (!type.includes("json") && !/\.json(?:$|\?)/i.test(finalUrl)) return null;
+  const text = clientCodeText(response).trimStart();
+  if (!text) return null;
+  const hasAntiXssiPrefix = /^\)\]\}',?\s*\n/.test(text) || /^while\s*\(\s*1\s*\)\s*;/.test(text) || /^for\s*\(\s*;;\s*\)\s*;/.test(text);
+  const topLevelArray = text.startsWith("[");
+  const topLevelObject = text.startsWith("{");
+  if (!topLevelArray && !topLevelObject) return null;
+  return {
+    url: finalUrl,
+    contentType: type,
+    topLevel: topLevelArray ? "array" : "object",
+    hasAntiXssiPrefix,
+    nosniff: /\bnosniff\b/i.test(headerValue(response, "x-content-type-options"))
+  };
+}
+
+async function evaluateClientContentLeakage(findings, scope, latestScan, baseline, responses = []) {
+  const targets = contentReviewTargets(scope, latestScan, baseline, responses);
   const reviews = [];
   for (const url of targets) {
     const response = await requestHeaders(url, 0, { method: "GET", maxBodyBytes: 16384 });
     const signals = clientSecretSignals(response);
     const behaviorSignals = clientBehaviorSignals(response);
     const cloudStorage = cloudStorageReferences(response);
+    const jwtLiterals = jwtLiteralEvidence(response);
+    const websockets = websocketReferences(response);
+    const xssiJson = xssiJsonEvidence(response);
     reviews.push({
       url,
       finalUrl: response.finalUrl || response.url,
@@ -1133,6 +1313,9 @@ async function evaluateClientContentLeakage(findings, scope, latestScan, baselin
       signals,
       behaviorSignals,
       cloudStorage,
+      jwtLiterals,
+      websockets,
+      xssiJson,
       ok: response.ok
     });
   }
@@ -1158,6 +1341,18 @@ async function evaluateClientContentLeakage(findings, scope, latestScan, baselin
     "OWASP WSTG Web Messaging testing reviews postMessage target origins and message event origin validation.",
     { checked: reviews.length, exposed: webMessaging }
   );
+  const domXss = reviews
+    .filter((review) => review.behaviorSignals.includes("dom_xss_source_to_sink"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: ["dom_xss_source_to_sink"] }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.dom_xss",
+    "Client-side bundles avoid DOM XSS source-to-sink patterns",
+    domXss.length === 0,
+    "OWASP WSTG DOM XSS testing reviews client-side sources such as location data flowing into HTML/script execution sinks.",
+    { checked: reviews.length, exposed: domXss }
+  );
   const clientRedirects = reviews
     .filter((review) => review.behaviorSignals.includes("client_redirect_from_url") || review.behaviorSignals.includes("document_write_from_url"))
     .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: review.behaviorSignals.filter((signal) => ["client_redirect_from_url", "document_write_from_url"].includes(signal)) }));
@@ -1182,6 +1377,30 @@ async function evaluateClientContentLeakage(findings, scope, latestScan, baselin
     "OWASP WSTG client-side resource manipulation testing reviews whether URL-controlled input can choose scripts, iframes, or other resources.",
     { checked: reviews.length, exposed: resourceManipulation }
   );
+  const templateInjection = reviews
+    .filter((review) => review.behaviorSignals.includes("client_template_injection"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: ["client_template_injection"] }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.template_injection",
+    "Client-side template sinks avoid URL-controlled input",
+    templateInjection.length === 0,
+    "OWASP WSTG client-side template injection testing reviews framework template sinks that can interpret user-controlled data.",
+    { checked: reviews.length, exposed: templateInjection }
+  );
+  const prototypePollution = reviews
+    .filter((review) => review.behaviorSignals.includes("prototype_pollution_candidate"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: ["prototype_pollution_candidate"] }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.prototype_pollution",
+    "Client-side bundles avoid prototype-pollution candidate flows",
+    prototypePollution.length === 0,
+    "OWASP WSTG prototype pollution testing starts by identifying structured input that can influence object keys such as __proto__ or constructor.prototype.",
+    { checked: reviews.length, exposed: prototypePollution }
+  );
   const browserStorage = reviews
     .filter((review) => review.behaviorSignals.includes("sensitive_browser_storage_key"))
     .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, signals: ["sensitive_browser_storage_key"] }));
@@ -1193,6 +1412,42 @@ async function evaluateClientContentLeakage(findings, scope, latestScan, baselin
     browserStorage.length === 0,
     "OWASP WSTG browser storage testing looks for authentication tokens, session identifiers, or sensitive business data in localStorage/sessionStorage.",
     { checked: reviews.length, exposed: browserStorage }
+  );
+  const websocketIssues = reviews
+    .filter((review) => review.websockets.some((item) => item.signal === "cleartext_public_websocket"))
+    .map((review) => ({ url: review.url, finalUrl: review.finalUrl, status: review.status, references: review.websockets.filter((item) => item.signal === "cleartext_public_websocket") }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.websockets",
+    "Client-side bundles avoid cleartext public WebSocket endpoints",
+    websocketIssues.length === 0,
+    "OWASP WSTG WebSocket testing includes reviewing whether WebSocket endpoints are protected consistently with the parent application transport.",
+    { checked: reviews.length, exposed: websocketIssues, references: reviews.flatMap((review) => review.websockets).slice(0, 20) }
+  );
+  const jwtWeak = reviews
+    .flatMap((review) => review.jwtLiterals.map((token) => ({ ...token, assetUrl: review.url, finalUrl: review.finalUrl })))
+    .filter((token) => token.signals.length);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.content.jwt_algorithms",
+    "JWT literals do not advertise unsigned or malformed algorithms",
+    jwtWeak.length === 0,
+    "OWASP WSTG JWT testing starts by decoding token headers and checking for unsigned, malformed, or unexpected algorithms before deeper authenticated validation.",
+    { checked: reviews.reduce((count, review) => count + review.jwtLiterals.length, 0), weak: jwtWeak }
+  );
+  const xssiCandidates = reviews
+    .filter((review) => review.xssiJson)
+    .map((review) => review.xssiJson);
+  addFinding(
+    findings,
+    "info",
+    "frontend.content.xssi_json",
+    "JSON assets are inventoried for XSSI review",
+    true,
+    "OWASP WSTG Cross Site Script Inclusion testing reviews JSON-like responses that may be loadable through script inclusion across origins.",
+    { checked: reviews.length, candidates: xssiCandidates }
   );
   const cloudStorage = reviews
     .filter((review) => review.cloudStorage.length)
@@ -1686,6 +1941,17 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     { candidates: redirectParams, count: redirectParams.length }
   );
 
+  const duplicateParams = duplicateParameterEvidence(discovery);
+  addFinding(
+    findings,
+    "info",
+    "frontend.discovery.duplicate_parameters",
+    "Duplicate URL parameters are inventoried for HTTP Parameter Pollution review",
+    true,
+    "OWASP WSTG HTTP Parameter Pollution testing reviews how applications interpret repeated parameters; this passive check records observed candidates only.",
+    { candidates: duplicateParams, count: duplicateParams.length }
+  );
+
   return probeResponses.map(({ probe, response }) => ({
     ...probeEvidence(probe, response, ""),
     ok: response.ok,
@@ -1711,7 +1977,7 @@ async function main() {
   const targets = buildTargets(scope, latestScan, baseline);
   const responses = [];
   for (const target of targets) {
-    responses.push(await requestHeaders(target));
+    responses.push(await requestHeaders(target, 0, { maxBodyBytes: 16384 }));
   }
 
   const findings = [];
@@ -1723,7 +1989,7 @@ async function main() {
   evaluateTransport(findings, scope, discovery);
   await evaluateTls(findings, scope);
   await evaluateDns(findings, scope, baseline);
-  const contentReviews = await evaluateClientContentLeakage(findings, scope, latestScan, baseline);
+  const contentReviews = await evaluateClientContentLeakage(findings, scope, latestScan, baseline, responses);
   const probes = await evaluatePassiveProbes(findings, scope, latestScan, baseline);
 
   const warnings = findings.filter((finding) => finding.level === "warning" && !finding.passed);

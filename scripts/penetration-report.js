@@ -249,6 +249,11 @@ const criteria = {
     criteria: "Every discovered HTML response sets CSP frame-ancestors or X-Frame-Options DENY/SAMEORIGIN.",
     remediation: "Add CSP frame-ancestors or X-Frame-Options to all HTML responses."
   },
+  "frontend.content.reverse_tabnabbing": {
+    category: "Client-side testing",
+    criteria: "HTML links that open new tabs with target=_blank also include rel=noopener or rel=noreferrer.",
+    remediation: "Add rel=noopener or rel=noreferrer to new-tab links, especially for external destinations."
+  },
   "frontend.headers.auth_cache": {
     category: "Authentication",
     criteria: "Authentication-like pages use Cache-Control: no-store.",
@@ -314,6 +319,11 @@ const criteria = {
     criteria: "Client bundles do not use wildcard postMessage targets or message listeners without visible origin validation signals.",
     remediation: "Use explicit postMessage target origins and validate event.origin before trusting message data."
   },
+  "frontend.content.dom_xss": {
+    category: "Client-side testing",
+    criteria: "Client bundles do not show obvious URL/document source data flowing into DOM/script execution sinks.",
+    remediation: "Encode or sanitize untrusted client-side data before DOM insertion, and avoid eval-like sinks."
+  },
   "frontend.content.client_redirects": {
     category: "Client-side testing",
     criteria: "Client bundles do not appear to drive navigation or document writes directly from URL-controlled values.",
@@ -324,10 +334,35 @@ const criteria = {
     criteria: "Client bundles do not appear to load scripts, iframes, or other resources directly from URL-controlled values.",
     remediation: "Resolve client-selected resources through a server-approved allowlist or fixed route identifiers."
   },
+  "frontend.content.template_injection": {
+    category: "Client-side testing",
+    criteria: "Client bundles do not appear to feed URL-controlled data into framework template HTML sinks.",
+    remediation: "Avoid rendering untrusted values through template/HTML sinks such as v-html, ng-bind-html, x-html, or dangerouslySetInnerHTML."
+  },
+  "frontend.content.prototype_pollution": {
+    category: "Input validation",
+    criteria: "Client bundles do not show obvious query/hash/JSON input reaching prototype-sensitive object key handling.",
+    remediation: "Reject __proto__, constructor, and prototype keys before deep merge/clone/assign operations and use patched parsing libraries."
+  },
   "frontend.content.browser_storage": {
     category: "Client-side testing",
     criteria: "Client bundles do not appear to store token/session/password-like keys in localStorage or sessionStorage.",
     remediation: "Keep sensitive session material in HttpOnly cookies or server-side storage and clear non-sensitive browser storage on logout."
+  },
+  "frontend.content.websockets": {
+    category: "WebSocket",
+    criteria: "Client bundles do not reference cleartext public ws:// WebSocket endpoints.",
+    remediation: "Use wss:// for public WebSocket endpoints and apply the same origin/authentication controls as HTTP APIs."
+  },
+  "frontend.content.jwt_algorithms": {
+    category: "Session",
+    criteria: "JWT literals discovered in client assets do not advertise alg=none, missing algorithms, or empty signatures.",
+    remediation: "Avoid shipping JWT literals in client bundles; reject unsigned JWTs and enforce expected algorithms server-side."
+  },
+  "frontend.content.xssi_json": {
+    category: "Client-side testing",
+    criteria: "JSON responses discovered in client assets are inventoried for manual Cross Site Script Inclusion review.",
+    remediation: "For sensitive JSON endpoints, use correct JSON content types, nosniff, CSRF/session controls, and anti-XSSI prefixes where appropriate."
   },
   "frontend.content.cloud_storage_refs": {
     category: "Cloud storage",
@@ -393,6 +428,11 @@ const criteria = {
     category: "Redirect review",
     criteria: "Redirect-like URL parameters are inventoried for manual open-redirect review; passive discovery itself does not prove exploitability.",
     remediation: "Validate redirect targets against an allowlist and prefer server-side route identifiers over arbitrary URL parameters."
+  },
+  "frontend.discovery.duplicate_parameters": {
+    category: "Input validation",
+    criteria: "Observed URLs and form actions are inventoried when they already contain duplicate parameter names.",
+    remediation: "Define deterministic server-side behavior for repeated parameters and add tests for validation bypass risks."
   }
 };
 
