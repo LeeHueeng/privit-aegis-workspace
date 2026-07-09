@@ -11,7 +11,7 @@ more valuable.
 - Localized HTML reports in Korean, English, Japanese, and Chinese
 - Passive penetration/security testing report with pass criteria
 - AI provider settings for Codex, Gemini, Claude, local AI, and direct API use
-- GitHub Actions gate with AIGate, hardening checks, and private CLI install
+- GitHub Actions gate with AIGate, hardening checks, and public CLI install
 
 ## Next
 

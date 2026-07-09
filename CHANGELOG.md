@@ -6,7 +6,7 @@
   Chinese.
 - Added a GitHub Pages documentation site under `docs/pages`.
 - Added a Pages deployment workflow with least-privilege permissions.
-- Added GitHub Pages activation notes for private-repository plan limits.
+- Added GitHub Pages activation notes for public launch readiness.
 - Made Pages deployment skip cleanly when GitHub Pages is unavailable.
 - Added repository contributor, conduct, roadmap, language index, and docs-site
   validation files.
@@ -18,4 +18,6 @@
   demo scope validation, issue contact links, and GitHub Actions Dependabot
   coverage.
 - Limited Dependabot automation to npm dependencies because GitHub Actions
-  updates are SHA-pinned and require manual review with private CI credentials.
+  updates are SHA-pinned and require manual review.
+- Switched CI to install the now-public Aegis CLI source without private
+  repository credentials.

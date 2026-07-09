@@ -10,14 +10,14 @@ console. It does not cover the target application itself.
 - AIGate reports under `.aigate/reports/`
 - GitHub Actions credentials and repository secrets
 - AI provider settings and environment variables
-- Private Aegis CLI access credentials
+- Public Aegis CLI source reference
 
 ## Trust Boundaries
 
 - Local developer machine
 - Target application selected in scope
 - GitHub Actions runner
-- Private Aegis CLI repository
+- Public Aegis CLI repository
 - Optional external AI providers
 - GitHub Pages static site
 
@@ -31,7 +31,7 @@ console. It does not cover the target application itself.
 | Supply-chain drift in workflows | Pin third-party actions to commit SHA |
 | AI exfiltration of private report data | Keep AI optional and document provider boundaries |
 | Unsafe scanning against unauthorized targets | Scope verification, passive defaults, denied paths, safety flags |
-| GitHub Pages failure on private plan | Validate static site and skip deploy when Pages is unavailable |
+| GitHub Pages misconfiguration | Validate static site and skip deploy when Pages is unavailable |
 
 ## Non-Goals
 

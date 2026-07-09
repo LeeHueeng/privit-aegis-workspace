@@ -56,9 +56,9 @@ jobs:
             {
               echo "### GitHub Pages deployment skipped"
               echo ""
-              echo "The documentation site is valid, but GitHub Pages is not enabled for this repository or the current plan does not support Pages for private repositories."
+              echo "The documentation site is valid, but GitHub Pages is not enabled for this repository."
               echo ""
-              echo "Enable Pages with the GitHub Actions source, make the repository public, or use a plan that supports private-repository Pages."
+              echo "Enable Pages with the GitHub Actions source, then rerun this workflow."
               echo ""
               echo '```text'
               cat /tmp/aegis-pages-error.txt

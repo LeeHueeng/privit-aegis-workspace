@@ -23,21 +23,12 @@ gh api --method POST repos/LeeHueeng/privit-aegis-workspace/pages -f build_type=
 
 Then rerun the Pages workflow from GitHub Actions or push a docs change.
 
-## Private Repository Note
-
-GitHub Pages is available for public repositories on GitHub Free. Private
-repositories need a plan that supports Pages for private repositories, such as
-GitHub Pro, Team, Enterprise Cloud, or Enterprise Server. If the repository is
-private on an unsupported plan, the API returns:
-
-```text
-Your current plan does not support GitHub Pages for this repository.
-```
+## Public Launch Note
 
 For a star-focused open source launch, review the repository for secrets and
-private scope data first, then make the repository public or move the Pages site
-to a public docs repository.
+private scope data before enabling Pages. Keep the safe demo scope in the
+repository and leave staging or customer-specific targets in ignored local files.
 
 The Pages workflow validates the static site on every docs push. If Pages is not
-enabled or the private repository plan does not support it, deployment is skipped
-with a GitHub Actions summary instead of failing the repository quality gate.
+enabled yet, deployment is skipped with a GitHub Actions summary instead of
+failing the repository quality gate.

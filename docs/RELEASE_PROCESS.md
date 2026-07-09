@@ -14,7 +14,7 @@ npm run gate:ready
 npm run completion:audit
 ```
 
-`completion:audit` may report external blockers such as private Pages support or
+`completion:audit` may report external blockers such as Pages activation or
 branch protection. Resolve code TODOs before release; document external blockers
 in release notes.
 
@@ -31,9 +31,7 @@ Use GitHub's generated release notes. `.github/release.yml` groups changes into:
 ## Dependency Updates
 
 Dependabot is enabled for npm workspace dependencies. GitHub Actions updates are
-handled manually because this repository pins actions to commit SHAs and CI
-depends on private Aegis CLI credentials that are not available to automated
-Dependabot pull requests.
+handled manually because this repository pins actions to commit SHAs.
 
 ## Versioning
 

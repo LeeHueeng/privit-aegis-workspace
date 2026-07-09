@@ -222,10 +222,10 @@ function main() {
   add(
     checks,
     "github",
-    "ci_secret",
-    Boolean(githubValue.checks?.aegisCliToken?.ok),
-    "GitHub repository secret AEGIS_CLI_SSH_KEY or AEGIS_CLI_TOKEN is configured.",
-    { detail: githubValue.checks?.aegisCliToken?.detail },
+    "cli_source_public",
+    Boolean(githubValue.checks?.aegisCliSource?.ok),
+    "Aegis CLI source repository is public and installable without CI secrets.",
+    { detail: githubValue.checks?.aegisCliSource?.detail, visibility: githubValue.checks?.aegisCliSource?.visibility },
     true
   );
   add(

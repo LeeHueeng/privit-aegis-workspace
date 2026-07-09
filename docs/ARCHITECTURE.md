@@ -1,6 +1,6 @@
 # Architecture
 
-Privit Aegis is a thin workspace around the private Aegis CLI engine. The
+Privit Aegis is a thin workspace around the public Aegis CLI engine. The
 workspace keeps project-specific scope, web-console orchestration, report
 localization, AI provider settings, and GitHub quality gates.
 
@@ -24,7 +24,7 @@ flowchart LR
 ## Boundaries
 
 - `privit-aegis-workspace` stores project wiring, local reports, docs, and CI.
-- `privit-project` stores the private Aegis CLI engine and scanner logic.
+- `privit-project` stores the public Aegis CLI engine and scanner logic.
 - `.aegis/` is local generated state and should not be committed unless outputs
   are intentionally sanitized.
 - AIGate is a git/CI quality gate, not a web-console scan button.

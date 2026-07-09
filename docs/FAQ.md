@@ -2,9 +2,9 @@
 
 ## Is this a scanner or a workspace?
 
-It is a Privit-specific workspace around the Aegis CLI. The scanner engine lives
-in the private `LeeHueeng/privit-project` repository, while this repository keeps
-scope, local web-console orchestration, reports, CI, AI settings, and docs.
+It is a Privit-specific workspace around the Aegis CLI. The reusable scanner
+engine lives in `LeeHueeng/privit-project`, while this repository keeps scope,
+local web-console orchestration, reports, CI, AI settings, and docs.
 
 ## Does it attack the target?
 
@@ -25,9 +25,8 @@ optional AIGate AI reports. AI does not decide passive scan findings.
 
 ## Why is GitHub Pages not live yet?
 
-The repository is currently private. GitHub Pages is prepared and validated, but
-actual deployment depends on Pages being enabled and supported by the repository
-plan. See `docs/github-pages.md`.
+GitHub Pages is prepared and validated. Actual deployment depends on Pages being
+enabled for the repository. See `docs/github-pages.md`.
 
 ## Can this be made public for stars?
 

@@ -16,7 +16,7 @@ gh auth refresh -h github.com -s workflow
 git push -u origin main
 ```
 
-For private repository creation and workflow upload together:
+For repository creation and workflow upload together:
 
 ```sh
 gh auth refresh -h github.com -s repo -s workflow

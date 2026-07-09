@@ -51,7 +51,6 @@
     "security:target": "node ./scripts/frontend-advisory.js",
     "completion:audit": "node ./scripts/completion-audit.js",
     "github:ready": "node ./scripts/github-readiness.js",
-    "github:secret:set": "node ./scripts/github-ci-setup.js",
     "gate": "aigate test --language ko",
     "gate:ready": "aigate git-ready --language ko",
     "gate:doctor": "aigate doctor --language ko",

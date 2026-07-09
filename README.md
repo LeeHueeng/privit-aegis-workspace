@@ -47,6 +47,7 @@ failed, and what evidence was retained.
 - Security scanning guide: [`docs/security-scanning.md`](./docs/security-scanning.md)
 - Hardening baseline: [`docs/security-hardening-baseline.md`](./docs/security-hardening-baseline.md)
 - AI integration: [`docs/ai-integration.md`](./docs/ai-integration.md)
+- Public CLI engine: <https://github.com/LeeHueeng/privit-project>
 - GitHub workflow security: [`docs/github-security-hardening.md`](./docs/github-security-hardening.md)
 - GitHub Pages setup: [`docs/github-pages.md`](./docs/github-pages.md)
 - Showcase: [`docs/SHOWCASE.md`](./docs/SHOWCASE.md)
@@ -148,7 +149,7 @@ The Pages site is deployed from `docs/pages` through
 `.github/workflows/pages.yml`. The workflow uses GitHub Pages Actions with
 minimal permissions: `contents: read`, `pages: write`, and `id-token: write`.
 See [`docs/github-pages.md`](./docs/github-pages.md) for the activation command
-and private-repository plan note.
+and deployment notes.
 
 ## Security Model
 

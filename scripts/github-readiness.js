@@ -61,32 +61,25 @@ function checkGhAuth() {
   };
 }
 
-function checkSecret(repo) {
-  if (!repo) {
-    return { ok: false, present: false, detail: "GitHub repository could not be resolved." };
-  }
-
-  const listed = run("gh", ["secret", "list", "--repo", repo], 15000);
-  if (!listed.ok) {
+function checkAegisCliSource() {
+  const result = run("gh", ["repo", "view", "LeeHueeng/privit-project", "--json", "visibility,url,defaultBranchRef"], 15000);
+  if (!result.ok) {
     return {
       ok: false,
-      present: false,
-      detail: listed.stderr || listed.stdout || "Could not list repository secrets."
+      detail: result.stderr || result.stdout || "Could not verify the Aegis CLI source repository."
     };
   }
 
-  const secrets = listed.stdout.split(/\r?\n/).map((line) => line.split(/\s+/)[0]).filter(Boolean);
-  const tokenPresent = secrets.includes("AEGIS_CLI_TOKEN");
-  const sshKeyPresent = secrets.includes("AEGIS_CLI_SSH_KEY");
-  const present = tokenPresent || sshKeyPresent;
+  const data = parseJson(result.stdout, {});
+  const publicRepo = data.visibility === "PUBLIC";
   return {
-    ok: present,
-    present,
-    tokenPresent,
-    sshKeyPresent,
-    detail: present
-      ? `Aegis CLI credential exists (${sshKeyPresent ? "AEGIS_CLI_SSH_KEY" : "AEGIS_CLI_TOKEN"}). Secret values are never readable through this check.`
-      : "Aegis CLI credential is missing. Configure AEGIS_CLI_SSH_KEY or AEGIS_CLI_TOKEN."
+    ok: publicRepo,
+    visibility: data.visibility || "unknown",
+    url: data.url || "https://github.com/LeeHueeng/privit-project",
+    defaultBranch: data.defaultBranchRef?.name || "",
+    detail: publicRepo
+      ? "Aegis CLI source repository is public and can be installed without CI secrets."
+      : `Aegis CLI source repository is ${data.visibility || "unknown"}; public CI install may require secrets.`
   };
 }
 
@@ -140,7 +133,7 @@ function checkBranchProtection(repo, branch) {
       ok: false,
       enforced: false,
       detail: detail.includes("403")
-        ? "Required status checks could not be verified. Private repository protection may require admin access or a GitHub plan that supports it."
+        ? "Required status checks could not be verified. Confirm admin access and branch protection availability."
         : detail
     };
   }
@@ -187,9 +180,9 @@ function buildReport() {
   const repository = getRepository();
   const branch = getCurrentBranch();
   const ghAuth = checkGhAuth();
-  const aegisCliToken = ghAuth.ok
-    ? checkSecret(repository)
-    : { ok: false, present: false, detail: "gh auth is required before checking secrets." };
+  const aegisCliSource = ghAuth.ok
+    ? checkAegisCliSource()
+    : { ok: false, detail: "gh auth is required before checking the Aegis CLI source repository." };
   const latestRun = ghAuth.ok
     ? checkLatestRun(repository, branch)
     : { ok: false, detail: "gh auth is required before checking workflow runs." };
@@ -200,14 +193,13 @@ function buildReport() {
 
   const blockers = [];
   if (!ghAuth.ok) blockers.push("gh authentication is not ready");
-  if (!aegisCliToken.ok) blockers.push("Aegis CLI credential secret is missing or not visible");
+  if (!aegisCliSource.ok) blockers.push("Aegis CLI source repository is not public");
   if (!branchProtection.ok) blockers.push("AIGate required status check is not verified");
   if (latestRun.latest && !latestRun.ok) blockers.push("latest GitHub Actions run is not successful");
   const nextSteps = [];
-  if (!aegisCliToken.ok) {
+  if (!aegisCliSource.ok) {
     nextSteps.push(
-      "Create either a read-only deploy key for LeeHueeng/privit-project or a fine-grained GitHub token with read access.",
-      "Store it as AEGIS_CLI_SSH_KEY or AEGIS_CLI_TOKEN in this repository."
+      "Make LeeHueeng/privit-project public or restore a credentialed install path in CI."
     );
   }
   if (latestRun.latest && !latestRun.ok) {
@@ -225,7 +217,7 @@ function buildReport() {
     generatedAt: new Date().toISOString(),
     checks: {
       ghAuth,
-      aegisCliToken,
+      aegisCliSource,
       latestRun,
       branchProtection,
       aigate

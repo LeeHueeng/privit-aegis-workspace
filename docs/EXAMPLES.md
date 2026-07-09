@@ -39,7 +39,7 @@ npm run completion:audit
 ```
 
 `completion:audit` separates code TODOs from external blockers such as GitHub
-repository settings or private-repository Pages limits.
+repository settings or Pages activation.
 
 ## Prepare for Git Push
 

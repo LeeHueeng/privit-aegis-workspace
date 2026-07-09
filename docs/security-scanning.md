@@ -131,8 +131,8 @@ family, pass criteria, and the evidence retained in reports. The same console is
 also available directly at `/detections`.
 
 Use `npm run completion:audit` when iterating on the workspace. It reports code
-TODO items separately from external GitHub blockers such as repository secrets
-or private-repository branch protection limits.
+TODO items separately from external GitHub blockers such as branch protection,
+Pages activation, or repository visibility.
 
 `npm run security:report` runs the Aegis HTML report first, then rewrites the
 HTML with the current web console language from `.aegis/web-settings.json`.
