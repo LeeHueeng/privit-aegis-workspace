@@ -175,6 +175,10 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/12-API_Testing/01-API_Reconnaissance"
     },
     {
+      "name": "OpenAPI Security",
+      "url": "https://learn.openapis.org/specification/security.html"
+    },
+    {
       "name": "OWASP WSTG Path Confusion and Web Cache Deception",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/13-Test_for_Path_Confusion"
     },
@@ -377,6 +381,9 @@
       "apiDocs": [
         "/openapi.json",
         "/swagger.json",
+        "/api-docs.json",
+        "/v3/api-docs",
+        "/v3/api-docs/swagger-config",
         "/swagger-ui",
         "/swagger-ui/index.html",
         "/api-docs",

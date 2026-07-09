@@ -510,6 +510,11 @@ const criteria = {
     criteria: "OpenAPI, Swagger UI, ReDoc, and similar API docs are absent, authenticated, IP-restricted, or intentionally approved for the environment.",
     remediation: "Disable public API docs outside development or protect them with authentication/IP allowlisting."
   },
+  "frontend.probes.openapi_security": {
+    category: "API security",
+    criteria: "OpenAPI/Swagger JSON documents use non-cleartext server URLs and declare security schemes/requirements for protected operations.",
+    remediation: "Add securitySchemes and global or operation-level security requirements, document intentionally anonymous operations, avoid API keys in query strings, and use HTTPS server URLs."
+  },
   "frontend.probes.api_versions": {
     category: "API inventory",
     criteria: "Versioned API routes are inventoried so deployed API versions can be reviewed for support status and authorization posture.",
@@ -1107,6 +1112,12 @@ const localizedCriteria = {
       category: "API 노출",
       criteria: "OpenAPI, Swagger UI, ReDoc 등 API 문서는 없거나 인증/IP 제한/환경 승인 하에 공개되어야 합니다.",
       remediation: "개발 외 환경에서 공개 API 문서를 비활성화하거나 인증/IP allowlist로 보호하세요."
+    },
+    "frontend.probes.openapi_security": {
+      title: "OpenAPI 문서가 안전한 API 보안 posture를 선언함",
+      category: "API 보안",
+      criteria: "OpenAPI/Swagger JSON 문서는 cleartext server URL을 피하고 보호 대상 operation에 security scheme 및 security requirement를 선언해야 합니다.",
+      remediation: "securitySchemes와 global 또는 operation-level security requirement를 추가하고, 의도적 anonymous operation은 문서화하며, query string API key와 cleartext server URL을 피하세요."
     },
     "frontend.probes.api_versions": {
       title: "버전별 API route가 인벤토리됨",

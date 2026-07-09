@@ -1539,6 +1539,9 @@ function buildPassiveProbes(scope, latestScan, baseline) {
   const apiDocs = configuredProbePaths(baseline, "apiDocs", [
     "/openapi.json",
     "/swagger.json",
+    "/api-docs.json",
+    "/v3/api-docs",
+    "/v3/api-docs/swagger-config",
     "/swagger-ui",
     "/swagger-ui/index.html",
     "/api-docs",
@@ -1794,7 +1797,7 @@ function responseText(response) {
 }
 
 function responsePreviewText(response) {
-  return String(response.bodyPreview || "").slice(0, 16384);
+  return String(response.bodyPreview || "").slice(0, 32768);
 }
 
 function isSuccessStatus(response) {
@@ -1891,6 +1894,112 @@ function apiDocsSignal(response) {
   if (type.includes("application/json") && /"(?:openapi|swagger)"\s*:/.test(text)) return "openapi_json";
   if (/swagger ui|redoc|openapi|api documentation/i.test(text)) return "api_docs";
   return "";
+}
+
+function openApiSecuritySchemes(spec) {
+  if (spec?.openapi) return spec?.components?.securitySchemes || {};
+  if (spec?.swagger) return spec?.securityDefinitions || {};
+  return {};
+}
+
+function openApiOperations(spec) {
+  const methods = new Set(["get", "put", "post", "delete", "patch", "options", "head", "trace"]);
+  const entries = [];
+  for (const [apiPath, pathItem] of Object.entries(spec?.paths || {})) {
+    if (!pathItem || typeof pathItem !== "object") continue;
+    for (const [method, operation] of Object.entries(pathItem)) {
+      if (!methods.has(method.toLowerCase()) || !operation || typeof operation !== "object") continue;
+      entries.push({ path: apiPath, method: method.toUpperCase(), operation });
+    }
+  }
+  return entries;
+}
+
+function openApiServerSummaries(spec, baseUrl) {
+  if (Array.isArray(spec?.servers)) {
+    return spec.servers.map((server) => urlSummary(server?.url, baseUrl)).filter(Boolean);
+  }
+  if (spec?.swagger) {
+    const schemes = Array.isArray(spec.schemes) && spec.schemes.length ? spec.schemes : [];
+    const host = String(spec.host || "");
+    const basePath = String(spec.basePath || "/");
+    return schemes
+      .map((scheme) => host ? urlSummary(`${scheme}://${host}${basePath}`, baseUrl) : { protocol: String(scheme), path: basePath, incomplete: true })
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function openApiSecuritySchemeSummary(schemes) {
+  const values = Object.entries(schemes || {});
+  return {
+    count: values.length,
+    types: unique(values.map(([, scheme]) => scheme?.type).filter(Boolean).map(String)).slice(0, 12),
+    httpSchemes: unique(values.map(([, scheme]) => scheme?.scheme).filter(Boolean).map(String)).slice(0, 12),
+    apiKeyLocations: unique(values.filter(([, scheme]) => scheme?.type === "apiKey").map(([, scheme]) => scheme?.in).filter(Boolean).map(String)).slice(0, 12),
+    oauthFlowNames: unique(values.flatMap(([, scheme]) => Object.keys(scheme?.flows || {}))).slice(0, 12)
+  };
+}
+
+function openApiDocEvidence(probe, response, signal) {
+  const evidence = probeEvidence(probe, response, signal);
+  if (signal !== "openapi_json") return evidence;
+  const spec = parseJsonPreview(responsePreviewText(response));
+  evidence.parseableJson = Boolean(spec);
+  if (!spec || typeof spec !== "object") return evidence;
+
+  const schemes = openApiSecuritySchemes(spec);
+  const schemeSummary = openApiSecuritySchemeSummary(schemes);
+  const operations = openApiOperations(spec);
+  const globalSecurity = Array.isArray(spec.security) ? spec.security : undefined;
+  const hasGlobalSecurity = Array.isArray(globalSecurity) && globalSecurity.length > 0;
+  const globalAnonymous = Array.isArray(globalSecurity) && globalSecurity.length === 0;
+  const missingSecurity = [];
+  const anonymousSecurity = [];
+  for (const entry of operations) {
+    const operationSecurity = Array.isArray(entry.operation.security) ? entry.operation.security : undefined;
+    if (!operationSecurity && !hasGlobalSecurity && !globalAnonymous) missingSecurity.push(entry);
+    if ((operationSecurity && operationSecurity.length === 0) || (!operationSecurity && globalAnonymous)) anonymousSecurity.push(entry);
+  }
+  const servers = openApiServerSummaries(spec, response.finalUrl || response.url || probe.url);
+  evidence.openapi = spec.openapi || "";
+  evidence.swagger = spec.swagger || "";
+  evidence.pathCount = Object.keys(spec.paths || {}).length;
+  evidence.operationCount = operations.length;
+  evidence.securitySchemeCount = schemeSummary.count;
+  evidence.securitySchemeTypes = schemeSummary.types;
+  evidence.httpSchemes = schemeSummary.httpSchemes;
+  evidence.apiKeyLocations = schemeSummary.apiKeyLocations;
+  evidence.oauthFlowNames = schemeSummary.oauthFlowNames;
+  evidence.serverHosts = unique(servers.map((server) => server?.host).filter(Boolean)).slice(0, 10);
+  evidence.cleartextServers = servers
+    .filter((server) => server?.cleartext)
+    .map((server) => ({ host: server.host, path: server.path }))
+    .slice(0, 10);
+  evidence.missingSecurityOperationCount = missingSecurity.length;
+  evidence.explicitAnonymousOperationCount = anonymousSecurity.length;
+  evidence.missingSecuritySamples = missingSecurity.slice(0, 15).map((entry) => ({ method: entry.method, path: entry.path }));
+  evidence.explicitAnonymousSamples = anonymousSecurity.slice(0, 15).map((entry) => ({ method: entry.method, path: entry.path }));
+  return evidence;
+}
+
+function openApiQualityIssues(apiDocs) {
+  return apiDocs
+    .filter((item) => item.signal === "openapi_json")
+    .flatMap((item) => {
+      const issues = [];
+      if (!item.parseableJson) issues.push({ ...item, signal: "openapi_not_parseable_json" });
+      for (const server of item.cleartextServers || []) {
+        issues.push({ ...item, signal: "openapi_cleartext_server_url", server });
+      }
+      if (item.operationCount > 0 && item.securitySchemeCount === 0) issues.push({ ...item, signal: "openapi_missing_security_schemes" });
+      if (item.missingSecurityOperationCount > 0) issues.push({ ...item, signal: "openapi_operations_without_security_requirement" });
+      if (item.explicitAnonymousOperationCount > 0) issues.push({ ...item, signal: "openapi_explicit_anonymous_operations" });
+      if ((item.apiKeyLocations || []).some((location) => String(location).toLowerCase() === "query")) {
+        issues.push({ ...item, signal: "openapi_query_api_key_scheme" });
+      }
+      return issues;
+    });
 }
 
 function apiVersionSignal(probe, response) {
@@ -3720,6 +3829,13 @@ async function evaluateHostHeader(findings, scope, baseline) {
   );
 }
 
+function passiveProbeBodyLimit(probe) {
+  if (probe.method !== "GET") return 0;
+  if (probe.category === "apiDocs") return 32768;
+  if (probe.category === "identityEndpoints") return 16384;
+  return 8192;
+}
+
 async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const discovery = latestScan?.discovery || {};
   const probes = buildPassiveProbes(scope, latestScan, baseline);
@@ -3729,7 +3845,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
       probe,
       response: await requestHeaders(probe.url, 0, {
         method: probe.method,
-        maxBodyBytes: probe.method === "GET" ? 8192 : 0
+        maxBodyBytes: passiveProbeBodyLimit(probe)
       })
     });
   }
@@ -3770,7 +3886,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
       if (signal) extensionExposures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "apiDocs") {
       const signal = apiDocsSignal(response);
-      if (signal) apiDocExposures.push(probeEvidence(probe, response, signal));
+      if (signal) apiDocExposures.push(openApiDocEvidence(probe, response, signal));
     } else if (probe.category === "apiVersionPaths") {
       const signal = apiVersionSignal(probe, response);
       if (signal) apiVersionSurfaces.push(probeEvidence(probe, response, signal));
@@ -3869,6 +3985,16 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     apiDocExposures.length === 0,
     "OpenAPI, Swagger, ReDoc, and API docs endpoints should be intentionally published or access controlled.",
     { checked: probes.filter((probe) => probe.category === "apiDocs").length, exposed: apiDocExposures }
+  );
+  const openApiIssues = openApiQualityIssues(apiDocExposures);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.openapi_security",
+    "OpenAPI documents declare safe API security posture",
+    openApiIssues.length === 0,
+    "OpenAPI security schemes and security requirements help reviewers confirm authentication posture. Passive checks flag cleartext server URLs, missing security schemes, anonymous operations, and query API keys without calling API operations.",
+    { checked: apiDocExposures.filter((item) => item.signal === "openapi_json").length, issues: openApiIssues }
   );
   addFinding(
     findings,
