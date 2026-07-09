@@ -103,3 +103,9 @@ localized report.
 testing report. It answers three audit questions for each check: what was run,
 what pass criterion was used, and what redacted evidence was observed. The web
 console serves it at `/penetration-report` and exposes it from the report tab.
+
+AI is not used to decide passive scan results or penetration-report findings.
+Those checks are deterministic and based on scope, response metadata, headers,
+cookies, and low-impact probes. AI settings are used for provider readiness,
+model command references, optional AIGate AI reports, and remediation prompt
+generation.

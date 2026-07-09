@@ -45,7 +45,16 @@ const translations = {
     warnings: "경고",
     errors: "오류",
     passed: "통과",
-    targetWarning: "승인 범위와 소유권을 다시 확인한 뒤 운영 환경에서는 passive 모드만 사용하세요."
+    targetWarning: "승인 범위와 소유권을 다시 확인한 뒤 운영 환경에서는 passive 모드만 사용하세요.",
+    aiUsage: "AI 사용 현황",
+    aiScanUse: "스캔 판정",
+    aiReportUse: "리포트 생성",
+    aiDefaultProvider: "기본 프로바이더",
+    aiEnabledProviders: "활성 프로바이더",
+    aiAvailableActions: "사용 가능한 AI 작업",
+    aiNotUsedForScan: "이 침투/보안 점검은 정해진 규칙과 패시브 증거로 판정하며 LLM을 호출하지 않습니다.",
+    aiNotUsedForReport: "이 리포트도 AI가 작성한 판단문이 아니라 검사 결과를 템플릿으로 정리한 것입니다.",
+    aiUsedFor: "AI는 모델 설정, provider 점검, AIGate AI 리포트/수정 프롬프트 생성에 사용됩니다."
   },
   en: {
     lang: "en",
@@ -85,7 +94,16 @@ const translations = {
     warnings: "warnings",
     errors: "errors",
     passed: "passed",
-    targetWarning: "Reconfirm authorization and ownership before testing; use passive mode for production targets."
+    targetWarning: "Reconfirm authorization and ownership before testing; use passive mode for production targets.",
+    aiUsage: "AI Usage",
+    aiScanUse: "Scan decisions",
+    aiReportUse: "Report generation",
+    aiDefaultProvider: "Default provider",
+    aiEnabledProviders: "Enabled providers",
+    aiAvailableActions: "Available AI actions",
+    aiNotUsedForScan: "This penetration/security check uses deterministic passive evidence and does not call an LLM for scan decisions.",
+    aiNotUsedForReport: "This report is template-generated from check results, not authored by AI.",
+    aiUsedFor: "AI is used for model settings, provider checks, AIGate AI reports, and remediation prompt generation."
   },
   ja: {
     lang: "ja",
@@ -125,7 +143,16 @@ const translations = {
     warnings: "警告",
     errors: "エラー",
     passed: "合格",
-    targetWarning: "検査前に承認範囲と所有権を再確認し、本番環境ではpassiveモードのみ使用してください。"
+    targetWarning: "検査前に承認範囲と所有権を再確認し、本番環境ではpassiveモードのみ使用してください。",
+    aiUsage: "AI利用状況",
+    aiScanUse: "スキャン判定",
+    aiReportUse: "レポート生成",
+    aiDefaultProvider: "既定プロバイダー",
+    aiEnabledProviders: "有効プロバイダー",
+    aiAvailableActions: "利用可能なAI操作",
+    aiNotUsedForScan: "この侵入/セキュリティ検査は決定的なpassive証跡で判定し、スキャン判定にLLMを呼び出しません。",
+    aiNotUsedForReport: "このレポートは検査結果からテンプレート生成され、AIが判断文を作成したものではありません。",
+    aiUsedFor: "AIはモデル設定、provider診断、AIGate AIレポート、修正プロンプト生成に使用されます。"
   },
   zh: {
     lang: "zh",
@@ -165,7 +192,16 @@ const translations = {
     warnings: "警告",
     errors: "错误",
     passed: "通过",
-    targetWarning: "测试前请再次确认授权范围和所有权；生产环境仅使用 passive 模式。"
+    targetWarning: "测试前请再次确认授权范围和所有权；生产环境仅使用 passive 模式。",
+    aiUsage: "AI 使用情况",
+    aiScanUse: "扫描判定",
+    aiReportUse: "报告生成",
+    aiDefaultProvider: "默认提供方",
+    aiEnabledProviders: "启用提供方",
+    aiAvailableActions: "可用 AI 操作",
+    aiNotUsedForScan: "此渗透/安全检查使用确定性的被动证据进行判定，不会调用 LLM 做扫描结论。",
+    aiNotUsedForReport: "此报告由检查结果按模板生成，并非 AI 生成判断文本。",
+    aiUsedFor: "AI 用于模型设置、提供方检查、AIGate AI 报告和修复提示生成。"
   }
 };
 
@@ -436,6 +472,317 @@ const criteria = {
   }
 };
 
+const localizedCriteria = {
+  ko: {
+    "aegis.authorization_proof": {
+      title: "공개 대상 승인 증거가 구체적임",
+      category: "승인",
+      criteria: "공개 non-loopback 대상은 테스트 전 placeholder가 아닌 소유자와 구체적인 승인 증거를 가져야 합니다.",
+      remediation: "공개 또는 운영 유사 대상을 스캔하기 전에 placeholder 소유자 값을 교체하고 명시적인 승인 메타데이터를 추가하세요."
+    },
+    "aegis.scope_guard": {
+      title: "범위, 승인, 안전 플래그, 실행 모드가 검증됨",
+      category: "범위 보호",
+      criteria: "대상 요청을 보내기 전에 scope 검증이 통과해야 합니다.",
+      remediation: "범위 파일, 승인 파일, 안전 플래그를 확인한 뒤 다시 실행하세요."
+    },
+    "aegis.site_discovery": {
+      title: "사이트 탐색 맵이 생성됨",
+      category: "탐색",
+      criteria: "폼 제출 없이 범위 안의 경로, 링크, 폼, 인증 표면, 차단 URL이 기록되어야 합니다.",
+      remediation: "대상이 실행 중인지 확인하고 탐색 설정의 허용 호스트/경로를 조정하세요."
+    },
+    "frontend.reachable": {
+      title: "설정된 프론트엔드 URL에 접근 가능",
+      category: "가용성",
+      criteria: "모든 범위 내 대상 URL이 요청 오류 없이 응답하고, 최소 하나 이상의 대상이 접근 가능해야 합니다.",
+      remediation: "대상 애플리케이션을 실행하고 base URL/허용 목록을 수정한 뒤 다시 스캔하세요."
+    },
+    "frontend.headers.csp": {
+      title: "HTML 응답이 Content-Security-Policy를 전송함",
+      category: "브라우저 하드닝",
+      criteria: "발견된 모든 HTML 응답이 Content-Security-Policy 헤더를 전송해야 합니다.",
+      remediation: "애플리케이션에 맞는 CSP를 설정하고 script/style/frame 정책을 안전하게 구성하세요."
+    },
+    "frontend.headers.csp_quality": {
+      title: "Content-Security-Policy가 약한 지시자를 피함",
+      category: "브라우저 하드닝",
+      criteria: "CSP는 약한 script 지시자, wildcard source, data/http script source, object-src/base-uri/frame-ancestors 누락을 피해야 합니다.",
+      remediation: "unsafe-eval 제거, nonce/hash 기반 script 허용, wildcard 회피, object-src/base-uri/frame-ancestors 설정으로 CSP를 강화하세요."
+    },
+    "frontend.headers.nosniff": {
+      title: "응답이 X-Content-Type-Options: nosniff를 전송함",
+      category: "브라우저 하드닝",
+      criteria: "검사한 모든 응답이 X-Content-Type-Options: nosniff를 전송해야 합니다.",
+      remediation: "웹 서버 또는 애플리케이션 게이트웨이에 X-Content-Type-Options: nosniff를 추가하세요."
+    },
+    "frontend.headers.referrer": {
+      title: "HTML 응답이 안전한 Referrer-Policy를 전송함",
+      category: "브라우저 하드닝",
+      criteria: "발견된 모든 HTML 응답이 Referrer-Policy를 전송하고 unsafe-url을 사용하지 않아야 합니다.",
+      remediation: "strict-origin-when-cross-origin 또는 no-referrer 같은 제한적인 Referrer-Policy를 사용하세요."
+    },
+    "frontend.headers.permissions": {
+      title: "HTML 응답이 Permissions-Policy를 전송함",
+      category: "브라우저 하드닝",
+      criteria: "발견된 모든 HTML 응답이 Permissions-Policy를 전송해야 합니다.",
+      remediation: "camera, microphone, geolocation, payment 등 사용하지 않는 브라우저 기능을 비활성화하세요."
+    },
+    "frontend.headers.powered_by": {
+      title: "응답이 X-Powered-By를 노출하지 않음",
+      category: "핑거프린팅",
+      criteria: "검사한 응답은 X-Powered-By를 노출하지 않아야 합니다.",
+      remediation: "앱 서버, 리버스 프록시, 프레임워크 설정에서 프레임워크 노출 헤더를 비활성화하세요."
+    },
+    "frontend.headers.server_version": {
+      title: "응답이 정확한 Server 버전을 노출하지 않음",
+      category: "핑거프린팅",
+      criteria: "검사한 응답의 Server 헤더가 웹 서버 제품/버전을 자세히 노출하지 않아야 합니다.",
+      remediation: "웹 서버, 리버스 프록시, CDN, 애플리케이션 게이트웨이에서 Server 버전 배너를 숨기거나 일반화하세요."
+    },
+    "frontend.headers.misconfiguration": {
+      title: "보안 헤더가 deprecated 또는 과도하게 허용적인 설정을 피함",
+      category: "브라우저 하드닝",
+      criteria: "보안 헤더는 deprecated HPKP, obsolete X-Frame-Options ALLOW-FROM, 허용적인 X-Permitted-Cross-Domain-Policies, HTTP 응답의 HSTS를 피해야 합니다.",
+      remediation: "deprecated 헤더를 제거하고, 필요한 경우 X-Permitted-Cross-Domain-Policies를 none으로 설정하며, HSTS는 HTTPS 응답에만 유지하세요."
+    },
+    "frontend.fingerprint.framework_markers": {
+      title: "응답이 프레임워크 식별 헤더/쿠키명을 피함",
+      category: "핑거프린팅",
+      criteria: "응답이 프레임워크 식별 헤더나 잘 알려진 프레임워크 세션 쿠키명을 노출하지 않아야 합니다.",
+      remediation: "불필요한 프레임워크 노출 헤더를 제거하고 가능한 경우 일반 프레임워크 쿠키명을 변경하세요."
+    },
+    "frontend.headers.framing": {
+      title: "HTML 응답이 클릭재킹을 방어함",
+      category: "클릭재킹",
+      criteria: "모든 발견된 HTML 응답이 CSP frame-ancestors 또는 X-Frame-Options DENY/SAMEORIGIN을 설정해야 합니다.",
+      remediation: "모든 HTML 응답에 CSP frame-ancestors 또는 X-Frame-Options를 추가하세요."
+    },
+    "frontend.content.reverse_tabnabbing": {
+      title: "새 탭 링크가 rel=noopener 또는 noreferrer를 사용함",
+      category: "클라이언트 측 테스트",
+      criteria: "target=_blank로 새 탭을 여는 HTML 링크는 rel=noopener 또는 rel=noreferrer를 포함해야 합니다.",
+      remediation: "특히 외부 링크에 rel=noopener 또는 rel=noreferrer를 추가하세요."
+    },
+    "frontend.headers.auth_cache": {
+      title: "인증 유사 페이지가 Cache-Control: no-store를 사용함",
+      category: "인증",
+      criteria: "로그인/계정/비밀번호 재설정/세션 페이지는 Cache-Control: no-store를 사용해야 합니다.",
+      remediation: "인증 관련 페이지에 Cache-Control: no-store를 설정하세요."
+    },
+    "frontend.headers.hsts": {
+      title: "HTTPS non-loopback 응답이 HSTS를 전송함",
+      category: "전송 보안",
+      criteria: "non-loopback HTTPS 대상은 Strict-Transport-Security를 전송해야 하며 loopback/local HTTP 대상은 제외합니다.",
+      remediation: "HTTPS 강제가 확인된 실제 HTTPS 환경에서 HSTS를 활성화하세요."
+    },
+    "frontend.headers.cors": {
+      title: "CORS가 임의 Origin을 신뢰하지 않음",
+      category: "CORS",
+      criteria: "응답은 임의의 untrusted Origin을 반사하지 않고, wildcard/reflected Origin을 credentials와 함께 사용하지 않아야 합니다.",
+      remediation: "동적 Origin 반사를 명시적 allowlist로 교체하고 Access-Control-Allow-Credentials는 꼭 필요한 경우만 사용하세요."
+    },
+    "frontend.headers.host_injection": {
+      title: "응답이 untrusted Host 계열 헤더를 반사하지 않음",
+      category: "입력 검증",
+      criteria: "응답은 공격자가 제어한 Host, X-Forwarded-Host, X-Original-Host, Forwarded 헤더를 redirect나 본문에 반영하지 않아야 합니다.",
+      remediation: "엄격한 canonical host allowlist를 사용하고 절대 URL은 요청 헤더가 아니라 신뢰된 설정에서 생성하세요."
+    },
+    "frontend.cookies.flags": {
+      title: "쿠키가 방어적 속성을 사용함",
+      category: "세션",
+      criteria: "세션 유사 쿠키는 상황에 맞게 HttpOnly, SameSite, Secure를 사용해야 합니다.",
+      remediation: "세션/인증 쿠키에 HttpOnly, SameSite=Lax/Strict, Secure를 설정하세요."
+    },
+    "frontend.cookies.scope": {
+      title: "민감 쿠키가 넓은 Domain/Path 범위를 피함",
+      category: "세션",
+      criteria: "민감 쿠키는 명시적 근거 없이 넓은 Domain 범위나 Path=/를 사용하지 않아야 합니다.",
+      remediation: "가능하면 host-scope 쿠키를 사용하고 Path를 필요한 최소 애플리케이션 영역으로 좁히세요."
+    },
+    "frontend.forms.autocomplete": {
+      title: "인증 필드가 명시적 autocomplete 힌트를 사용함",
+      category: "인증 UX",
+      criteria: "인증 필드는 password manager용 autocomplete 힌트를 명시해야 합니다.",
+      remediation: "비밀번호에는 current-password/new-password, 로그인 식별자에는 username/email을 사용하세요."
+    },
+    "frontend.transport.auth_https": {
+      title: "인증 표면이 loopback 외부에서 평문 전송을 피함",
+      category: "전송 보안",
+      criteria: "인증 표면은 loopback 호스트가 아닌 환경에서 cleartext transport를 사용하지 않아야 합니다.",
+      remediation: "non-local 환경의 인증/계정 플로우를 HTTPS로 제공하세요."
+    },
+    "frontend.transport.public_https": {
+      title: "공개 non-loopback 대상이 HTTPS를 사용함",
+      category: "전송 보안",
+      criteria: "설정된 공개 non-loopback 프론트엔드/백엔드 base URL은 cleartext HTTP가 아니라 HTTPS를 사용해야 합니다.",
+      remediation: "공개 환경은 HTTPS로 제공하고 edge에서 HTTP를 HTTPS로 리다이렉트하세요."
+    },
+    "frontend.transport.tls_certificate": {
+      title: "공개 HTTPS 대상이 유효한 최신 TLS 인증서를 제시함",
+      category: "전송 보안",
+      criteria: "공개 HTTPS 대상은 TLSv1.2 또는 TLSv1.3으로 협상하고, 신뢰된 인증서를 제시하며, 만료까지 14일 이상 남아야 합니다.",
+      remediation: "만료/유효하지 않은 인증서를 갱신 또는 교체하고 edge에서 legacy TLS 프로토콜을 비활성화하세요."
+    },
+    "frontend.dns.dangling_cname": {
+      title: "공개 호스트명이 dangling CNAME takeover 지문을 보이지 않음",
+      category: "DNS",
+      criteria: "공개 대상 호스트명은 알려진 third-party 서비스로 향하는 CNAME과 unclaimed-resource takeover 지문을 동시에 보여서는 안 됩니다.",
+      remediation: "dangling DNS 레코드를 제거하거나 노출 전 해당 third-party 리소스를 claim/provision하세요."
+    },
+    "frontend.content.client_secrets": {
+      title: "클라이언트 번들이 명백한 시크릿을 노출하지 않음",
+      category: "정보 노출",
+      criteria: "발견된 클라이언트 JavaScript/JSON 자산은 private key, provider key, JWT literal, secret assignment를 노출하지 않아야 합니다.",
+      remediation: "클라이언트 측 시크릿을 제거하고, 노출된 자격 증명을 교체하며, 권한 있는 토큰은 서버 측에 보관하세요."
+    },
+    "frontend.content.web_messaging": {
+      title: "클라이언트 번들이 위험한 Web Messaging 패턴을 피함",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 번들은 wildcard postMessage target이나 Origin 검증 신호가 없는 message listener를 사용하지 않아야 합니다.",
+      remediation: "명시적 postMessage target origin을 사용하고 message data를 신뢰하기 전에 event.origin을 검증하세요."
+    },
+    "frontend.content.dom_xss": {
+      title: "클라이언트 번들이 DOM XSS source-to-sink 패턴을 피함",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 번들은 URL/document source 데이터가 DOM/script 실행 sink로 흐르는 명백한 패턴을 보이지 않아야 합니다.",
+      remediation: "신뢰할 수 없는 클라이언트 데이터를 DOM에 삽입하기 전 encode/sanitize하고 eval 계열 sink를 피하세요."
+    },
+    "frontend.content.client_redirects": {
+      title: "클라이언트 번들이 URL 제어 리다이렉트/문서 쓰기를 피함",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 번들은 URL 제어 값으로 navigation 또는 document write를 직접 수행하는 패턴을 보이지 않아야 합니다.",
+      remediation: "리다이렉트 대상은 allowlist로 검증하고 URL 제어 값을 document output에 직접 쓰지 마세요."
+    },
+    "frontend.content.resource_manipulation": {
+      title: "클라이언트 번들이 URL 제어 리소스 로딩을 피함",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 번들은 URL 제어 값으로 script, iframe, 기타 리소스를 직접 로드하는 패턴을 보이지 않아야 합니다.",
+      remediation: "클라이언트가 선택한 리소스는 서버 승인 allowlist 또는 고정 route identifier를 통해 해석하세요."
+    },
+    "frontend.content.template_injection": {
+      title: "클라이언트 템플릿 sink가 URL 제어 입력을 피함",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 번들은 URL 제어 데이터를 framework template HTML sink에 전달하는 패턴을 보이지 않아야 합니다.",
+      remediation: "v-html, ng-bind-html, x-html, dangerouslySetInnerHTML 같은 template/HTML sink에 untrusted 값을 렌더링하지 마세요."
+    },
+    "frontend.content.prototype_pollution": {
+      title: "클라이언트 번들이 prototype pollution 후보 흐름을 피함",
+      category: "입력 검증",
+      criteria: "클라이언트 번들은 query/hash/JSON 입력이 prototype-sensitive object key 처리로 흐르는 명백한 패턴을 보이지 않아야 합니다.",
+      remediation: "deep merge/clone/assign 전에 __proto__, constructor, prototype 키를 거부하고 패치된 parsing library를 사용하세요."
+    },
+    "frontend.content.browser_storage": {
+      title: "클라이언트 번들이 민감 키를 브라우저 저장소에 저장하지 않음",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 번들은 token/session/password 유사 키를 localStorage 또는 sessionStorage에 저장하는 패턴을 보이지 않아야 합니다.",
+      remediation: "민감 세션 재료는 HttpOnly 쿠키 또는 서버 측 저장소에 보관하고, 비민감 브라우저 저장소는 로그아웃 시 정리하세요."
+    },
+    "frontend.content.websockets": {
+      title: "클라이언트 번들이 공개 ws:// WebSocket 엔드포인트를 피함",
+      category: "WebSocket",
+      criteria: "클라이언트 번들은 cleartext public ws:// WebSocket 엔드포인트를 참조하지 않아야 합니다.",
+      remediation: "공개 WebSocket 엔드포인트에는 wss://를 사용하고 HTTP API와 동일한 origin/authentication 통제를 적용하세요."
+    },
+    "frontend.content.jwt_algorithms": {
+      title: "JWT literal이 unsigned 또는 malformed 알고리즘을 광고하지 않음",
+      category: "세션",
+      criteria: "클라이언트 자산에서 발견된 JWT literal은 alg=none, 누락된 알고리즘, 빈 서명을 광고하지 않아야 합니다.",
+      remediation: "클라이언트 번들에 JWT literal을 포함하지 말고, 서버 측에서 unsigned JWT를 거부하며 예상 알고리즘을 강제하세요."
+    },
+    "frontend.content.xssi_json": {
+      title: "JSON 자산이 XSSI 검토 대상으로 인벤토리됨",
+      category: "클라이언트 측 테스트",
+      criteria: "클라이언트 자산에서 발견된 JSON 응답은 Cross Site Script Inclusion 수동 검토 대상으로 기록되어야 합니다.",
+      remediation: "민감 JSON 엔드포인트에는 올바른 JSON content type, nosniff, CSRF/session 통제, 필요 시 anti-XSSI prefix를 사용하세요."
+    },
+    "frontend.content.cloud_storage_refs": {
+      title: "클라우드 스토리지 참조가 접근 제어 검토 대상으로 인벤토리됨",
+      category: "클라우드 스토리지",
+      criteria: "클라이언트 자산에서 발견된 클라우드 스토리지 URL은 수동 접근 제어 검토 대상으로 기록되어야 합니다.",
+      remediation: "참조된 bucket/container의 least privilege, public listing 제한, 민감 object 노출 여부를 검토하세요."
+    },
+    "frontend.probes.sensitive_files": {
+      title: "일반 민감 파일이 공개로 읽히지 않음",
+      category: "노출",
+      criteria: "일반적인 민감 파일, VCS metadata, backup archive, database dump, phpinfo 페이지가 공개로 읽히지 않아야 합니다.",
+      remediation: "노출 파일을 제거하고 web server에서 dotfile/backup을 차단하며, 노출이 확인되면 시크릿을 교체하세요."
+    },
+    "frontend.probes.backup_files": {
+      title: "오래된 백업 및 미참조 파일이 공개로 읽히지 않음",
+      category: "노출",
+      criteria: "일반 백업 archive, editor copy, snapshot, database dump 이름이 공개로 읽히지 않아야 합니다.",
+      remediation: "오래된 백업을 web root에서 제거하고 backup 확장자를 차단하며, 노출된 자격 증명은 교체하세요."
+    },
+    "frontend.probes.sensitive_extensions": {
+      title: "민감 server-side 확장자와 설정 파일이 공개 제공되지 않음",
+      category: "노출",
+      criteria: "민감 확장자를 가진 server-side include/config/source/dependency 파일이 공개 제공되지 않아야 합니다.",
+      remediation: "server-side/config 확장자의 static serving을 차단하고 build/dependency metadata를 web root 밖에 두세요."
+    },
+    "frontend.probes.api_docs": {
+      title: "API 문서가 익명으로 노출되지 않음",
+      category: "API 노출",
+      criteria: "OpenAPI, Swagger UI, ReDoc 등 API 문서는 없거나 인증/IP 제한/환경 승인 하에 공개되어야 합니다.",
+      remediation: "개발 외 환경에서 공개 API 문서를 비활성화하거나 인증/IP allowlist로 보호하세요."
+    },
+    "frontend.probes.admin_debug": {
+      title: "관리자 및 디버그 표면이 없거나 인증을 요구함",
+      category: "관리/디버그",
+      criteria: "관리 콘솔, 디버그 엔드포인트, metrics, actuator, server-status, hot-reload 엔드포인트는 없거나 인증을 요구해야 합니다.",
+      remediation: "디버그/관리 엔드포인트의 익명 인터넷 접근을 차단하고 내부망 또는 인증된 관리자에게만 제한하세요."
+    },
+    "frontend.probes.source_maps": {
+      title: "운영 source map이 공개 노출되지 않음",
+      category: "정보 노출",
+      criteria: "운영 source map 파일은 환경에서 의도적으로 승인되지 않는 한 공개 접근 가능하면 안 됩니다.",
+      remediation: "운영 source map 배포를 비활성화하거나 내부/디버그 환경으로 접근을 제한하세요."
+    },
+    "frontend.probes.metafiles": {
+      title: "웹 서버 metafile이 민감 경로나 허용적 cross-domain policy를 노출하지 않음",
+      category: "정보 노출",
+      criteria: "robots.txt, sitemap.xml, security.txt, legacy cross-domain policy 파일이 민감 경로나 wildcard access를 노출하지 않아야 합니다.",
+      remediation: "공개 metafile에서 민감 경로 힌트를 제거하고 wildcard cross-domain policy를 명시적 trusted origin으로 교체하세요."
+    },
+    "frontend.probes.error_disclosure": {
+      title: "오류 응답이 stack trace 또는 프레임워크 내부 정보를 노출하지 않음",
+      category: "오류 처리",
+      criteria: "안전한 오류 페이지 probe가 stack trace, 프레임워크 내부, SQL 오류, verbose 구현 정보를 드러내지 않아야 합니다.",
+      remediation: "사용자에게는 일반 오류 페이지를 반환하고 자세한 진단 정보는 보호된 서버 로그로만 전송하세요."
+    },
+    "frontend.probes.directory_listing": {
+      title: "일반 공개 디렉터리에서 directory listing이 활성화되지 않음",
+      category: "노출",
+      criteria: "일반 공개 디렉터리는 자동 생성된 directory index listing을 반환하지 않아야 합니다.",
+      remediation: "directory indexing을 비활성화하고 명시적 route 또는 인증된 파일 listing만 허용하세요."
+    },
+    "frontend.probes.http_methods": {
+      title: "OPTIONS가 위험한 HTTP method를 광고하지 않음",
+      category: "HTTP method 노출",
+      criteria: "OPTIONS가 TRACE 또는 PUT, DELETE, PATCH 같은 의도하지 않은 상태 변경 method를 광고하지 않아야 합니다.",
+      remediation: "웹 서버/router에서 허용 method를 제한하고 TRACE를 비활성화하세요."
+    },
+    "frontend.discovery.object_ids": {
+      title: "객체 식별자 route가 BOLA/BFLA 검토 대상으로 인벤토리됨",
+      category: "권한 검토",
+      criteria: "ID가 포함된 route는 수동 또는 인증된 role-matrix BOLA/BFLA 검토 대상으로 기록되어야 하며, passive discovery만으로 권한 안전성을 증명하지 않습니다.",
+      remediation: "객체 수준 및 기능 수준 권한에 대해 인증된 role-matrix 테스트를 추가하세요."
+    },
+    "frontend.discovery.redirect_parameters": {
+      title: "리다이렉트 유사 URL 파라미터가 open redirect 검토 대상으로 인벤토리됨",
+      category: "리다이렉트 검토",
+      criteria: "리다이렉트 유사 URL 파라미터는 수동 open redirect 검토 대상으로 기록되어야 하며, passive discovery만으로 악용 가능성을 증명하지 않습니다.",
+      remediation: "리다이렉트 대상을 allowlist로 검증하고 임의 URL 파라미터보다 서버 측 route identifier를 선호하세요."
+    },
+    "frontend.discovery.duplicate_parameters": {
+      title: "중복 URL 파라미터가 HTTP Parameter Pollution 검토 대상으로 인벤토리됨",
+      category: "입력 검증",
+      criteria: "관찰된 URL과 form action에 중복 파라미터 이름이 있으면 기록되어야 합니다.",
+      remediation: "반복 파라미터에 대한 서버 측 동작을 명확히 정의하고 validation bypass 위험 테스트를 추가하세요."
+    }
+  }
+};
+
 async function readJson(file, fallback) {
   try {
     return JSON.parse(await readFile(resolve(cwd, file), "utf8"));
@@ -450,6 +797,17 @@ function normalizeLanguage(value) {
   if (raw.startsWith("ja")) return "ja";
   if (raw.startsWith("zh")) return "zh";
   return "en";
+}
+
+function locale(language) {
+  return translations[language] || translations.en;
+}
+
+function criterionFor(id, language) {
+  return {
+    ...(criteria[id] || {}),
+    ...(localizedCriteria[language]?.[id] || {})
+  };
 }
 
 function escapeHtml(value) {
@@ -547,8 +905,18 @@ function statusLabel(status, t) {
   return t.statusNotRun;
 }
 
-function findingTitle(finding) {
-  return finding?.title || criteria[finding?.id]?.category || finding?.id || "Unknown check";
+function localizedResult(status, language, fallback = "") {
+  if (language === "en" && fallback) return fallback;
+  const t = locale(language);
+  if (status === "PASS") return t.statusPass;
+  if (status === "FAIL") return `${t.statusFail}: ${t.evidence} / ${t.recommendations}`;
+  if (status === "WARN") return `${t.statusWarn}: ${t.evidence} / ${t.recommendations}`;
+  return t.statusNotRun;
+}
+
+function findingTitle(finding, language) {
+  const meta = criterionFor(finding?.id, language);
+  return meta.title || finding?.title || meta.category || finding?.id || "Unknown check";
 }
 
 function evidenceSummary(evidence) {
@@ -557,35 +925,143 @@ function evidenceSummary(evidence) {
   return JSON.stringify(safe, null, 2);
 }
 
-function buildFallbackChecks(scope, latestScan, auth) {
+const evidenceKeyLabels = {
+  ko: {
+    ok: "정상",
+    publicTargets: "공개 대상",
+    owner: "소유자",
+    proofType: "증명 유형",
+    proofFile: "증명 파일",
+    authProfiles: "인증 프로필 수",
+    hasProofMetadata: "증명 메타데이터 있음",
+    check: "검사",
+    status: "상태",
+    detail: "상세",
+    routes: "경로",
+    links: "링크",
+    forms: "폼",
+    authSurfaces: "인증 표면",
+    blockedUrls: "차단 URL",
+    requested: "요청",
+    reachable: "접근 가능",
+    errors: "오류",
+    checked: "확인",
+    missing: "누락",
+    issues: "이슈",
+    present: "존재",
+    cookies: "쿠키",
+    headers: "헤더",
+    cleartext: "평문 전송",
+    inspections: "검사 내역",
+    exposed: "노출",
+    admin: "관리자 표면",
+    debug: "디버그 표면",
+    risky: "위험 method",
+    candidates: "후보",
+    count: "개수",
+    references: "참조",
+    target: "대상",
+    category: "분류",
+    path: "경로",
+    method: "메서드",
+    requestedUrl: "요청 URL",
+    finalUrl: "최종 URL",
+    contentType: "콘텐츠 타입",
+    allow: "Allow 헤더",
+    redirects: "리다이렉트",
+    signal: "신호",
+    url: "URL",
+    header: "헤더",
+    value: "값",
+    source: "출처",
+    testOrigin: "테스트 Origin",
+    testHost: "테스트 Host",
+    statusCode: "상태 코드"
+  }
+};
+
+const evidenceValueLabels = {
+  ko: {
+    passed: "통과",
+    "base-uri not locked to none": "base-uri가 none으로 잠겨 있지 않음",
+    "object-src not locked to none": "object-src가 none으로 잠겨 있지 않음",
+    "frame-ancestors missing": "frame-ancestors 누락",
+    "script-src unsafe-eval": "script-src unsafe-eval 사용",
+    "script-src unsafe-inline without nonce/hash": "nonce/hash 없는 script-src unsafe-inline 사용",
+    "script-src wildcard": "script-src wildcard 사용",
+    "script-src data:": "script-src data: 허용",
+    "script-src cleartext source": "script-src에 평문 source 사용",
+    hsts_on_http: "HTTP 응답에 HSTS 설정",
+    api_docs: "API 문서 노출",
+    source_map: "source map 노출",
+    directory_listing: "directory listing 노출",
+    stack_or_error_detail: "stack trace 또는 상세 오류 노출",
+    cleartext_public_websocket: "공개 ws:// WebSocket 참조",
+    target_blank_without_noopener: "noopener 없는 새 탭 링크",
+    dom_xss_source_to_sink: "DOM XSS source-to-sink 후보",
+    client_template_injection: "클라이언트 템플릿 주입 후보",
+    prototype_pollution_candidate: "prototype pollution 후보",
+    sensitive_browser_storage_key: "민감 브라우저 저장소 키",
+    untrusted_host_reflected: "untrusted Host 헤더 반사",
+    reflected_untrusted_origin: "untrusted Origin 반사",
+    reflected_origin_with_credentials: "credentials와 함께 Origin 반사",
+    wildcard_origin_with_credentials: "credentials와 함께 wildcard Origin 허용"
+  }
+};
+
+function localizeEvidence(value, language, depth = 0) {
+  if (language === "en" || value == null || depth > 5) return value;
+  const keyLabels = evidenceKeyLabels[language] || {};
+  const valueLabels = evidenceValueLabels[language] || {};
+  if (typeof value === "string") return valueLabels[value] || value;
+  if (typeof value === "number" || typeof value === "boolean") return value;
+  if (Array.isArray(value)) return value.map((item) => localizeEvidence(item, language, depth + 1));
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        keyLabels[key] || key,
+        localizeEvidence(item, language, depth + 1)
+      ])
+    );
+  }
+  return String(value);
+}
+
+function buildFallbackChecks(scope, latestScan, auth, language) {
+  const t = locale(language);
   const proofStatus = authorizationProofStatus(scope, auth);
+  const authorization = criterionFor("aegis.authorization_proof", language);
+  const scopeGuard = criterionFor("aegis.scope_guard", language);
+  const discovery = criterionFor("aegis.site_discovery", language);
+  const scopeStatus = latestScan?.observations?.some((item) => item.check === "scope_guard" && item.status === "passed") ? "PASS" : "NOT_RUN";
+  const discoveryStatus = latestScan?.discovery ? "PASS" : "NOT_RUN";
   return [
     {
       id: "aegis.authorization_proof",
-      title: "Public target authorization proof is concrete",
-      category: criteria["aegis.authorization_proof"].category,
+      title: authorization.title || "Public target authorization proof is concrete",
+      category: authorization.category,
       status: proofStatus.ok ? "PASS" : "WARN",
-      passCriteria: criteria["aegis.authorization_proof"].criteria,
-      result: proofStatus.ok ? "Authorization evidence is sufficient for the configured target class." : "Review authorization proof before running public target tests.",
+      passCriteria: authorization.criteria,
+      result: proofStatus.ok ? t.statusPass : `${t.statusWarn}: ${authorization.remediation}`,
       evidence: proofStatus,
-      remediation: criteria["aegis.authorization_proof"].remediation
+      remediation: authorization.remediation
     },
     {
       id: "aegis.scope_guard",
-      title: "Scope, authorization, safety flags, and execution mode were verified",
-      category: "Scope guard",
-      status: latestScan?.observations?.some((item) => item.check === "scope_guard" && item.status === "passed") ? "PASS" : "NOT_RUN",
-      passCriteria: "Scope verification passes before any target request is sent.",
-      result: "Aegis scope guard observation",
+      title: scopeGuard.title || "Scope, authorization, safety flags, and execution mode were verified",
+      category: scopeGuard.category || "Scope guard",
+      status: scopeStatus,
+      passCriteria: scopeGuard.criteria,
+      result: localizedResult(scopeStatus, language, "Aegis scope guard observation"),
       evidence: latestScan?.observations?.find((item) => item.check === "scope_guard") || {}
     },
     {
       id: "aegis.site_discovery",
-      title: "Site discovery map was generated",
-      category: "Discovery",
-      status: latestScan?.discovery ? "PASS" : "NOT_RUN",
-      passCriteria: "In-scope routes, links, forms, auth surfaces, and blocked URLs are recorded without submitting forms.",
-      result: "Passive crawler artifact",
+      title: discovery.title || "Site discovery map was generated",
+      category: discovery.category || "Discovery",
+      status: discoveryStatus,
+      passCriteria: discovery.criteria,
+      result: localizedResult(discoveryStatus, language, "Passive crawler artifact"),
       evidence: {
         routes: latestScan?.discovery?.routes?.length || 0,
         links: latestScan?.discovery?.links?.length || 0,
@@ -597,24 +1073,24 @@ function buildFallbackChecks(scope, latestScan, auth) {
   ];
 }
 
-function buildTestMatrix(advisory, latestScan, scope, auth) {
+function buildTestMatrix(advisory, latestScan, scope, auth, language) {
   const advisoryChecks = (advisory?.findings || []).map((finding) => {
-    const meta = criteria[finding.id] || {};
+    const meta = criterionFor(finding.id, language);
     const status = statusFromFinding(finding);
     return {
       id: finding.id,
-      title: findingTitle(finding),
+      title: findingTitle(finding, language),
       category: meta.category || "Security",
       status,
       passCriteria: meta.criteria || "The check-specific security expectation is met.",
-      result: finding.passed ? "Passed" : finding.detail || "Review required",
+      result: localizedResult(status, language, finding.passed ? "Passed" : finding.detail || "Review required"),
       evidence: safeEvidence(finding.evidence || {}),
       remediation: meta.remediation || finding.detail || ""
     };
   });
 
   return [
-    ...buildFallbackChecks(scope, latestScan, auth),
+    ...buildFallbackChecks(scope, latestScan, auth, language),
     ...advisoryChecks
   ];
 }
@@ -637,7 +1113,7 @@ function buildFindings(testMatrix, advisory) {
         severity: source?.level || (item.status === "FAIL" ? "error" : "warning"),
         title: item.title,
         status: item.status,
-        detail: source?.detail || item.result,
+        detail: item.result,
         passCriteria: item.passCriteria,
         evidence: item.evidence,
         remediation: item.remediation
@@ -656,7 +1132,40 @@ function uniqueSources(advisory, baseline) {
   });
 }
 
-function buildMethodology(scope, latestScan, advisory) {
+function buildMethodology(scope, latestScan, advisory, language) {
+  if (language === "ko") {
+    return [
+      "대상 점검 전 aegis.scope.json에서 승인된 범위를 읽습니다.",
+      "기본 모드는 passive이며 자격 증명을 추측하지 않고, 폼을 제출하지 않으며, 파괴적 payload를 보내지 않습니다.",
+      "사이트 탐색은 허용된 호스트/경로만 따라가고 범위 밖 URL은 차단 목록으로 기록합니다.",
+      "실시간 대상 점검은 응답 메타데이터, 헤더, 쿠키, 낮은 영향도의 GET/OPTIONS probe를 사용합니다.",
+      "패시브 probe는 일반 민감 파일, API 문서, 관리자/디버그 표면, 위험 HTTP method, ID 포함 route 인벤토리를 포함합니다.",
+      "보고서는 증거 요약만 저장하며 HTTP 응답 본문과 민감 값은 제외하거나 마스킹합니다.",
+      `최근 스캔: ${latestScan?.scan_id || "미실행"} / 대상 점검: ${advisory?.status || "미실행"} / 프론트엔드: ${scope?.targets?.frontend?.base_url || "미설정"}`
+    ];
+  }
+  if (language === "ja") {
+    return [
+      "対象チェック前に aegis.scope.json から承認済みスコープを読み取ります。",
+      "既定モードは passive で、認証情報推測、フォーム送信、破壊的 payload 送信は行いません。",
+      "サイト探索は許可されたホスト/パスのみを辿り、スコープ外 URL を記録します。",
+      "ライブ対象チェックはレスポンスメタデータ、ヘッダー、Cookie、低影響の GET/OPTIONS probe を使用します。",
+      "パッシブ probe は一般的な機密ファイル、API 文書、管理/デバッグ面、危険 HTTP method、ID 付き route inventory を含みます。",
+      "レポートは証跡サマリーのみ保存し、HTTP レスポンス本文と機密値は除外またはマスクします。",
+      `最新スキャン: ${latestScan?.scan_id || "未実行"} / 対象診断: ${advisory?.status || "未実行"} / フロントエンド: ${scope?.targets?.frontend?.base_url || "未設定"}`
+    ];
+  }
+  if (language === "zh") {
+    return [
+      "目标检查前从 aegis.scope.json 读取授权范围。",
+      "默认模式为 passive；不会猜测凭据、提交表单或发送破坏性 payload。",
+      "站点发现仅跟随允许的主机/路径，并记录被阻止的越界 URL。",
+      "实时目标检查使用响应元数据、响应头、Cookie 和低影响 GET/OPTIONS probe。",
+      "被动 probe 覆盖常见敏感文件、API 文档、管理/调试界面、危险 HTTP method 和含 ID 的路由清单。",
+      "报告仅保存证据摘要；HTTP 响应正文和敏感值会被排除或脱敏。",
+      `最近扫描: ${latestScan?.scan_id || "未运行"} / 目标检查: ${advisory?.status || "未运行"} / 前端: ${scope?.targets?.frontend?.base_url || "未设置"}`
+    ];
+  }
   return [
     "Authorized scope is read from aegis.scope.json before any target check.",
     "The default mode is passive; no credentials are guessed, no forms are submitted, and no destructive payloads are sent.",
@@ -668,9 +1177,38 @@ function buildMethodology(scope, latestScan, advisory) {
   ];
 }
 
-function buildReport({ scope, latestScan, advisory, baseline, webSettings, auth }) {
+function buildAiUsage(aiSettings, aiIntegrations) {
+  const modelSettings = aiSettings?.aiModelSettings || {};
+  const providers = modelSettings.providers || {};
+  const configuredProviders = new Set([...(aiIntegrations?.providers || []), ...(aiSettings?.aiProviders || [])]);
+  const enabledProviders = Object.entries(providers)
+    .filter(([id, provider]) => provider?.enabled || configuredProviders.has(id))
+    .map(([id, provider]) => ({
+      id,
+      label: provider?.label || id,
+      type: provider?.providerType || "unknown",
+      model: provider?.model || "",
+      endpoint: provider?.endpoint || "",
+      command: provider?.command || ""
+    }));
+  return {
+    usedInSecurityScan: false,
+    usedInPenetrationReport: false,
+    defaultProvider: modelSettings.defaultProvider || "codex",
+    enabledProviders,
+    availableActions: [
+      "npm run ai:doctor",
+      "npm run ai:report",
+      "npm run ai:model:show",
+      "npm run ai:model:set",
+      "npm run ai:prompt"
+    ]
+  };
+}
+
+function buildReport({ scope, latestScan, advisory, baseline, webSettings, auth, aiSettings, aiIntegrations }) {
   const language = normalizeLanguage(webSettings?.language || "ko");
-  const testMatrix = buildTestMatrix(advisory, latestScan, scope, auth);
+  const testMatrix = buildTestMatrix(advisory, latestScan, scope, auth, language);
   const findings = buildFindings(testMatrix, advisory);
   const status = reportStatus(testMatrix);
   const safety = scope?.safety || {};
@@ -706,7 +1244,8 @@ function buildReport({ scope, latestScan, advisory, baseline, webSettings, auth 
       probes: advisory?.summary?.probes || 0,
       advisoryStatus: advisory?.status || "NOT_RUN"
     },
-    methodology: buildMethodology(scope, latestScan, advisory),
+    methodology: buildMethodology(scope, latestScan, advisory, language),
+    aiUsage: buildAiUsage(aiSettings, aiIntegrations),
     testMatrix,
     findings,
     sources: uniqueSources(advisory, baseline),
@@ -718,8 +1257,9 @@ function buildReport({ scope, latestScan, advisory, baseline, webSettings, auth 
   };
 }
 
-function renderObject(value) {
-  const text = typeof value === "string" ? value : JSON.stringify(safeEvidence(value), null, 2);
+function renderObject(value, language) {
+  const displayValue = localizeEvidence(safeEvidence(value), language);
+  const text = typeof displayValue === "string" ? displayValue : JSON.stringify(displayValue, null, 2);
   return `<pre>${escapeHtml(text)}</pre>`;
 }
 
@@ -807,6 +1347,18 @@ function renderHtml(report) {
     </section>
 
     <section class="panel">
+      <h2>${escapeHtml(t.aiUsage)}</h2>
+      <table><tbody>
+        <tr><th>${escapeHtml(t.aiScanUse)}</th><td>${escapeHtml(t.aiNotUsedForScan)}</td></tr>
+        <tr><th>${escapeHtml(t.aiReportUse)}</th><td>${escapeHtml(t.aiNotUsedForReport)}</td></tr>
+        <tr><th>${escapeHtml(t.aiDefaultProvider)}</th><td>${escapeHtml(report.aiUsage.defaultProvider || "-")}</td></tr>
+        <tr><th>${escapeHtml(t.aiEnabledProviders)}</th><td>${escapeHtml(report.aiUsage.enabledProviders.map((provider) => `${provider.label} (${provider.model || provider.type})`).join(", ") || "-")}</td></tr>
+        <tr><th>${escapeHtml(t.aiAvailableActions)}</th><td>${escapeHtml(report.aiUsage.availableActions.join(", "))}</td></tr>
+      </tbody></table>
+      <p class="muted" style="margin-top: 10px;">${escapeHtml(t.aiUsedFor)}</p>
+    </section>
+
+    <section class="panel">
       <h2>${escapeHtml(t.tests)}</h2>
       <table>
         <thead><tr><th>${escapeHtml(t.test)}</th><th>${escapeHtml(t.category)}</th><th>${escapeHtml(t.passCriteria)}</th><th>${escapeHtml(t.result)}</th><th>${escapeHtml(t.evidence)}</th></tr></thead>
@@ -816,7 +1368,7 @@ function renderHtml(report) {
             <td>${escapeHtml(item.category)}</td>
             <td>${escapeHtml(item.passCriteria)}</td>
             <td>${escapeHtml(item.result)}</td>
-            <td>${renderObject(item.evidence)}</td>
+            <td>${renderObject(item.evidence, report.language)}</td>
           </tr>`).join("")}
         </tbody>
       </table>
@@ -832,7 +1384,7 @@ function renderHtml(report) {
             <td><span class="pill ${escapeHtml(statusClass(finding.status))}">${escapeHtml(statusLabel(finding.status, t))}</span><br>${escapeHtml(finding.detail)}</td>
             <td>${escapeHtml(finding.passCriteria)}</td>
             <td>${escapeHtml(finding.remediation || "-")}</td>
-            <td>${renderObject(finding.evidence)}</td>
+            <td>${renderObject(finding.evidence, report.language)}</td>
           </tr>`).join("")}
         </tbody>
       </table>` : `<p class="muted">${escapeHtml(t.noFindings)}</p>`}
@@ -853,15 +1405,17 @@ function renderHtml(report) {
 }
 
 async function main() {
-  const [scope, latestScan, advisory, baseline, webSettings, auth] = await Promise.all([
+  const [scope, latestScan, advisory, baseline, webSettings, auth, aiSettings, aiIntegrations] = await Promise.all([
     readJson("aegis.scope.json", {}),
     readJson(".aegis/latest-scan.json", {}),
     readJson(".aegis/reports/frontend-advisory.json", null),
     readJson(".aigate/security-baseline.json", {}),
     readJson(".aegis/web-settings.json", { language: "ko" }),
-    readJson("aegis.auth.json", {})
+    readJson("aegis.auth.json", {}),
+    readJson(".aigate/settings.json", {}),
+    readJson(".aigate/integrations.json", {})
   ]);
-  const report = buildReport({ scope, latestScan, advisory, baseline, webSettings, auth });
+  const report = buildReport({ scope, latestScan, advisory, baseline, webSettings, auth, aiSettings, aiIntegrations });
   await mkdir(dirname(jsonPath), { recursive: true });
   await writeFile(jsonPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
   await writeFile(htmlPath, renderHtml(report), "utf8");
