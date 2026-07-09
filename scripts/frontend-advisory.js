@@ -116,6 +116,16 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+const METAFILE_SENSITIVE_PATH_PATTERN = /(?:admin|internal|private|backup|backups|debug|manage|manager|console|secret|token|config|staging|dev|test|beta|old|legacy|dump|database|db|uploads?|files?|exports?|reports?)/i;
+
+const METAFILE_SENSITIVE_REASON_RULES = [
+  { reason: "administrative_or_internal_path", pattern: /(?:admin|internal|manage|manager|console|staff|operator)/i },
+  { reason: "backup_or_database_path", pattern: /(?:backup|backups|dump|database|db|sql|old|legacy)/i },
+  { reason: "debug_or_non_production_path", pattern: /(?:debug|staging|dev|test|beta|preview)/i },
+  { reason: "secret_or_config_path", pattern: /(?:secret|token|config|credential|env|private)/i },
+  { reason: "file_or_report_path", pattern: /(?:uploads?|files?|exports?|reports?|attachments?)/i }
+];
+
 const ATTACK_SURFACE_RULES = [
   {
     id: "xss_html",
@@ -1608,6 +1618,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/robots.txt",
     "/sitemap.xml",
     "/.well-known/security.txt",
+    "/security.txt",
     "/crossdomain.xml",
     "/clientaccesspolicy.xml"
   ]);
@@ -1984,6 +1995,116 @@ function urlWithRedactedParameters(value) {
   }
 }
 
+function decodeXmlEntities(value) {
+  return String(value || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+function metafileSensitiveReason(value) {
+  const text = String(value || "");
+  return METAFILE_SENSITIVE_REASON_RULES.find((rule) => rule.pattern.test(text))?.reason || "sensitive_path_hint";
+}
+
+function redactedPathEvidence(rawValue, baseUrl) {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return { path: "", parameterNames: [] };
+  try {
+    const parsed = new URL(raw, baseUrl || "https://aegis.invalid");
+    return {
+      path: parsed.pathname || "/",
+      parameterNames: unique([...parsed.searchParams.keys()]).slice(0, 12),
+      externalHost: baseUrl && parsed.origin !== new URL(baseUrl).origin ? parsed.hostname : undefined
+    };
+  } catch {
+    const [pathPart, queryPart = ""] = raw.split("?");
+    return {
+      path: pathPart.slice(0, 160),
+      parameterNames: unique([...new URLSearchParams(queryPart).keys()]).slice(0, 12)
+    };
+  }
+}
+
+function robotsDirectives(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/#.*/, "").trim())
+    .filter(Boolean)
+    .map((line) => {
+      const match = line.match(/^([a-z-]+)\s*:\s*(.+)$/i);
+      if (!match) return null;
+      return { directive: match[1].toLowerCase(), value: match[2].trim() };
+    })
+    .filter(Boolean);
+}
+
+function robotsSensitiveEntries(probe, response) {
+  if (!isSuccessStatus(response) || isSoftNotFoundResponse(response)) return [];
+  const path = String(probe.path || "").toLowerCase();
+  if (!path.endsWith("/robots.txt")) return [];
+  return robotsDirectives(responseText(response))
+    .filter((entry) => ["allow", "disallow", "sitemap"].includes(entry.directive))
+    .filter((entry) => METAFILE_SENSITIVE_PATH_PATTERN.test(entry.value))
+    .slice(0, 30)
+    .map((entry) => ({
+      directive: entry.directive,
+      ...redactedPathEvidence(entry.value, response.finalUrl || response.url || probe.url),
+      reason: metafileSensitiveReason(entry.value),
+      signal: entry.directive === "sitemap" ? "robots_sensitive_sitemap_reference" : "robots_sensitive_crawl_directive"
+    }));
+}
+
+function sitemapLocations(text) {
+  const locations = [];
+  const xml = String(text || "");
+  for (const match of xml.matchAll(/<loc\b[^>]*>\s*([^<]+?)\s*<\/loc>/gi)) {
+    locations.push(decodeXmlEntities(match[1]));
+  }
+  if (!locations.length) {
+    for (const line of xml.split(/\r?\n/)) {
+      const value = line.trim();
+      if (/^https?:\/\//i.test(value)) locations.push(value);
+    }
+  }
+  return unique(locations).slice(0, 100);
+}
+
+function sitemapSensitiveEntries(probe, response) {
+  if (!isSuccessStatus(response) || isSoftNotFoundResponse(response)) return [];
+  const path = String(probe.path || "").toLowerCase();
+  if (!/(?:^|\/)sitemap(?:[-_.\w]*)?\.xml(?:\.gz)?$/.test(path)) return [];
+  return sitemapLocations(responseText(response))
+    .filter((location) => METAFILE_SENSITIVE_PATH_PATTERN.test(location))
+    .slice(0, 30)
+    .map((location) => ({
+      ...redactedPathEvidence(location, response.finalUrl || response.url || probe.url),
+      reason: metafileSensitiveReason(location),
+      signal: "sitemap_sensitive_url"
+    }));
+}
+
+function securityTxtField(text, field) {
+  const match = String(text || "").match(new RegExp(`(?:^|\\n)\\s*${field}\\s*:\\s*([^\\r\\n]+)`, "i"));
+  return match?.[1]?.trim() || "";
+}
+
+function securityTxtQualityIssues(files) {
+  const presentFiles = files.filter((file) => file.present);
+  if (!presentFiles.length) return [];
+  return presentFiles.flatMap((file) => {
+    const issues = [];
+    if (!file.canonicalPath) issues.push({ ...file, signal: "security_txt_not_well_known_path" });
+    if (!file.contactPresent) issues.push({ ...file, signal: "security_txt_missing_contact" });
+    if (!file.expiresPresent) issues.push({ ...file, signal: "security_txt_missing_expires" });
+    if (file.expiresPresent && !file.expiresParseable) issues.push({ ...file, signal: "security_txt_invalid_expires" });
+    if (file.expiresExpired) issues.push({ ...file, signal: "security_txt_expired" });
+    return issues;
+  });
+}
+
 function oauthCallbackEvidence(probe, response, signal) {
   return {
     target: probe.targetName,
@@ -2047,7 +2168,10 @@ function logoutCleanupEvidence(probe, response, signal) {
 
 function securityTxtEvidence(probe, response) {
   const text = responseText(response);
-  const present = isSuccessStatus(response) && !isSoftNotFoundResponse(response) && /(?:^|\n)\s*Contact\s*:/im.test(text);
+  const hasSecurityTxtField = /(?:^|\n)\s*(?:Contact|Expires|Encryption|Acknowledgments|Policy|Preferred-Languages|Hiring|Canonical)\s*:/im.test(text);
+  const present = isSuccessStatus(response) && !isSoftNotFoundResponse(response) && hasSecurityTxtField;
+  const expiresValue = securityTxtField(text, "Expires");
+  const expiresTime = expiresValue ? Date.parse(expiresValue) : NaN;
   return {
     target: probe.targetName,
     path: probe.path,
@@ -2056,8 +2180,13 @@ function securityTxtEvidence(probe, response) {
     status: response.status || 0,
     contentType: contentType(response),
     present,
+    canonicalPath: String(probe.path || "").toLowerCase() === "/.well-known/security.txt",
     contactPresent: /(?:^|\n)\s*Contact\s*:/im.test(text),
     expiresPresent: /(?:^|\n)\s*Expires\s*:/im.test(text),
+    expiresParseable: expiresValue ? Number.isFinite(expiresTime) : false,
+    expiresExpired: Number.isFinite(expiresTime) ? expiresTime <= Date.now() : false,
+    encryptionPresent: /(?:^|\n)\s*Encryption\s*:/im.test(text),
+    acknowledgmentsPresent: /(?:^|\n)\s*Acknowledgments\s*:/im.test(text),
     policyPresent: /(?:^|\n)\s*Policy\s*:/im.test(text),
     preferredLanguagesPresent: /(?:^|\n)\s*Preferred-Languages\s*:/im.test(text)
   };
@@ -2150,13 +2279,11 @@ function metafileSignal(probe, response) {
   if (!isSuccessStatus(response)) return "";
   const path = String(probe.path || "").toLowerCase();
   const text = responseText(response);
-  const sensitivePath = /(?:admin|internal|private|backup|debug|manage|console|secret|token|config|staging)/i;
   if (path.endsWith("/robots.txt")) {
-    const disallowLines = text.split(/\r?\n/).filter((line) => /^\s*disallow\s*:/i.test(line));
-    if (disallowLines.some((line) => sensitivePath.test(line))) return "robots_sensitive_disallow";
+    if (robotsSensitiveEntries(probe, response).length) return "robots_sensitive_paths";
   }
-  if (path.endsWith("/sitemap.xml") && /<loc>[^<]*(?:admin|internal|private|backup|debug|manage|console|secret|token|config|staging)/i.test(text)) {
-    return "sitemap_sensitive_path";
+  if (/(?:^|\/)sitemap(?:[-_.\w]*)?\.xml(?:\.gz)?$/.test(path) && sitemapSensitiveEntries(probe, response).length) {
+    return "sitemap_sensitive_urls";
   }
   if (path.endsWith("/crossdomain.xml") && /<allow-access-from\b[^>]*\bdomain=["']\*["']/i.test(text)) {
     return "permissive_crossdomain_policy";
@@ -2165,6 +2292,16 @@ function metafileSignal(probe, response) {
     return "permissive_crossdomain_policy";
   }
   return "";
+}
+
+function metafileEvidence(probe, response, signal) {
+  const evidence = probeEvidence(probe, response, signal);
+  if (signal === "robots_sensitive_paths") {
+    evidence.entries = robotsSensitiveEntries(probe, response);
+  } else if (signal === "sitemap_sensitive_urls") {
+    evidence.entries = sitemapSensitiveEntries(probe, response);
+  }
+  return evidence;
 }
 
 function errorDisclosureSignal(response) {
@@ -3470,7 +3607,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
       if (signal) debugExposures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "metafiles") {
       const signal = metafileSignal(probe, response);
-      if (signal) metafileExposures.push(probeEvidence(probe, response, signal));
+      if (signal) metafileExposures.push(metafileEvidence(probe, response, signal));
     } else if (probe.category === "mobileAssociationFiles") {
       const signal = mobileAssociationSignal(probe, response);
       if (signal) mobileAssociationFiles.push(mobileAssociationEvidence(probe, response, signal));
@@ -3816,6 +3953,26 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     "OWASP WSTG information gathering includes reviewing robots, sitemap, security.txt, and legacy cross-domain policy files for information leakage.",
     { checked: probes.filter((probe) => probe.category === "metafiles").length, exposed: metafileExposures }
   );
+  const robotsSensitivePaths = metafileExposures.filter((item) => item.signal === "robots_sensitive_paths");
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.robots_sensitive_paths",
+    "robots.txt does not advertise sensitive crawl exclusions",
+    robotsSensitivePaths.length === 0,
+    "OWASP WSTG notes that robots directives can reveal hidden directories and functionality; this check records only directive names and redacted path evidence.",
+    { checked: probes.filter((probe) => probe.category === "metafiles" && String(probe.path || "").endsWith("/robots.txt")).length, exposed: robotsSensitivePaths }
+  );
+  const sitemapSensitiveUrls = metafileExposures.filter((item) => item.signal === "sitemap_sensitive_urls");
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.sitemap_sensitive_urls",
+    "Sitemaps do not list sensitive operational URLs",
+    sitemapSensitiveUrls.length === 0,
+    "Sitemaps are public URL inventories; administrative, debug, backup, config, token, staging, or export URLs should not be disclosed there unless intentionally public.",
+    { checked: probes.filter((probe) => probe.category === "metafiles" && /(?:^|\/)sitemap(?:[-_.\w]*)?\.xml(?:\.gz)?$/i.test(String(probe.path || ""))).length, exposed: sitemapSensitiveUrls }
+  );
   const securityTxtChecks = probeResponses
     .filter(({ probe }) => probe.category === "metafiles" && String(probe.path || "").endsWith("/security.txt"))
     .map(({ probe, response }) => securityTxtEvidence(probe, response));
@@ -3827,6 +3984,16 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "RFC 9116 security.txt helps vulnerability reporters find the right contact and policy; this passive check records presence and common fields only.",
     { checked: securityTxtChecks.length, files: securityTxtChecks }
+  );
+  const securityTxtIssues = securityTxtQualityIssues(securityTxtChecks);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.security_txt_quality",
+    "Published security.txt files are canonical and current",
+    securityTxtIssues.length === 0,
+    "RFC 9116 defines a machine-parseable security.txt file. When a file is published, Contact should be present, Expires should be parseable and current, and /.well-known/security.txt should be the canonical location.",
+    { checked: securityTxtChecks.filter((file) => file.present).length, issues: securityTxtIssues }
   );
   addFinding(
     findings,

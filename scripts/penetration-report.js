@@ -625,10 +625,25 @@ const criteria = {
     criteria: "robots.txt, sitemap.xml, security.txt, and legacy cross-domain policy files do not disclose sensitive paths or permissive wildcard access.",
     remediation: "Remove sensitive path hints from public metafiles and replace wildcard cross-domain policy files with explicit trusted origins."
   },
+  "frontend.probes.robots_sensitive_paths": {
+    category: "Information leakage",
+    criteria: "robots.txt does not advertise administrative, internal, backup, debug, config, token, staging, export, or similar sensitive crawl exclusions.",
+    remediation: "Avoid using robots.txt as an access-control mechanism and remove sensitive path hints from public crawl directives."
+  },
+  "frontend.probes.sitemap_sensitive_urls": {
+    category: "Information leakage",
+    criteria: "Sitemaps do not list sensitive operational URLs such as admin, debug, backup, config, token, staging, upload, export, or report paths unless intentionally public.",
+    remediation: "Publish only public, indexable URLs in sitemaps and keep private or operational paths behind authentication and out of crawler metadata."
+  },
   "frontend.probes.security_txt": {
     category: "Vulnerability disclosure",
     criteria: "The security.txt endpoint is inventoried for Contact, Expires, Policy, and Preferred-Languages fields.",
     remediation: "Publish /.well-known/security.txt with a monitored Contact field and keep Expires current if the organization accepts vulnerability reports."
+  },
+  "frontend.probes.security_txt_quality": {
+    category: "Vulnerability disclosure",
+    criteria: "Published security.txt files use the canonical /.well-known/security.txt location and include a Contact plus parseable, non-expired Expires metadata.",
+    remediation: "Move root-only security.txt files to /.well-known/security.txt, add a monitored Contact field, and refresh Expires before it lapses."
   },
   "frontend.probes.mobile_association_files": {
     category: "Mobile deep links",
@@ -1211,11 +1226,29 @@ const localizedCriteria = {
       criteria: "robots.txt, sitemap.xml, security.txt, legacy cross-domain policy 파일이 민감 경로나 wildcard access를 노출하지 않아야 합니다.",
       remediation: "공개 metafile에서 민감 경로 힌트를 제거하고 wildcard cross-domain policy를 명시적 trusted origin으로 교체하세요."
     },
+    "frontend.probes.robots_sensitive_paths": {
+      title: "robots.txt가 민감 crawl 제외 경로를 광고하지 않음",
+      category: "정보 노출",
+      criteria: "robots.txt는 admin, internal, backup, debug, config, token, staging, export 같은 민감 crawl 제외 경로를 공개적으로 광고하지 않아야 합니다.",
+      remediation: "robots.txt를 접근 통제로 사용하지 말고 공개 crawl directive에서 민감 경로 힌트를 제거하세요."
+    },
+    "frontend.probes.sitemap_sensitive_urls": {
+      title: "sitemap이 민감 운영 URL을 나열하지 않음",
+      category: "정보 노출",
+      criteria: "sitemap은 의도적으로 공개된 경우가 아니라면 admin, debug, backup, config, token, staging, upload, export, report 경로를 나열하지 않아야 합니다.",
+      remediation: "sitemap에는 공개 색인 가능한 URL만 게시하고 private/운영 경로는 인증 뒤에 두며 crawler metadata에서 제외하세요."
+    },
     "frontend.probes.security_txt": {
       title: "보안 연락처 메타데이터가 인벤토리됨",
       category: "취약점 제보",
       criteria: "security.txt endpoint는 Contact, Expires, Policy, Preferred-Languages 필드 존재 여부가 기록되어야 합니다.",
       remediation: "조직이 취약점 제보를 받는다면 /.well-known/security.txt에 모니터링되는 Contact 필드를 게시하고 Expires를 최신으로 유지하세요."
+    },
+    "frontend.probes.security_txt_quality": {
+      title: "게시된 security.txt가 canonical 위치와 최신 만료 정보를 사용함",
+      category: "취약점 제보",
+      criteria: "게시된 security.txt는 canonical /.well-known/security.txt 위치를 사용하고 Contact와 parseable, 만료되지 않은 Expires metadata를 포함해야 합니다.",
+      remediation: "root-only security.txt는 /.well-known/security.txt로 이동하고 모니터링되는 Contact를 추가하며 Expires가 지나기 전에 갱신하세요."
     },
     "frontend.probes.mobile_association_files": {
       title: "모바일 App/Universal Link association 파일이 인벤토리됨",

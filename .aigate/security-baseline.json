@@ -223,6 +223,10 @@
       "url": "https://www.rfc-editor.org/rfc/rfc9116"
     },
     {
+      "name": "Sitemaps XML Protocol",
+      "url": "https://www.sitemaps.org/protocol.html"
+    },
+    {
       "name": "RFC 9700 OAuth 2.0 Security Best Current Practice",
       "url": "https://datatracker.ietf.org/doc/html/rfc9700"
     },
@@ -529,6 +533,7 @@
         "/robots.txt",
         "/sitemap.xml",
         "/.well-known/security.txt",
+        "/security.txt",
         "/crossdomain.xml",
         "/clientaccesspolicy.xml"
       ],

@@ -79,7 +79,9 @@ dependency manifests, directory listings, phpinfo pages, OpenAPI/Swagger/ReDoc
 docs, admin/debug surfaces, metrics/actuator/server-status endpoints,
 webserver metafiles
 (`robots.txt`, `sitemap.xml`, `security.txt`, `crossdomain.xml`,
-`clientaccesspolicy.xml`), generic error pages for stack trace/framework/SQL
+`clientaccesspolicy.xml`), robots/sitemap sensitive path hints, security.txt
+canonical location, Contact, Expires freshness, and common field inventory,
+generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, GraphQL endpoints and public
 IDE/schema-like exposure signals, versioned API route inventory, legacy/beta/
 internal API exposure, upload/import/

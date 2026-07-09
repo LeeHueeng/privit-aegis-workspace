@@ -1336,22 +1336,22 @@ function page() {
           zh: "敏感文件与运维表面"
         },
         detects: {
-          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics, security.txt, assetlinks.json, apple-app-site-association을 GET/OPTIONS로 확인합니다.",
-          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics, security.txt, assetlinks.json, and apple-app-site-association with GET/OPTIONS.",
-          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metrics、security.txt、assetlinks.json、apple-app-site-associationをGET/OPTIONSで確認します。",
-          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档、admin/debug/metrics、security.txt、assetlinks.json 和 apple-app-site-association。"
+          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics, robots/sitemap 민감 경로, security.txt 품질, assetlinks.json, apple-app-site-association을 GET/OPTIONS로 확인합니다.",
+          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics, sensitive robots/sitemap paths, security.txt quality, assetlinks.json, and apple-app-site-association with GET/OPTIONS.",
+          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metrics、robots/sitemapの機密経路、security.txt品質、assetlinks.json、apple-app-site-associationをGET/OPTIONSで確認します。",
+          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档、admin/debug/metrics、robots/sitemap 敏感路径、security.txt 质量、assetlinks.json 和 apple-app-site-association。"
         },
         criteria: {
-          ko: "민감 파일과 운영 endpoint는 익명으로 읽히지 않아야 하며, 모바일 association 파일은 parseable JSON과 좁은 path scope를 사용해야 합니다.",
-          en: "Sensitive files and operational endpoints should not be anonymously readable, and mobile association files should use parseable JSON with narrow path scopes.",
-          ja: "機密ファイルと運用endpointは匿名で読めてはならず、mobile association fileはparseable JSONと狭いpath scopeを使う必要があります。",
-          zh: "敏感文件和运维端点不应可匿名读取，移动 association 文件应使用可解析 JSON 和较窄的 path scope。"
+          ko: "민감 파일과 운영 endpoint는 익명으로 읽히지 않아야 하며, robots/sitemap은 민감 운영 경로를 광고하지 않고 security.txt는 canonical 위치, Contact, 최신 Expires를 갖춰야 합니다.",
+          en: "Sensitive files and operational endpoints should not be anonymously readable, robots/sitemap should not advertise sensitive operational paths, and security.txt should use the canonical location with Contact and current Expires metadata.",
+          ja: "機密ファイルと運用endpointは匿名で読めてはならず、robots/sitemapは機密運用経路を広告せず、security.txtはcanonical位置、Contact、最新Expiresを持つ必要があります。",
+          zh: "敏感文件和运维端点不应可匿名读取，robots/sitemap 不应公开敏感运维路径，security.txt 应位于 canonical 位置并包含 Contact 和未过期的 Expires 元数据。"
         },
         evidence: {
-          ko: "URL, 상태, content-type, allow header, app/package/path count, 탐지 signal만 기록하고 본문은 저장하지 않습니다.",
-          en: "Records URL, status, content type, Allow header, app/package/path counts, and detection signal without storing response bodies.",
-          ja: "URL、status、content-type、Allow header、app/package/path count、検出signalのみ記録し、本文は保存しません。",
-          zh: "记录 URL、状态、content-type、Allow header、app/package/path count 和检测信号，不保存响应正文。"
+          ko: "URL, 상태, content-type, allow header, 민감 경로 후보, parameter 이름, app/package/path count, security.txt 필드 상태, 탐지 signal만 기록하고 본문은 저장하지 않습니다.",
+          en: "Records URL, status, content type, Allow header, sensitive path candidates, parameter names, app/package/path counts, security.txt field state, and detection signal without storing response bodies.",
+          ja: "URL、status、content-type、Allow header、機密path候補、parameter名、app/package/path count、security.txt field状態、検出signalのみ記録し、本文は保存しません。",
+          zh: "记录 URL、状态、content-type、Allow header、敏感路径候选、parameter 名称、app/package/path count、security.txt 字段状态和检测信号，不保存响应正文。"
         }
       },
       {
