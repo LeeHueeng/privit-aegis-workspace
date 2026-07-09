@@ -425,6 +425,32 @@ function reverseTabnabbingIssues(response) {
   return issues.slice(0, 20);
 }
 
+function rateLimitHeaders(response) {
+  const names = [
+    "ratelimit-limit",
+    "ratelimit-remaining",
+    "ratelimit-reset",
+    "retry-after",
+    "x-ratelimit-limit",
+    "x-ratelimit-remaining",
+    "x-ratelimit-reset"
+  ];
+  return Object.fromEntries(
+    names
+      .map((name) => [name, headerValue(response, name)])
+      .filter(([, value]) => value)
+  );
+}
+
+function rateLimitEvidence(response, extra = {}) {
+  return {
+    url: response.finalUrl || response.url,
+    status: response.status || 0,
+    headers: rateLimitHeaders(response),
+    ...extra
+  };
+}
+
 function evaluateHeaders(findings, responses, scope, discovery) {
   const reachable = responses.filter((response) => response.ok);
   const htmlResponses = reachable.filter(isHtmlResponse);
@@ -588,6 +614,21 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     cacheMissing.length === 0,
     "Auth and account pages should avoid browser/proxy storage of sensitive responses.",
     { checked: authResponses.length, missing: cacheMissing.map((response) => response.finalUrl || response.url) }
+  );
+
+  const authRateLimitSignals = authResponses.map((response) => rateLimitEvidence(response));
+  addFinding(
+    findings,
+    "info",
+    "frontend.headers.auth_rate_limit",
+    "Authentication-like pages are inventoried for rate-limit headers",
+    true,
+    "Rate-limit headers are not required to prove throttling, but visible Retry-After or RateLimit headers help reviewers confirm brute-force and abuse-control posture.",
+    {
+      checked: authRateLimitSignals.length,
+      present: authRateLimitSignals.filter((item) => Object.keys(item.headers).length),
+      missing: authRateLimitSignals.filter((item) => !Object.keys(item.headers).length).map((item) => item.url)
+    }
   );
 
   const httpsResponses = reachable.filter((response) => {
@@ -1025,6 +1066,18 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/profile",
     "/account"
   ]);
+  const accountRecoveryPaths = configuredProbePaths(baseline, "accountRecoveryPaths", [
+    "/.well-known/change-password",
+    "/change-password",
+    "/account/change-password",
+    "/settings/password",
+    "/forgot-password",
+    "/reset-password",
+    "/password/forgot",
+    "/password/reset",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password"
+  ]);
   const adminPaths = configuredProbePaths(baseline, "adminPaths", [
     "/admin",
     "/admin/login",
@@ -1089,6 +1142,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "uploadPaths", uploadPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "authApiPaths", authApiPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "accountRecoveryPaths", accountRecoveryPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
@@ -1255,6 +1309,36 @@ function unauthenticatedUserApiSignal(probe, response) {
     return "auth_api_json";
   }
   return "";
+}
+
+function accountRecoverySignal(probe, response) {
+  if (!response.ok || isSoftNotFoundResponse(response)) return "";
+  const path = String(probe.path || "").toLowerCase();
+  if (response.status >= 200 && response.status < 400 && path.includes(".well-known/change-password")) {
+    return response.redirects ? "well_known_change_password_redirect" : "well_known_change_password";
+  }
+  if (response.status >= 200 && response.status < 400 && /(?:change|forgot|reset)[-_]?(?:password|pass)|password\/(?:forgot|reset)/i.test(path)) {
+    return response.redirects ? "account_recovery_redirect" : "account_recovery_route";
+  }
+  return "";
+}
+
+function securityTxtEvidence(probe, response) {
+  const text = responseText(response);
+  const present = isSuccessStatus(response) && !isSoftNotFoundResponse(response) && /(?:^|\n)\s*Contact\s*:/im.test(text);
+  return {
+    target: probe.targetName,
+    path: probe.path,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    contentType: contentType(response),
+    present,
+    contactPresent: /(?:^|\n)\s*Contact\s*:/im.test(text),
+    expiresPresent: /(?:^|\n)\s*Expires\s*:/im.test(text),
+    policyPresent: /(?:^|\n)\s*Policy\s*:/im.test(text),
+    preferredLanguagesPresent: /(?:^|\n)\s*Preferred-Languages\s*:/im.test(text)
+  };
 }
 
 function sourceMapSignal(response) {
@@ -2208,6 +2292,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const uploadSurfaces = [];
   const identityMetadata = [];
   const unauthenticatedUserApis = [];
+  const accountRecoverySurfaces = [];
   const adminExposures = [];
   const debugExposures = [];
   const metafileExposures = [];
@@ -2240,6 +2325,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "authApiPaths") {
       const signal = unauthenticatedUserApiSignal(probe, response);
       if (signal) unauthenticatedUserApis.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "accountRecoveryPaths") {
+      const signal = accountRecoverySignal(probe, response);
+      if (signal) accountRecoverySurfaces.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "adminPaths") {
       const signal = exposedRouteSignal(scope, discovery, probe, response);
       if (signal) adminExposures.push(probeEvidence(probe, response, signal));
@@ -2338,6 +2426,31 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   );
   addFinding(
     findings,
+    "info",
+    "frontend.probes.account_recovery",
+    "Account recovery and password-change routes are inventoried",
+    true,
+    "Passive probes check common forgot/reset/change-password routes and the well-known change-password URL without submitting credentials or tokens.",
+    { checked: probes.filter((probe) => probe.category === "accountRecoveryPaths").length, routes: accountRecoverySurfaces }
+  );
+  const authApiRateLimitSignals = probeResponses
+    .filter(({ probe }) => probe.category === "authApiPaths")
+    .map(({ probe, response }) => rateLimitEvidence(response, { target: probe.targetName, path: probe.path }));
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.auth_api_rate_limit",
+    "Auth and session API probes are inventoried for rate-limit headers",
+    true,
+    "Visible Retry-After or RateLimit headers are useful evidence for abuse-control review, though absence of these headers does not prove throttling is missing.",
+    {
+      checked: authApiRateLimitSignals.length,
+      present: authApiRateLimitSignals.filter((item) => Object.keys(item.headers).length),
+      missing: authApiRateLimitSignals.filter((item) => !Object.keys(item.headers).length).map((item) => ({ target: item.target, path: item.path, status: item.status }))
+    }
+  );
+  addFinding(
+    findings,
     "warning",
     "frontend.probes.admin_debug",
     "Admin and debug surfaces are absent or require authentication",
@@ -2362,6 +2475,18 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     metafileExposures.length === 0,
     "OWASP WSTG information gathering includes reviewing robots, sitemap, security.txt, and legacy cross-domain policy files for information leakage.",
     { checked: probes.filter((probe) => probe.category === "metafiles").length, exposed: metafileExposures }
+  );
+  const securityTxtChecks = probeResponses
+    .filter(({ probe }) => probe.category === "metafiles" && String(probe.path || "").endsWith("/security.txt"))
+    .map(({ probe, response }) => securityTxtEvidence(probe, response));
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.security_txt",
+    "Security contact metadata is inventoried",
+    true,
+    "RFC 9116 security.txt helps vulnerability reporters find the right contact and policy; this passive check records presence and common fields only.",
+    { checked: securityTxtChecks.length, files: securityTxtChecks }
   );
   addFinding(
     findings,

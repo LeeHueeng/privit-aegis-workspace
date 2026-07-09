@@ -1280,10 +1280,10 @@ function page() {
           zh: "表单提交、CSRF 与敏感 URL"
         },
         detects: {
-          ko: "인증 form의 GET 제출, 상태 변경 form의 CSRF token 후보, 외부 action, cleartext 제출, 민감 query parameter, 파일 업로드 control을 확인합니다.",
-          en: "Checks auth-form GET submissions, CSRF token candidates on state-changing forms, external actions, cleartext submissions, sensitive query parameters, and file-upload controls.",
-          ja: "認証formのGET送信、状態変更formのCSRF token候補、外部action、cleartext送信、機密query parameter、file upload controlを確認します。",
-          zh: "检查认证表单 GET 提交、状态变更表单的 CSRF token 候选、外部 action、明文提交、敏感 query parameter 和文件上传控件。"
+          ko: "인증 form의 GET 제출, 상태 변경 form의 CSRF token 후보, 외부 action, cleartext 제출, 민감 query parameter, 파일 업로드 control, 계정 복구 경로, rate-limit 헤더 신호를 확인합니다.",
+          en: "Checks auth-form GET submissions, CSRF token candidates on state-changing forms, external actions, cleartext submissions, sensitive query parameters, file-upload controls, account-recovery routes, and rate-limit header signals.",
+          ja: "認証formのGET送信、状態変更formのCSRF token候補、外部action、cleartext送信、機密query parameter、file upload control、アカウント復旧経路、rate-limitヘッダー信号を確認します。",
+          zh: "检查认证表单 GET 提交、状态变更表单的 CSRF token 候选、外部 action、明文提交、敏感 query parameter、文件上传控件、账号恢复路径和 rate-limit 响应头信号。"
         },
         criteria: {
           ko: "credential/token은 URL에 들어가지 않아야 하고, 상태 변경 form은 CSRF 방어 후보를 가져야 하며, 민감 form은 승인된 HTTPS 대상으로 제출되어야 합니다.",
@@ -1336,10 +1336,10 @@ function page() {
           zh: "敏感文件与运维表面"
         },
         detects: {
-          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics를 GET/OPTIONS로 확인합니다.",
-          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics with GET/OPTIONS.",
-          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metricsをGET/OPTIONSで確認します。",
-          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档和 admin/debug/metrics。"
+          ko: ".env, VCS 메타데이터, 백업/DB dump, source map, directory listing, API docs, admin/debug/metrics, security.txt를 GET/OPTIONS로 확인합니다.",
+          en: "Checks .env, VCS metadata, backups, DB dumps, source maps, directory listings, API docs, admin/debug/metrics, and security.txt with GET/OPTIONS.",
+          ja: ".env、VCSメタデータ、backup/DB dump、source map、directory listing、API docs、admin/debug/metrics、security.txtをGET/OPTIONSで確認します。",
+          zh: "使用 GET/OPTIONS 检查 .env、VCS 元数据、备份、数据库转储、source map、目录列表、API 文档、admin/debug/metrics 和 security.txt。"
         },
         criteria: {
           ko: "민감 파일과 운영 endpoint는 익명으로 읽히지 않아야 합니다.",

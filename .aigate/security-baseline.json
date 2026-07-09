@@ -155,6 +155,10 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/09-Testing_for_Clickjacking"
     },
     {
+      "name": "RFC 9116 security.txt",
+      "url": "https://www.rfc-editor.org/rfc/rfc9116"
+    },
+    {
       "name": "GitHub Actions Secure Use Reference",
       "url": "https://docs.github.com/en/actions/reference/security/secure-use"
     },
@@ -213,7 +217,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 260,
+      "maxProbeRequests": 290,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -300,6 +304,18 @@
         "/users/me",
         "/profile",
         "/account"
+      ],
+      "accountRecoveryPaths": [
+        "/.well-known/change-password",
+        "/change-password",
+        "/account/change-password",
+        "/settings/password",
+        "/forgot-password",
+        "/reset-password",
+        "/password/forgot",
+        "/password/reset",
+        "/api/auth/forgot-password",
+        "/api/auth/reset-password"
       ],
       "adminPaths": [
         "/admin",

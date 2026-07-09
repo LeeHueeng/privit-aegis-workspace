@@ -295,6 +295,11 @@ const criteria = {
     criteria: "Authentication-like pages use Cache-Control: no-store.",
     remediation: "Set Cache-Control: no-store on login, account, password reset, and session pages."
   },
+  "frontend.headers.auth_rate_limit": {
+    category: "Abuse control",
+    criteria: "Authentication-like pages are inventoried for visible Retry-After or RateLimit headers.",
+    remediation: "Use this evidence with server-side throttling and lockout tests; add visible rate-limit headers where operationally useful."
+  },
   "frontend.headers.hsts": {
     category: "Transport",
     criteria: "Non-loopback HTTPS targets send Strict-Transport-Security; loopback/local HTTP targets are skipped.",
@@ -470,6 +475,16 @@ const criteria = {
     criteria: "Common user, account, profile, and session API paths do not anonymously return identity, role, permission, tenant, or session JSON.",
     remediation: "Require authentication and object/function authorization for user/session APIs, and return 401/403 for anonymous requests."
   },
+  "frontend.probes.account_recovery": {
+    category: "Authentication",
+    criteria: "Common account-recovery and password-change routes are inventoried without submitting credentials or reset tokens.",
+    remediation: "Review discovered recovery routes for POST-only submissions, CSRF protection, HTTPS, rate limiting, and token handling."
+  },
+  "frontend.probes.auth_api_rate_limit": {
+    category: "Abuse control",
+    criteria: "Auth and session API probes are inventoried for visible Retry-After or RateLimit headers.",
+    remediation: "Pair this passive evidence with authenticated brute-force/throttling tests and avoid leaking sensitive rate-limit state."
+  },
   "frontend.probes.admin_debug": {
     category: "Administration/debug",
     criteria: "Admin consoles, debug endpoints, metrics, actuator, server-status, and hot-reload endpoints are absent or require authentication.",
@@ -484,6 +499,11 @@ const criteria = {
     category: "Information leakage",
     criteria: "robots.txt, sitemap.xml, security.txt, and legacy cross-domain policy files do not disclose sensitive paths or permissive wildcard access.",
     remediation: "Remove sensitive path hints from public metafiles and replace wildcard cross-domain policy files with explicit trusted origins."
+  },
+  "frontend.probes.security_txt": {
+    category: "Vulnerability disclosure",
+    criteria: "The security.txt endpoint is inventoried for Contact, Expires, Policy, and Preferred-Languages fields.",
+    remediation: "Publish /.well-known/security.txt with a monitored Contact field and keep Expires current if the organization accepts vulnerability reports."
   },
   "frontend.probes.error_disclosure": {
     category: "Error handling",
@@ -624,6 +644,12 @@ const localizedCriteria = {
       category: "인증",
       criteria: "로그인/계정/비밀번호 재설정/세션 페이지는 Cache-Control: no-store를 사용해야 합니다.",
       remediation: "인증 관련 페이지에 Cache-Control: no-store를 설정하세요."
+    },
+    "frontend.headers.auth_rate_limit": {
+      title: "인증 유사 페이지의 rate-limit 헤더가 인벤토리됨",
+      category: "남용 방지",
+      criteria: "인증 유사 페이지는 보이는 Retry-After 또는 RateLimit 헤더 신호를 인벤토리해야 합니다.",
+      remediation: "이 증거를 서버 측 throttling/lockout 테스트와 함께 사용하고 운영상 유용한 경우 rate-limit 헤더를 노출하세요."
     },
     "frontend.headers.hsts": {
       title: "HTTPS non-loopback 응답이 HSTS를 전송함",
@@ -835,6 +861,18 @@ const localizedCriteria = {
       criteria: "일반 사용자, 계정, 프로필, 세션 API 경로는 익명 요청에 identity, role, permission, tenant, session JSON을 반환하지 않아야 합니다.",
       remediation: "사용자/세션 API에 인증과 객체/기능 권한 검사를 요구하고 익명 요청에는 401/403을 반환하세요."
     },
+    "frontend.probes.account_recovery": {
+      title: "계정 복구 및 비밀번호 변경 경로가 인벤토리됨",
+      category: "인증",
+      criteria: "일반 계정 복구/비밀번호 변경 경로는 credential 또는 reset token 제출 없이 기록되어야 합니다.",
+      remediation: "발견된 복구 경로의 POST-only 제출, CSRF 보호, HTTPS, rate limiting, token 처리를 검토하세요."
+    },
+    "frontend.probes.auth_api_rate_limit": {
+      title: "인증/세션 API의 rate-limit 헤더가 인벤토리됨",
+      category: "남용 방지",
+      criteria: "인증 및 세션 API probe는 보이는 Retry-After 또는 RateLimit 헤더 신호를 인벤토리해야 합니다.",
+      remediation: "이 passive 증거를 인증된 brute-force/throttling 테스트와 함께 사용하고 민감한 rate-limit 상태 노출은 피하세요."
+    },
     "frontend.probes.admin_debug": {
       title: "관리자 및 디버그 표면이 없거나 인증을 요구함",
       category: "관리/디버그",
@@ -852,6 +890,12 @@ const localizedCriteria = {
       category: "정보 노출",
       criteria: "robots.txt, sitemap.xml, security.txt, legacy cross-domain policy 파일이 민감 경로나 wildcard access를 노출하지 않아야 합니다.",
       remediation: "공개 metafile에서 민감 경로 힌트를 제거하고 wildcard cross-domain policy를 명시적 trusted origin으로 교체하세요."
+    },
+    "frontend.probes.security_txt": {
+      title: "보안 연락처 메타데이터가 인벤토리됨",
+      category: "취약점 제보",
+      criteria: "security.txt endpoint는 Contact, Expires, Policy, Preferred-Languages 필드 존재 여부가 기록되어야 합니다.",
+      remediation: "조직이 취약점 제보를 받는다면 /.well-known/security.txt에 모니터링되는 Contact 필드를 게시하고 Expires를 최신으로 유지하세요."
     },
     "frontend.probes.error_disclosure": {
       title: "오류 응답이 stack trace 또는 프레임워크 내부 정보를 노출하지 않음",
