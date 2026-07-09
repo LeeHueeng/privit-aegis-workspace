@@ -9,6 +9,7 @@ const requiredFiles = [
   "README.ja.md",
   "README.zh-CN.md",
   "docs/LANGUAGES.md",
+  "docs/github-pages.md",
   "docs/ROADMAP.md",
   "docs/pages/index.html",
   "docs/pages/styles.css",

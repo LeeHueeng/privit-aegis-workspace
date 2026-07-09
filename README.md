@@ -39,11 +39,12 @@ failed, and what evidence was retained.
 
 ## Live Documentation
 
-- Public project site: <https://leehueeng.github.io/privit-aegis-workspace/>
+- Public project site after Pages is enabled: <https://leehueeng.github.io/privit-aegis-workspace/>
 - Security scanning guide: [`docs/security-scanning.md`](./docs/security-scanning.md)
 - Hardening baseline: [`docs/security-hardening-baseline.md`](./docs/security-hardening-baseline.md)
 - AI integration: [`docs/ai-integration.md`](./docs/ai-integration.md)
 - GitHub workflow security: [`docs/github-security-hardening.md`](./docs/github-security-hardening.md)
+- GitHub Pages setup: [`docs/github-pages.md`](./docs/github-pages.md)
 - Language index: [`docs/LANGUAGES.md`](./docs/LANGUAGES.md)
 
 ## Quick Start
@@ -119,6 +120,8 @@ AIGate AI reports.
 The Pages site is deployed from `docs/pages` through
 `.github/workflows/pages.yml`. The workflow uses GitHub Pages Actions with
 minimal permissions: `contents: read`, `pages: write`, and `id-token: write`.
+See [`docs/github-pages.md`](./docs/github-pages.md) for the activation command
+and private-repository plan note.
 
 ## Security Model
 
