@@ -91,6 +91,10 @@ token candidates, external form actions, sensitive cleartext form submissions,
 file-upload form controls, account-recovery and well-known change-password routes,
 logout/sign-out route inventory with Cache-Control, Clear-Site-Data, and cookie
 clearing signals, visible Retry-After/RateLimit headers on authentication surfaces,
+WebAuthn/passkey/security-key route inventory, WebAuthn related-origin metadata
+checks for parseable JSON, HTTPS-only non-local origins, and narrow origin
+review, MFA/2FA/OTP/security-setting route inventory with cache posture, signup
+and account-creation route inventory with visible rate-limit header signals,
 dynamic HTML route cache posture for web-cache-deception review,
 sensitive URL query/fragment parameter names, authentication-flow token URL
 inventory for reset/verification/invite/magic-link/OAuth/SSO paths, OAuth/SSO

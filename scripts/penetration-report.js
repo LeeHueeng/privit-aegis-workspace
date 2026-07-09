@@ -550,6 +550,36 @@ const criteria = {
     criteria: "Common user, account, profile, and session API paths do not anonymously return identity, role, permission, tenant, or session JSON.",
     remediation: "Require authentication and object/function authorization for user/session APIs, and return 401/403 for anonymous requests."
   },
+  "frontend.probes.webauthn_passkey_routes": {
+    category: "Authentication",
+    criteria: "WebAuthn, passkey, and security-key routes are inventoried without creating credentials or submitting assertions.",
+    remediation: "Review discovered passkey surfaces for phishing-resistant enrollment, assertion, recovery, user verification, and related-origin controls."
+  },
+  "frontend.probes.webauthn_related_origins": {
+    category: "Authentication",
+    criteria: "WebAuthn related-origin metadata is valid JSON, HTTPS-only for non-local origins, and narrow enough for every trusted origin to be reviewed.",
+    remediation: "Serve /.well-known/webauthn as valid JSON, remove cleartext origins, and keep the related origins list intentionally small and owned."
+  },
+  "frontend.probes.mfa_routes": {
+    category: "Authentication",
+    criteria: "MFA, 2FA, OTP, passkey/security-setting, and recovery surfaces are inventoried before authorized bypass-resistance testing.",
+    remediation: "Review MFA challenge, setup, reset, and recovery paths for phishing resistance, lockout/rate limiting, CSRF protection, and enrollment authorization."
+  },
+  "frontend.probes.mfa_cache": {
+    category: "Authentication caching",
+    criteria: "MFA and security-setting responses use private/no-store/no-cache style cache controls.",
+    remediation: "Set Cache-Control: no-store or private/no-cache on MFA challenge, setup, recovery, and security-setting pages."
+  },
+  "frontend.probes.registration_routes": {
+    category: "Registration",
+    criteria: "Registration and account-creation routes are inventoried without creating accounts.",
+    remediation: "Review signup flows for email/phone verification, enumeration resistance, bot mitigation, CSRF protection, and authorization for invitation-only flows."
+  },
+  "frontend.probes.registration_rate_limit": {
+    category: "Abuse control",
+    criteria: "Registration probes are inventoried for visible Retry-After or RateLimit headers.",
+    remediation: "Pair this passive evidence with signup abuse tests and add throttling, CAPTCHA/risk checks, or invitation controls where appropriate."
+  },
   "frontend.probes.account_recovery": {
     category: "Authentication",
     criteria: "Common account-recovery and password-change routes are inventoried without submitting credentials or reset tokens.",
@@ -1090,6 +1120,42 @@ const localizedCriteria = {
       category: "API 권한",
       criteria: "일반 사용자, 계정, 프로필, 세션 API 경로는 익명 요청에 identity, role, permission, tenant, session JSON을 반환하지 않아야 합니다.",
       remediation: "사용자/세션 API에 인증과 객체/기능 권한 검사를 요구하고 익명 요청에는 401/403을 반환하세요."
+    },
+    "frontend.probes.webauthn_passkey_routes": {
+      title: "WebAuthn, passkey, security key 경로가 인벤토리됨",
+      category: "인증",
+      criteria: "WebAuthn, passkey, security key 경로는 credential 생성이나 assertion 제출 없이 기록되어야 합니다.",
+      remediation: "발견된 passkey 표면의 phishing-resistant enrollment, assertion, recovery, user verification, related-origin 통제를 검토하세요."
+    },
+    "frontend.probes.webauthn_related_origins": {
+      title: "WebAuthn related-origin 메타데이터가 좁고 HTTPS-only임",
+      category: "인증",
+      criteria: "WebAuthn related-origin metadata는 valid JSON이어야 하며 non-local origin은 HTTPS-only이고 모든 trusted origin을 검토할 수 있을 만큼 좁아야 합니다.",
+      remediation: "/.well-known/webauthn을 valid JSON으로 제공하고 cleartext origin을 제거하며 related origin 목록을 의도적으로 작고 소유 확인된 origin으로 유지하세요."
+    },
+    "frontend.probes.mfa_routes": {
+      title: "MFA, 2FA, OTP, 보안 설정 경로가 인벤토리됨",
+      category: "인증",
+      criteria: "MFA, 2FA, OTP, passkey/security setting, recovery 표면은 승인된 bypass-resistance 테스트 전에 기록되어야 합니다.",
+      remediation: "MFA challenge, setup, reset, recovery 경로의 phishing resistance, lockout/rate limiting, CSRF 보호, enrollment authorization을 검토하세요."
+    },
+    "frontend.probes.mfa_cache": {
+      title: "MFA 및 보안 설정 응답이 브라우저/공유 캐시 저장을 피함",
+      category: "인증 캐싱",
+      criteria: "MFA 및 보안 설정 응답은 private/no-store/no-cache 계열 cache control을 사용해야 합니다.",
+      remediation: "MFA challenge, setup, recovery, security-setting 페이지에 Cache-Control: no-store 또는 private/no-cache를 설정하세요."
+    },
+    "frontend.probes.registration_routes": {
+      title: "가입 및 계정 생성 경로가 인벤토리됨",
+      category: "가입",
+      criteria: "가입 및 계정 생성 route는 계정을 만들지 않고 기록되어야 합니다.",
+      remediation: "signup flow의 email/phone verification, enumeration resistance, bot mitigation, CSRF 보호, invitation-only flow 권한을 검토하세요."
+    },
+    "frontend.probes.registration_rate_limit": {
+      title: "가입 probe의 rate-limit 헤더가 인벤토리됨",
+      category: "남용 방지",
+      criteria: "가입 probe는 보이는 Retry-After 또는 RateLimit 헤더 신호를 인벤토리해야 합니다.",
+      remediation: "이 passive 증거를 signup abuse 테스트와 함께 사용하고 필요 시 throttling, CAPTCHA/risk check, invitation control을 추가하세요."
     },
     "frontend.probes.account_recovery": {
       title: "계정 복구 및 비밀번호 변경 경로가 인벤토리됨",

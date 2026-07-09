@@ -27,6 +27,18 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/09-Testing_for_Weak_Password_Change_or_Reset_Functionalities"
     },
     {
+      "name": "OWASP WSTG Testing Multi-Factor Authentication",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/04-Authentication_Testing/11-Testing_Multi-Factor_Authentication"
+    },
+    {
+      "name": "OWASP Multifactor Authentication Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Multifactor_Authentication_Cheat_Sheet.html"
+    },
+    {
+      "name": "WebAuthn Related Origin Requests",
+      "url": "https://passkeys.dev/docs/advanced/related-origins/"
+    },
+    {
       "name": "OWASP WSTG Testing for OAuth Weaknesses",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/05-Authorization_Testing/05-Testing_for_OAuth_Weaknesses"
     },
@@ -301,7 +313,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 360,
+      "maxProbeRequests": 430,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -428,6 +440,47 @@
         "/users/me",
         "/profile",
         "/account"
+      ],
+      "webAuthnPaths": [
+        "/.well-known/webauthn",
+        "/webauthn",
+        "/passkeys",
+        "/passkey",
+        "/security-keys",
+        "/security-key",
+        "/api/webauthn",
+        "/api/passkeys",
+        "/api/auth/webauthn",
+        "/api/auth/passkeys"
+      ],
+      "mfaPaths": [
+        "/mfa",
+        "/2fa",
+        "/two-factor",
+        "/two-step",
+        "/otp",
+        "/totp",
+        "/auth/mfa",
+        "/auth/2fa",
+        "/account/mfa",
+        "/settings/mfa",
+        "/settings/security",
+        "/api/auth/mfa",
+        "/api/mfa"
+      ],
+      "registrationPaths": [
+        "/register",
+        "/registration",
+        "/signup",
+        "/sign-up",
+        "/create-account",
+        "/join",
+        "/account/register",
+        "/auth/register",
+        "/auth/signup",
+        "/api/auth/register",
+        "/api/auth/signup",
+        "/api/register"
       ],
       "accountRecoveryPaths": [
         "/.well-known/change-password",

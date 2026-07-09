@@ -1520,6 +1520,47 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/profile",
     "/account"
   ]);
+  const webAuthnPaths = configuredProbePaths(baseline, "webAuthnPaths", [
+    "/.well-known/webauthn",
+    "/webauthn",
+    "/passkeys",
+    "/passkey",
+    "/security-keys",
+    "/security-key",
+    "/api/webauthn",
+    "/api/passkeys",
+    "/api/auth/webauthn",
+    "/api/auth/passkeys"
+  ]);
+  const mfaPaths = configuredProbePaths(baseline, "mfaPaths", [
+    "/mfa",
+    "/2fa",
+    "/two-factor",
+    "/two-step",
+    "/otp",
+    "/totp",
+    "/auth/mfa",
+    "/auth/2fa",
+    "/account/mfa",
+    "/settings/mfa",
+    "/settings/security",
+    "/api/auth/mfa",
+    "/api/mfa"
+  ]);
+  const registrationPaths = configuredProbePaths(baseline, "registrationPaths", [
+    "/register",
+    "/registration",
+    "/signup",
+    "/sign-up",
+    "/create-account",
+    "/join",
+    "/account/register",
+    "/auth/register",
+    "/auth/signup",
+    "/api/auth/register",
+    "/api/auth/signup",
+    "/api/register"
+  ]);
   const accountRecoveryPaths = configuredProbePaths(baseline, "accountRecoveryPaths", [
     "/.well-known/change-password",
     "/change-password",
@@ -1620,6 +1661,9 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "oauthCallbackPaths", oauthCallbackPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "authApiPaths", authApiPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "webAuthnPaths", webAuthnPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "mfaPaths", mfaPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "registrationPaths", registrationPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "accountRecoveryPaths", accountRecoveryPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "logoutPaths", logoutPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
@@ -1812,6 +1856,81 @@ function unauthenticatedUserApiSignal(probe, response) {
     return "auth_api_json";
   }
   return "";
+}
+
+function authSurfaceSignal(probe, response, pattern, routeSignal, jsonSignal) {
+  if (!response.ok || isSoftNotFoundResponse(response)) return "";
+  const path = String(probe.path || "").toLowerCase();
+  const text = responseText(response);
+  const type = contentType(response);
+  if (!pattern.test(path)) return "";
+  if (response.status >= 200 && response.status < 400) {
+    if (type.includes("json") && text.trim().startsWith("{")) return jsonSignal;
+    return response.redirects ? `${routeSignal}_redirect` : routeSignal;
+  }
+  if ([400, 401, 403, 405].includes(response.status)) return `${routeSignal}_requires_valid_request`;
+  return "";
+}
+
+function webAuthnSignal(probe, response) {
+  const path = String(probe.path || "").toLowerCase();
+  const text = responseText(response);
+  const type = contentType(response);
+  if (path.endsWith("/.well-known/webauthn") && isSuccessStatus(response) && !isSoftNotFoundResponse(response)) {
+    if (type.includes("json") || /"origins"\s*:\s*\[/.test(text)) return "webauthn_related_origins";
+  }
+  return authSurfaceSignal(probe, response, /(?:webauthn|passkeys?|security-keys?)/i, "webauthn_route", "webauthn_json");
+}
+
+function authSurfaceEvidence(probe, response, signal) {
+  return {
+    target: probe.targetName,
+    path: probe.path,
+    requestedUrl: response.requestedUrl || probe.url,
+    finalUrl: response.finalUrl || response.url,
+    status: response.status || 0,
+    signal,
+    contentType: contentType(response),
+    cacheControl: headerValue(response, "cache-control"),
+    rateLimitHeaders: rateLimitHeaders(response)
+  };
+}
+
+function webAuthnRelatedOriginEvidence(probe, response, signal) {
+  const evidence = authSurfaceEvidence(probe, response, signal);
+  if (signal !== "webauthn_related_origins") return evidence;
+  const parsed = parseJsonPreview(responseText(response));
+  evidence.parseableJson = Boolean(parsed);
+  evidence.originCount = 0;
+  evidence.originHosts = [];
+  evidence.cleartextOrigins = [];
+  if (!parsed || !Array.isArray(parsed.origins)) return evidence;
+  const origins = parsed.origins
+    .map((origin) => String(origin || ""))
+    .filter(Boolean);
+  evidence.originCount = origins.length;
+  for (const origin of origins) {
+    try {
+      const parsedOrigin = new URL(origin);
+      evidence.originHosts.push(parsedOrigin.hostname);
+      if (parsedOrigin.protocol !== "https:" && !isLoopback(parsedOrigin.hostname)) {
+        evidence.cleartextOrigins.push(parsedOrigin.hostname);
+      }
+    } catch {
+      evidence.cleartextOrigins.push("unparseable-origin");
+    }
+  }
+  evidence.originHosts = unique(evidence.originHosts).slice(0, 10);
+  evidence.cleartextOrigins = unique(evidence.cleartextOrigins).slice(0, 10);
+  return evidence;
+}
+
+function mfaRouteSignal(probe, response) {
+  return authSurfaceSignal(probe, response, /(?:mfa|2fa|two-factor|two-step|otp|totp|security)/i, "mfa_route", "mfa_json");
+}
+
+function registrationRouteSignal(probe, response) {
+  return authSurfaceSignal(probe, response, /(?:register|registration|signup|sign-up|create-account|join)/i, "registration_route", "registration_json");
 }
 
 function accountRecoverySignal(probe, response) {
@@ -3281,6 +3400,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const identityMetadata = [];
   const oauthCallbackSurfaces = [];
   const unauthenticatedUserApis = [];
+  const webAuthnSurfaces = [];
+  const mfaSurfaces = [];
+  const registrationSurfaces = [];
   const accountRecoverySurfaces = [];
   const logoutSurfaces = [];
   const adminExposures = [];
@@ -3325,6 +3447,15 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "authApiPaths") {
       const signal = unauthenticatedUserApiSignal(probe, response);
       if (signal) unauthenticatedUserApis.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "webAuthnPaths") {
+      const signal = webAuthnSignal(probe, response);
+      if (signal) webAuthnSurfaces.push(webAuthnRelatedOriginEvidence(probe, response, signal));
+    } else if (probe.category === "mfaPaths") {
+      const signal = mfaRouteSignal(probe, response);
+      if (signal) mfaSurfaces.push(authSurfaceEvidence(probe, response, signal));
+    } else if (probe.category === "registrationPaths") {
+      const signal = registrationRouteSignal(probe, response);
+      if (signal) registrationSurfaces.push(authSurfaceEvidence(probe, response, signal));
     } else if (probe.category === "accountRecoveryPaths") {
       const signal = accountRecoverySignal(probe, response);
       if (signal) accountRecoverySurfaces.push(probeEvidence(probe, response, signal));
@@ -3495,6 +3626,88 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     unauthenticatedUserApis.length === 0,
     "Passive probes check common user/session API paths for anonymously reachable JSON that appears to expose identities, roles, permissions, tenants, or session state.",
     { checked: probes.filter((probe) => probe.category === "authApiPaths").length, exposed: unauthenticatedUserApis }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.webauthn_passkey_routes",
+    "WebAuthn, passkey, and security-key routes are inventoried",
+    true,
+    "WebAuthn and passkey surfaces are recorded so reviewers can assess phishing-resistant MFA enrollment, assertion, related-origin, and recovery behavior without submitting credentials.",
+    { checked: probes.filter((probe) => probe.category === "webAuthnPaths").length, routes: webAuthnSurfaces }
+  );
+  const webAuthnRelatedOriginIssues = webAuthnSurfaces
+    .filter((item) => item.signal === "webauthn_related_origins")
+    .filter((item) => !item.parseableJson || item.originCount > 5 || item.cleartextOrigins.length)
+    .map((item) => ({
+      ...item,
+      signal: !item.parseableJson
+        ? "webauthn_related_origins_not_parseable_json"
+        : item.cleartextOrigins.length
+          ? "webauthn_related_origins_include_cleartext_origin"
+          : "webauthn_related_origins_exceed_review_threshold"
+    }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.webauthn_related_origins",
+    "WebAuthn related-origin metadata is narrow and HTTPS-only",
+    webAuthnRelatedOriginIssues.length === 0,
+    "Related Origin Requests for passkeys should be valid JSON, HTTPS-only for non-local origins, and narrow enough to review each trusted origin.",
+    {
+      checked: webAuthnSurfaces.filter((item) => item.signal === "webauthn_related_origins").length,
+      issues: webAuthnRelatedOriginIssues
+    }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.mfa_routes",
+    "MFA, 2FA, OTP, and security settings routes are inventoried",
+    true,
+    "OWASP MFA testing begins by identifying MFA setup, challenge, recovery, and security settings surfaces before authorized bypass-resistance testing.",
+    { checked: probes.filter((probe) => probe.category === "mfaPaths").length, routes: mfaSurfaces }
+  );
+  const mfaCacheIssues = mfaSurfaces
+    .filter((item) => ["mfa_route", "mfa_route_redirect", "mfa_json"].includes(item.signal))
+    .filter((item) => !cacheControlProtected(item.cacheControl))
+    .map((item) => ({ ...item, signal: "missing_private_or_no_store_cache_control" }));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.mfa_cache",
+    "MFA and security-setting responses avoid browser/shared-cache storage",
+    mfaCacheIssues.length === 0,
+    "MFA challenge, setup, and recovery pages can expose sensitive state and should use no-store/private/no-cache style cache controls.",
+    { checked: mfaSurfaces.length, issues: mfaCacheIssues }
+  );
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.registration_routes",
+    "Registration and account creation routes are inventoried",
+    true,
+    "Registration surfaces are recorded so reviewers can assess abuse controls, email verification, enumeration resistance, and rate limiting without creating accounts.",
+    { checked: probes.filter((probe) => probe.category === "registrationPaths").length, routes: registrationSurfaces }
+  );
+  const registrationRateLimitSignals = registrationSurfaces.map((item) => ({
+    target: item.target,
+    path: item.path,
+    status: item.status,
+    headers: item.rateLimitHeaders || {}
+  }));
+  addFinding(
+    findings,
+    "info",
+    "frontend.probes.registration_rate_limit",
+    "Registration probes are inventoried for rate-limit headers",
+    true,
+    "Visible Retry-After or RateLimit headers are useful evidence for signup-abuse review, though absence does not prove throttling is missing.",
+    {
+      checked: registrationRateLimitSignals.length,
+      present: registrationRateLimitSignals.filter((item) => Object.keys(item.headers).length),
+      missing: registrationRateLimitSignals.filter((item) => !Object.keys(item.headers).length).map((item) => ({ target: item.target, path: item.path, status: item.status }))
+    }
   );
   addFinding(
     findings,
