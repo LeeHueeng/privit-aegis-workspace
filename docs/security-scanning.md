@@ -22,6 +22,11 @@ The gate performs:
 - HTML report generation
 - AIGate upload readiness check
 
+The web console Start All flow is Aegis-only: catalog, docs, scope verification,
+plan, passive discovery, target advisory, and localized report generation.
+AIGate is reserved for git push and CI quality-gate commands such as
+`npm run gate:ready` and `npm run ci:security`.
+
 Report outputs:
 
 - HTML: `.aegis/reports/aegis-report.html`

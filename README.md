@@ -1,8 +1,9 @@
 # Privit Aegis Workspace
 
-Local security testing workspace for the Privit web app. It wraps the Aegis CLI
-and AIGate so a developer can generate the check catalog, verify scope, run a
+Local security testing workspace for the Privit web app. The web console wraps
+the Aegis CLI so a developer can generate the check catalog, verify scope, run a
 passive frontend site map, and open an HTML report from one local console.
+AIGate remains available for git push and CI quality gates.
 
 ## Repository Layout
 
@@ -52,12 +53,12 @@ npm run ai:model:check
 npm run ai:settings:show
 ```
 
-Codex, Gemini, and Claude share the same Aegis scope, AIGate quality gate, and
-upload workflow. Local AI and direct API providers can also be enabled from the
-AI tab or with `npm run ai:model:set -- --provider local --enable`. The AI tab
-also manages runtime settings for response style, token budgets, tool/network
-permissions, secret redaction, local-first fallback, cost limits, and minimum
-AIGate score. See `docs/ai-integration.md`.
+Codex, Gemini, and Claude share the same Aegis scope and AI handoff workflow.
+Local AI and direct API providers can also be enabled from the AI tab or with
+`npm run ai:model:set -- --provider local --enable`. The AI tab also manages
+runtime settings for response style, token budgets, tool/network permissions,
+secret redaction, local-first fallback, cost limits, and the push-time AIGate
+score threshold. See `docs/ai-integration.md`.
 
 ## GitHub Security
 

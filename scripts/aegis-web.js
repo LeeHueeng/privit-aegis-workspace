@@ -22,23 +22,17 @@ const actions = {
   audit: ["npm", ["run", "security:audit"]],
   hardening: ["npm", ["run", "security:hardening"]],
   targetAdvisory: ["npm", ["run", "security:target"]],
-  completionAudit: ["npm", ["run", "completion:audit"]],
-  githubReady: ["node", ["./scripts/github-readiness.js", "--format", "json"]],
-  gate: ["aigate", ["test", "--language", "ko"]],
-  gateReady: ["aigate", ["git-ready", "--language", "ko"]],
   ai: ["npm", ["run", "ai:integrate"]],
   aiDoctor: ["npm", ["run", "ai:doctor"]],
   aiReport: ["npm", ["run", "ai:report"]],
   aiModelCommands: ["npm", ["run", "ai:model:commands"]],
   aiProviderCheck: ["npm", ["run", "ai:model:check"]],
-  ciSecurity: ["npm", ["run", "ci:security"]],
   gitStatus: ["git", ["status", "--short", "--branch"]],
   start: ["npm", ["run", "start:aegis"]]
 };
 
 const actionPipelines = {
-  start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report", "gate"],
-  ciSecurity: ["audit", "hardening", "catalog", "verify", "plan", "dryRun", "map", "targetAdvisory", "report", "gate", "completionAudit", "gateReady", "aiDoctor"]
+  start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report"]
 };
 
 const commandStepMarkers = [
@@ -49,11 +43,8 @@ const commandStepMarkers = [
   { step: "map", pattern: /\$ aegis run .*--crawl true/ },
   { step: "targetAdvisory", pattern: /\$ node \.\/scripts\/frontend-advisory\.js/ },
   { step: "report", pattern: /\$ npm run security:report/ },
-  { step: "gate", pattern: /\$ aigate test/ },
   { step: "audit", pattern: /> .* security:audit|npm audit/ },
   { step: "hardening", pattern: /> .* security:hardening|security-hardening\.js/ },
-  { step: "completionAudit", pattern: /> .* completion:audit|completion-audit\.js/ },
-  { step: "gateReady", pattern: /aigate git-ready/ },
   { step: "aiDoctor", pattern: /> .* ai:doctor|ai-doctor\.js/ }
 ];
 
@@ -282,7 +273,6 @@ async function state() {
     },
     tools: {
       aegis: commandInfo("aegis"),
-      aigate: commandInfo("aigate"),
       npm: commandInfo("npm"),
       gh: commandInfo("gh")
     },
@@ -749,7 +739,6 @@ function page() {
                 <button data-action="map" data-i18n="actionMap">Map</button>
                 <button data-action="scan" data-i18n="actionScan">Scan</button>
                 <button data-action="report" data-i18n="actionReport">Report</button>
-                <button data-action="gate" data-i18n="actionGate">AIGate</button>
               </div>
             </div>
             <div class="panel">
@@ -850,7 +839,7 @@ function page() {
         </div>
         <div class="layout">
           <div class="panel">
-            <h2 data-i18n="aiGate">AI Gate</h2>
+            <h2 data-i18n="aiTools">AI Tools</h2>
             <div class="actions">
               <button data-action="ai" data-i18n="actionAiSetup">AI Setup</button>
               <button data-action="aiDoctor" data-i18n="actionAiDoctor">AI Doctor</button>
@@ -880,7 +869,7 @@ function page() {
             <label><span data-i18n="aiParallelism">Parallelism</span><input name="runtime.execution.parallelism" form="ai-model-form" type="number" min="1" max="20"></label>
             <label><span data-i18n="aiBudgetPerRun">Budget / Run</span><input name="runtime.cost.budgetUsdPerRun" form="ai-model-form" type="number" min="0" step="0.01"></label>
             <label><span data-i18n="aiDailyBudget">Daily Budget</span><input name="runtime.cost.dailyBudgetUsd" form="ai-model-form" type="number" min="0" step="0.01"></label>
-            <label><span data-i18n="aiMinAigateScore">Min AIGate Score</span><input name="runtime.quality.minAigateScore" form="ai-model-form" type="number" min="0" max="100"></label>
+            <label><span data-i18n="aiMinPushGateScore">Min Push Gate Score</span><input name="runtime.quality.minAigateScore" form="ai-model-form" type="number" min="0" max="100"></label>
             <label><span data-i18n="aiMemoryMode">Memory Mode</span><input name="runtime.context.memoryMode" form="ai-model-form"></label>
             <label><span data-i18n="aiHandoffLanguage">Handoff Language</span><input name="runtime.handoff.defaultLanguage" form="ai-model-form"></label>
           </div>
@@ -907,11 +896,7 @@ function page() {
               <button data-action="audit" data-i18n="actionAudit">npm audit</button>
               <button data-action="hardening" data-i18n="actionHardening">Hardening</button>
               <button data-action="targetAdvisory" data-i18n="actionTargetAdvisory">Target Advisory</button>
-              <button data-action="completionAudit" data-i18n="actionCompletionAudit">Completion Audit</button>
-              <button data-action="githubReady" data-i18n="actionGithubReady">GitHub Ready</button>
-              <button data-action="gateReady" data-i18n="actionGateReady">Gate Ready</button>
               <button data-action="gitStatus" data-i18n="actionGitStatus">Git Status</button>
-              <button data-action="ciSecurity" data-i18n="actionCiSecurity">CI Security</button>
             </div>
           </div>
           <div class="panel">
@@ -951,8 +936,7 @@ function page() {
     let runPollTimer = null;
 
     const clientActionPipelines = {
-      start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report", "gate"],
-      ciSecurity: ["audit", "hardening", "catalog", "verify", "plan", "dryRun", "map", "targetAdvisory", "report", "gate", "completionAudit", "gateReady", "aiDoctor"]
+      start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report"]
     };
 
     const actionLabelKeys = {
@@ -964,7 +948,6 @@ function page() {
       scan: "actionScan",
       dryRun: "actionDryRun",
       report: "actionReport",
-      gate: "actionGate",
       start: "actionStart",
       ai: "actionAiSetup",
       aiDoctor: "actionAiDoctor",
@@ -974,63 +957,59 @@ function page() {
       audit: "actionAudit",
       hardening: "actionHardening",
       targetAdvisory: "actionTargetAdvisory",
-      completionAudit: "actionCompletionAudit",
-      githubReady: "actionGithubReady",
-      gateReady: "actionGateReady",
-      gitStatus: "actionGitStatus",
-      ciSecurity: "actionCiSecurity"
+      gitStatus: "actionGitStatus"
     };
 
     const messages = {
       ko: {
         navDashboard: "대시보드", navScope: "범위", navDiscovery: "탐색", navAi: "AI", navUpdates: "업데이트", navReport: "보고서", navLogs: "로그",
         title: "Privit Aegis 콘솔", metricCatalog: "카탈로그", metricFindings: "취약점", metricRoutes: "경로", metricForms: "폼", metricAuth: "인증", metricAi: "AI",
-        actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionGate: "AIGate", actionStart: "전체 실행",
+        actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionStart: "전체 실행",
         latestRun: "최근 실행", scopeSettings: "범위 설정", project: "프로젝트", environment: "환경", frontendUrl: "프론트 URL", backendUrl: "백엔드 API URL", owner: "소유자 이메일", expiresAt: "승인 만료일", allowedPaths: "허용 경로", deniedPaths: "차단 경로", maxRps: "최대 RPS", maxConcurrency: "최대 동시성", backendApi: "백엔드 API", ciCd: "CI/CD", saveScope: "범위 저장",
         discoverySettings: "탐색 설정", maxDepth: "최대 깊이", maxPages: "최대 페이지", sitemapPaths: "사이트맵 경로", loginIndicators: "로그인 지표", discoveryEnabled: "탐색", includeForms: "폼 수집", followRedirects: "리다이렉트 추적", saveDiscovery: "탐색 저장", siteMap: "사이트맵",
-        providers: "프로바이더", aiModels: "AI 모델", aiRuntimeSettings: "AI 런타임 설정", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiGate: "AI 게이트", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
-        aiProfile: "프로필", aiLocale: "언어", aiTemperature: "온도", aiTopP: "Top P", aiMaxOutputTokens: "최대 출력 토큰", aiMaxInputTokens: "최대 입력 토큰", aiFileBudgetTokens: "파일 토큰 예산", aiOutputFormat: "출력 형식", aiMaxTurns: "최대 턴", aiTimeoutMs: "타임아웃 ms", aiParallelism: "병렬성", aiBudgetPerRun: "실행당 예산", aiDailyBudget: "일일 예산", aiMinAigateScore: "최소 AIGate 점수", aiMemoryMode: "메모리 모드", aiHandoffLanguage: "전달 언어", aiAllowNetwork: "네트워크", aiAllowPackageInstall: "패키지 설치", aiPreferLocal: "로컬 우선", aiPromptGuard: "프롬프트 방어", aiRedactSecrets: "시크릿 마스킹", aiStorePrompts: "프롬프트 저장", aiStoreResponses: "응답 저장", aiRequireTests: "테스트 필수", aiAdvancedJson: "고급 JSON",
+        providers: "프로바이더", aiModels: "AI 모델", aiRuntimeSettings: "AI 런타임 설정", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiTools: "AI 도구", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
+        aiProfile: "프로필", aiLocale: "언어", aiTemperature: "온도", aiTopP: "Top P", aiMaxOutputTokens: "최대 출력 토큰", aiMaxInputTokens: "최대 입력 토큰", aiFileBudgetTokens: "파일 토큰 예산", aiOutputFormat: "출력 형식", aiMaxTurns: "최대 턴", aiTimeoutMs: "타임아웃 ms", aiParallelism: "병렬성", aiBudgetPerRun: "실행당 예산", aiDailyBudget: "일일 예산", aiMinPushGateScore: "최소 푸시 게이트 점수", aiMemoryMode: "메모리 모드", aiHandoffLanguage: "전달 언어", aiAllowNetwork: "네트워크", aiAllowPackageInstall: "패키지 설치", aiPreferLocal: "로컬 우선", aiPromptGuard: "프롬프트 방어", aiRedactSecrets: "시크릿 마스킹", aiStorePrompts: "프롬프트 저장", aiStoreResponses: "응답 저장", aiRequireTests: "테스트 필수", aiAdvancedJson: "고급 JSON",
         model: "모델", providerType: "유형", enabledProvider: "사용", endpoint: "API/로컬 엔드포인트", healthUrl: "헬스 URL", apiStyle: "API 방식", apiKeyEnv: "키 환경변수", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자", disabled: "비활성", check: "확인 필요",
-        updates: "업데이트", actionAudit: "npm audit", actionHardening: "하드닝 검사", actionTargetAdvisory: "대상 점검", actionCompletionAudit: "완료 감사", actionGithubReady: "GitHub 준비", actionGateReady: "Gate Ready", actionGitStatus: "Git 상태", actionCiSecurity: "CI 보안", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
+        updates: "업데이트", actionAudit: "npm audit", actionHardening: "하드닝 검사", actionTargetAdvisory: "대상 점검", actionGitStatus: "Git 상태", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
         runCenter: "Run Center", runTitle: "승인된 보안 워크플로", runSubtitle: "안전한 Aegis 흐름을 실행하고 각 단계를 실시간으로 확인합니다.", quickActions: "빠른 작업", liveLog: "실시간 로그", noActiveRun: "실행 중인 작업이 없습니다.", readyToRun: "실행 준비 완료", currentStep: "현재 단계", queued: "대기", progressRunning: "진행 중", progressDone: "완료", progressFailed: "실패", elapsed: "경과", latestScan: "최근 스캔", scanTarget: "대상/모드", discoverySummary: "탐색 결과", targetAdvisorySummary: "대상 점검",
         ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
       },
       en: {
         navDashboard: "Dashboard", navScope: "Scope", navDiscovery: "Discovery", navAi: "AI", navUpdates: "Updates", navReport: "Report", navLogs: "Logs",
         title: "Privit Aegis Console", metricCatalog: "Catalog", metricFindings: "Findings", metricRoutes: "Routes", metricForms: "Forms", metricAuth: "Auth", metricAi: "AI",
-        actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionGate: "AIGate", actionStart: "Start All",
+        actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionStart: "Start All",
         latestRun: "Latest Run", scopeSettings: "Scope Settings", project: "Project", environment: "Environment", frontendUrl: "Frontend URL", backendUrl: "Backend API URL", owner: "Owner Email", expiresAt: "Authorization Expires", allowedPaths: "Allowed Paths", deniedPaths: "Denied Paths", maxRps: "Max RPS", maxConcurrency: "Max Concurrency", backendApi: "Backend API", ciCd: "CI/CD", saveScope: "Save Scope",
         discoverySettings: "Discovery Settings", maxDepth: "Max Depth", maxPages: "Max Pages", sitemapPaths: "Sitemap Paths", loginIndicators: "Login Indicators", discoveryEnabled: "Discovery", includeForms: "Form Inventory", followRedirects: "Follow Redirects", saveDiscovery: "Save Discovery", siteMap: "Site Map",
-        providers: "Providers", aiModels: "AI Models", aiRuntimeSettings: "AI Runtime Settings", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiGate: "AI Gate", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
-        aiProfile: "Profile", aiLocale: "Locale", aiTemperature: "Temperature", aiTopP: "Top P", aiMaxOutputTokens: "Max Output Tokens", aiMaxInputTokens: "Max Input Tokens", aiFileBudgetTokens: "File Budget Tokens", aiOutputFormat: "Output Format", aiMaxTurns: "Max Turns", aiTimeoutMs: "Timeout Ms", aiParallelism: "Parallelism", aiBudgetPerRun: "Budget / Run", aiDailyBudget: "Daily Budget", aiMinAigateScore: "Min AIGate Score", aiMemoryMode: "Memory Mode", aiHandoffLanguage: "Handoff Language", aiAllowNetwork: "Network", aiAllowPackageInstall: "Package Install", aiPreferLocal: "Prefer Local", aiPromptGuard: "Prompt Guard", aiRedactSecrets: "Redact Secrets", aiStorePrompts: "Store Prompts", aiStoreResponses: "Store Responses", aiRequireTests: "Require Tests", aiAdvancedJson: "Advanced JSON",
+        providers: "Providers", aiModels: "AI Models", aiRuntimeSettings: "AI Runtime Settings", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiTools: "AI Tools", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
+        aiProfile: "Profile", aiLocale: "Locale", aiTemperature: "Temperature", aiTopP: "Top P", aiMaxOutputTokens: "Max Output Tokens", aiMaxInputTokens: "Max Input Tokens", aiFileBudgetTokens: "File Budget Tokens", aiOutputFormat: "Output Format", aiMaxTurns: "Max Turns", aiTimeoutMs: "Timeout Ms", aiParallelism: "Parallelism", aiBudgetPerRun: "Budget / Run", aiDailyBudget: "Daily Budget", aiMinPushGateScore: "Min Push Gate Score", aiMemoryMode: "Memory Mode", aiHandoffLanguage: "Handoff Language", aiAllowNetwork: "Network", aiAllowPackageInstall: "Package Install", aiPreferLocal: "Prefer Local", aiPromptGuard: "Prompt Guard", aiRedactSecrets: "Redact Secrets", aiStorePrompts: "Store Prompts", aiStoreResponses: "Store Responses", aiRequireTests: "Require Tests", aiAdvancedJson: "Advanced JSON",
         model: "Model", providerType: "Type", enabledProvider: "Enabled", endpoint: "API/Local Endpoint", healthUrl: "Health URL", apiStyle: "API Style", apiKeyEnv: "Key Env", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args", disabled: "Disabled", check: "Check",
-        updates: "Updates", actionAudit: "npm audit", actionHardening: "Hardening", actionTargetAdvisory: "Target Advisory", actionCompletionAudit: "Completion Audit", actionGithubReady: "GitHub Ready", actionGateReady: "Gate Ready", actionGitStatus: "Git Status", actionCiSecurity: "CI Security", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
+        updates: "Updates", actionAudit: "npm audit", actionHardening: "Hardening", actionTargetAdvisory: "Target Advisory", actionGitStatus: "Git Status", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
         runCenter: "Run Center", runTitle: "Authorized security workflow", runSubtitle: "Run the safe Aegis flow and watch each step as it executes.", quickActions: "Quick Actions", liveLog: "Live Log", noActiveRun: "No active run.", readyToRun: "Ready to run", currentStep: "Current step", queued: "Queued", progressRunning: "Running", progressDone: "Done", progressFailed: "Failed", elapsed: "Elapsed", latestScan: "Latest scan", scanTarget: "Target / mode", discoverySummary: "Discovery", targetAdvisorySummary: "Target advisory",
         ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
       },
       ja: {
         navDashboard: "ダッシュボード", navScope: "スコープ", navDiscovery: "探索", navAi: "AI", navUpdates: "更新", navReport: "レポート", navLogs: "ログ",
         title: "Privit Aegis コンソール", metricCatalog: "カタログ", metricFindings: "検出", metricRoutes: "経路", metricForms: "フォーム", metricAuth: "認証", metricAi: "AI",
-        actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionGate: "AIGate", actionStart: "全実行",
+        actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionStart: "全実行",
         latestRun: "最新実行", scopeSettings: "スコープ設定", project: "プロジェクト", environment: "環境", frontendUrl: "フロントURL", backendUrl: "バックエンドAPI URL", owner: "所有者メール", expiresAt: "承認期限", allowedPaths: "許可パス", deniedPaths: "拒否パス", maxRps: "最大RPS", maxConcurrency: "最大同時実行", backendApi: "バックエンドAPI", ciCd: "CI/CD", saveScope: "スコープ保存",
         discoverySettings: "探索設定", maxDepth: "最大深度", maxPages: "最大ページ", sitemapPaths: "サイトマップパス", loginIndicators: "ログイン指標", discoveryEnabled: "探索", includeForms: "フォーム収集", followRedirects: "リダイレクト追跡", saveDiscovery: "探索保存", siteMap: "サイトマップ",
-        providers: "プロバイダー", aiModels: "AIモデル", aiRuntimeSettings: "AIランタイム設定", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiGate: "AIゲート", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
-        aiProfile: "プロファイル", aiLocale: "ロケール", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大出力トークン", aiMaxInputTokens: "最大入力トークン", aiFileBudgetTokens: "ファイルトークン予算", aiOutputFormat: "出力形式", aiMaxTurns: "最大ターン", aiTimeoutMs: "タイムアウト ms", aiParallelism: "並列数", aiBudgetPerRun: "実行予算", aiDailyBudget: "日次予算", aiMinAigateScore: "最小AIGateスコア", aiMemoryMode: "メモリモード", aiHandoffLanguage: "引き継ぎ言語", aiAllowNetwork: "ネットワーク", aiAllowPackageInstall: "パッケージ導入", aiPreferLocal: "ローカル優先", aiPromptGuard: "プロンプト防御", aiRedactSecrets: "秘密マスク", aiStorePrompts: "プロンプト保存", aiStoreResponses: "応答保存", aiRequireTests: "テスト必須", aiAdvancedJson: "詳細JSON",
+        providers: "プロバイダー", aiModels: "AIモデル", aiRuntimeSettings: "AIランタイム設定", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiTools: "AIツール", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
+        aiProfile: "プロファイル", aiLocale: "ロケール", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大出力トークン", aiMaxInputTokens: "最大入力トークン", aiFileBudgetTokens: "ファイルトークン予算", aiOutputFormat: "出力形式", aiMaxTurns: "最大ターン", aiTimeoutMs: "タイムアウト ms", aiParallelism: "並列数", aiBudgetPerRun: "実行予算", aiDailyBudget: "日次予算", aiMinPushGateScore: "最小プッシュゲートスコア", aiMemoryMode: "メモリモード", aiHandoffLanguage: "引き継ぎ言語", aiAllowNetwork: "ネットワーク", aiAllowPackageInstall: "パッケージ導入", aiPreferLocal: "ローカル優先", aiPromptGuard: "プロンプト防御", aiRedactSecrets: "秘密マスク", aiStorePrompts: "プロンプト保存", aiStoreResponses: "応答保存", aiRequireTests: "テスト必須", aiAdvancedJson: "詳細JSON",
         model: "モデル", providerType: "種類", enabledProvider: "有効", endpoint: "API/ローカルエンドポイント", healthUrl: "ヘルスURL", apiStyle: "API方式", apiKeyEnv: "キー環境変数", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数", disabled: "無効", check: "確認",
-        updates: "更新", actionAudit: "npm audit", actionHardening: "ハードニング診断", actionTargetAdvisory: "対象診断", actionCompletionAudit: "完了監査", actionGithubReady: "GitHub準備", actionGateReady: "Gate Ready", actionGitStatus: "Git状態", actionCiSecurity: "CIセキュリティ", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
+        updates: "更新", actionAudit: "npm audit", actionHardening: "ハードニング診断", actionTargetAdvisory: "対象診断", actionGitStatus: "Git状態", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
         runCenter: "Run Center", runTitle: "承認済みセキュリティワークフロー", runSubtitle: "安全なAegisフローを実行し、各ステップをリアルタイムで確認します。", quickActions: "クイック操作", liveLog: "ライブログ", noActiveRun: "実行中の作業はありません。", readyToRun: "実行準備完了", currentStep: "現在のステップ", queued: "待機", progressRunning: "実行中", progressDone: "完了", progressFailed: "失敗", elapsed: "経過", latestScan: "最新スキャン", scanTarget: "対象/モード", discoverySummary: "探索結果", targetAdvisorySummary: "対象診断",
         ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
       },
       zh: {
         navDashboard: "仪表盘", navScope: "范围", navDiscovery: "发现", navAi: "AI", navUpdates: "更新", navReport: "报告", navLogs: "日志",
         title: "Privit Aegis 控制台", metricCatalog: "目录", metricFindings: "发现项", metricRoutes: "路由", metricForms: "表单", metricAuth: "认证", metricAi: "AI",
-        actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionGate: "AIGate", actionStart: "全部运行",
+        actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionStart: "全部运行",
         latestRun: "最近运行", scopeSettings: "范围设置", project: "项目", environment: "环境", frontendUrl: "前端 URL", backendUrl: "后端 API URL", owner: "所有者邮箱", expiresAt: "授权到期", allowedPaths: "允许路径", deniedPaths: "拒绝路径", maxRps: "最大 RPS", maxConcurrency: "最大并发", backendApi: "后端 API", ciCd: "CI/CD", saveScope: "保存范围",
         discoverySettings: "发现设置", maxDepth: "最大深度", maxPages: "最大页面", sitemapPaths: "站点图路径", loginIndicators: "登录指标", discoveryEnabled: "发现", includeForms: "表单清单", followRedirects: "跟随重定向", saveDiscovery: "保存发现", siteMap: "站点图",
-        providers: "提供方", aiModels: "AI 模型", aiRuntimeSettings: "AI 运行时设置", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiGate: "AI 网关", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
-        aiProfile: "配置", aiLocale: "语言", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大输出令牌", aiMaxInputTokens: "最大输入令牌", aiFileBudgetTokens: "文件令牌预算", aiOutputFormat: "输出格式", aiMaxTurns: "最大轮次", aiTimeoutMs: "超时 ms", aiParallelism: "并行数", aiBudgetPerRun: "单次预算", aiDailyBudget: "每日预算", aiMinAigateScore: "最低 AIGate 分数", aiMemoryMode: "记忆模式", aiHandoffLanguage: "交接语言", aiAllowNetwork: "网络", aiAllowPackageInstall: "包安装", aiPreferLocal: "优先本地", aiPromptGuard: "提示防护", aiRedactSecrets: "密钥脱敏", aiStorePrompts: "保存提示", aiStoreResponses: "保存响应", aiRequireTests: "要求测试", aiAdvancedJson: "高级 JSON",
+        providers: "提供方", aiModels: "AI 模型", aiRuntimeSettings: "AI 运行时设置", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiTools: "AI 工具", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
+        aiProfile: "配置", aiLocale: "语言", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大输出令牌", aiMaxInputTokens: "最大输入令牌", aiFileBudgetTokens: "文件令牌预算", aiOutputFormat: "输出格式", aiMaxTurns: "最大轮次", aiTimeoutMs: "超时 ms", aiParallelism: "并行数", aiBudgetPerRun: "单次预算", aiDailyBudget: "每日预算", aiMinPushGateScore: "最低推送门禁分数", aiMemoryMode: "记忆模式", aiHandoffLanguage: "交接语言", aiAllowNetwork: "网络", aiAllowPackageInstall: "包安装", aiPreferLocal: "优先本地", aiPromptGuard: "提示防护", aiRedactSecrets: "密钥脱敏", aiStorePrompts: "保存提示", aiStoreResponses: "响应保存", aiRequireTests: "要求测试", aiAdvancedJson: "高级 JSON",
         model: "模型", providerType: "类型", enabledProvider: "启用", endpoint: "API/本地端点", healthUrl: "健康 URL", apiStyle: "API 样式", apiKeyEnv: "密钥环境变量", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数", disabled: "已禁用", check: "需检查",
-        updates: "更新", actionAudit: "npm audit", actionHardening: "加固检查", actionTargetAdvisory: "目标检查", actionCompletionAudit: "完成审计", actionGithubReady: "GitHub 就绪", actionGateReady: "Gate Ready", actionGitStatus: "Git 状态", actionCiSecurity: "CI 安全", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
+        updates: "更新", actionAudit: "npm audit", actionHardening: "加固检查", actionTargetAdvisory: "目标检查", actionGitStatus: "Git 状态", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
         runCenter: "Run Center", runTitle: "已授权安全工作流", runSubtitle: "运行安全的 Aegis 流程，并实时查看每个步骤。", quickActions: "快捷操作", liveLog: "实时日志", noActiveRun: "没有正在运行的任务。", readyToRun: "准备运行", currentStep: "当前步骤", queued: "排队", progressRunning: "运行中", progressDone: "完成", progressFailed: "失败", elapsed: "用时", latestScan: "最近扫描", scanTarget: "目标/模式", discoverySummary: "发现结果", targetAdvisorySummary: "目标检查",
         ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
       }
@@ -1046,9 +1025,8 @@ function page() {
         scan: "허용된 범위 안에서 passive 보안 스캔을 실행합니다.",
         dryRun: "저장 없이 스캔 명령이 안전하게 실행되는지 미리 확인합니다.",
         report: "최근 스캔 결과를 HTML 보고서로 생성하고 현재 언어로 변환합니다.",
-        gate: "AIGate 품질/보안 게이트를 실행합니다.",
-        start: "카탈로그, 검증, 계획, 사이트맵, 보고서, AIGate를 순서대로 실행합니다.",
-        ai: "AIGate AI 통합 설정을 생성하거나 갱신합니다.",
+        start: "카탈로그, 문서, 검증, 계획, 사이트맵, 대상 점검, 보고서를 순서대로 실행합니다.",
+        ai: "AI 통합 설정을 생성하거나 갱신합니다.",
         aiDoctor: "AI 제공자, 키, 로컬 모델 연결 상태를 진단합니다.",
         aiReport: "AI 통합 상태와 권장 설정 보고서를 생성합니다.",
         aiModelCommands: "모델 변경과 provider 설정에 필요한 명령어를 출력합니다.",
@@ -1056,11 +1034,7 @@ function page() {
         audit: "npm 의존성 취약점을 moderate 이상 기준으로 검사합니다.",
         hardening: "OWASP/GitHub 보안 하드닝 기준을 점검합니다.",
         targetAdvisory: "현재 프론트/백엔드 대상의 보안 헤더와 노출 상태를 점검합니다.",
-        completionAudit: "구현 완료도, 다국어, AI, 보안, GitHub 준비 상태를 종합적으로 점검합니다.",
-        githubReady: "GitHub Actions, secret, 권한, repo 보호 설정 준비 상태를 확인합니다.",
-        gateReady: "AIGate가 PR/푸시 전에 통과 가능한 상태인지 확인합니다.",
-        gitStatus: "현재 브랜치, 변경 파일, 원격 동기화 상태를 보여줍니다.",
-        ciSecurity: "로컬에서 CI 보안 파이프라인과 AIGate 검사를 실행합니다."
+        gitStatus: "현재 브랜치, 변경 파일, 원격 동기화 상태를 보여줍니다."
       },
       en: {
         catalog: "Regenerates the security check catalog.",
@@ -1071,9 +1045,8 @@ function page() {
         scan: "Runs a passive security scan inside the authorized scope.",
         dryRun: "Previews whether the scan command can run safely without saving results.",
         report: "Generates the latest HTML scan report and localizes it to the current language.",
-        gate: "Runs the AIGate quality and security gate.",
-        start: "Runs catalog, verify, plan, site map, report, and AIGate in order.",
-        ai: "Creates or updates the AIGate AI integration settings.",
+        start: "Runs catalog, docs, verify, plan, site map, target advisory, and report in order.",
+        ai: "Creates or updates AI integration settings.",
         aiDoctor: "Checks AI providers, keys, and local model connectivity.",
         aiReport: "Generates an AI integration status and recommendation report.",
         aiModelCommands: "Prints commands for model switching and provider settings.",
@@ -1081,11 +1054,7 @@ function page() {
         audit: "Checks npm dependency vulnerabilities at moderate severity or higher.",
         hardening: "Checks the OWASP/GitHub hardening baseline.",
         targetAdvisory: "Checks security headers and exposure on the current frontend/backend targets.",
-        completionAudit: "Audits completion status across i18n, AI, security, and GitHub readiness.",
-        githubReady: "Checks GitHub Actions, secrets, token permissions, and repository protection readiness.",
-        gateReady: "Checks whether AIGate is ready to pass before PR or push.",
-        gitStatus: "Shows the current branch, changed files, and remote sync state.",
-        ciSecurity: "Runs the local CI security pipeline and AIGate checks."
+        gitStatus: "Shows the current branch, changed files, and remote sync state."
       },
       ja: {
         catalog: "セキュリティチェックのカタログを再生成します。",
@@ -1096,9 +1065,8 @@ function page() {
         scan: "許可された範囲内でpassiveセキュリティスキャンを実行します。",
         dryRun: "結果を保存せず、スキャンコマンドが安全に動くか事前確認します。",
         report: "最新スキャン結果をHTMLレポートにし、現在の言語へ変換します。",
-        gate: "AIGateの品質/セキュリティゲートを実行します。",
-        start: "カタログ、検証、計画、サイトマップ、レポート、AIGateを順番に実行します。",
-        ai: "AIGateのAI統合設定を作成または更新します。",
+        start: "カタログ、文書、検証、計画、サイトマップ、対象診断、レポートを順番に実行します。",
+        ai: "AI統合設定を作成または更新します。",
         aiDoctor: "AIプロバイダー、キー、ローカルモデル接続を診断します。",
         aiReport: "AI統合状態と推奨設定のレポートを生成します。",
         aiModelCommands: "モデル変更とprovider設定に必要なコマンドを出力します。",
@@ -1106,11 +1074,7 @@ function page() {
         audit: "npm依存関係の脆弱性をmoderate以上で検査します。",
         hardening: "OWASP/GitHubのハードニング基準を確認します。",
         targetAdvisory: "現在のフロント/バックエンド対象のセキュリティヘッダーと露出を確認します。",
-        completionAudit: "多言語、AI、セキュリティ、GitHub準備状態を総合監査します。",
-        githubReady: "GitHub Actions、secret、権限、repo保護設定の準備状態を確認します。",
-        gateReady: "PR/プッシュ前にAIGateを通過できる状態か確認します。",
-        gitStatus: "現在のブランチ、変更ファイル、リモート同期状態を表示します。",
-        ciSecurity: "ローカルCIセキュリティパイプラインとAIGate検査を実行します。"
+        gitStatus: "現在のブランチ、変更ファイル、リモート同期状態を表示します。"
       },
       zh: {
         catalog: "重新生成安全检查目录。",
@@ -1121,9 +1085,8 @@ function page() {
         scan: "在授权范围内执行 passive 安全扫描。",
         dryRun: "不保存结果，预先确认扫描命令能否安全运行。",
         report: "生成最新 HTML 扫描报告，并转换为当前语言。",
-        gate: "运行 AIGate 质量和安全网关。",
-        start: "依次运行目录、验证、计划、站点图、报告和 AIGate。",
-        ai: "创建或更新 AIGate AI 集成设置。",
+        start: "依次运行目录、文档、验证、计划、站点图、目标检查和报告。",
+        ai: "创建或更新 AI 集成设置。",
         aiDoctor: "诊断 AI 提供方、密钥和本地模型连接状态。",
         aiReport: "生成 AI 集成状态和建议设置报告。",
         aiModelCommands: "输出模型切换和 provider 设置所需命令。",
@@ -1131,11 +1094,7 @@ function page() {
         audit: "按 moderate 及以上级别检查 npm 依赖漏洞。",
         hardening: "检查 OWASP/GitHub 安全加固基线。",
         targetAdvisory: "检查当前前端/后端目标的安全头和暴露状态。",
-        completionAudit: "综合审计多语言、AI、安全和 GitHub 准备状态。",
-        githubReady: "检查 GitHub Actions、secret、权限和 repo 保护设置准备状态。",
-        gateReady: "检查 PR/推送前 AIGate 是否可通过。",
-        gitStatus: "显示当前分支、变更文件和远程同步状态。",
-        ciSecurity: "运行本地 CI 安全流水线和 AIGate 检查。"
+        gitStatus: "显示当前分支、变更文件和远程同步状态。"
       }
     };
 
@@ -1425,7 +1384,7 @@ function page() {
           maxOutputTokens: runtimeSettings.response?.maxOutputTokens,
           allowNetwork: runtimeSettings.tools?.allowNetwork,
           preferLocal: runtimeSettings.cost?.preferLocalWhenAvailable,
-          minAigateScore: runtimeSettings.quality?.minAigateScore
+          pushGateScore: runtimeSettings.quality?.minAigateScore
         }
       }, null, 2);
       fillRuntimeControls(runtimeSettings);

@@ -117,8 +117,24 @@ function main() {
     checks,
     "web",
     "actions",
-    ["targetAdvisory", "githubReady", "aiProviderCheck", "ciSecurity"].every((needle) => webSource.includes(needle)),
-    "Web console includes target advisory, GitHub readiness, AI provider check, and CI security actions."
+    ["targetAdvisory", "aiProviderCheck", "gitStatus"].every((needle) => webSource.includes(needle)),
+    "Web console includes target advisory, AI provider check, and git status actions."
+  );
+  add(
+    checks,
+    "web",
+    "aigate_separation",
+    [
+      'data-action="gate"',
+      'data-action="gateReady"',
+      'data-action="githubReady"',
+      'data-action="ciSecurity"',
+      'data-action="completionAudit"',
+      '["aigate"',
+      "github-readiness.js",
+      "ci:security"
+    ].every((needle) => !webSource.includes(needle)),
+    "Web console leaves AIGate, GitHub readiness, and CI security checks to git/CI workflows."
   );
 
   add(
