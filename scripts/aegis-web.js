@@ -2,6 +2,7 @@ import { createServer } from "node:http";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { spawn, spawnSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { dirname, extname, resolve } from "node:path";
 import { AI_PROVIDER_IDS, buildAiModelReport, normalizeAiModelSettings, normalizeAiRuntimeSettings } from "./ai-models.js";
 
@@ -34,6 +35,29 @@ const actions = {
   gitStatus: ["git", ["status", "--short", "--branch"]],
   start: ["npm", ["run", "start:aegis"]]
 };
+
+const actionPipelines = {
+  start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report", "gate"],
+  ciSecurity: ["audit", "hardening", "catalog", "verify", "plan", "dryRun", "map", "targetAdvisory", "report", "gate", "completionAudit", "gateReady", "aiDoctor"]
+};
+
+const commandStepMarkers = [
+  { step: "catalog", pattern: /\$ aegis catalog generate/ },
+  { step: "docs", pattern: /\$ aegis docs generate/ },
+  { step: "verify", pattern: /\$ aegis scope verify/ },
+  { step: "plan", pattern: /\$ aegis plan/ },
+  { step: "map", pattern: /\$ aegis run .*--crawl true/ },
+  { step: "targetAdvisory", pattern: /\$ node \.\/scripts\/frontend-advisory\.js/ },
+  { step: "report", pattern: /\$ npm run security:report/ },
+  { step: "gate", pattern: /\$ aigate test/ },
+  { step: "audit", pattern: /> .* security:audit|npm audit/ },
+  { step: "hardening", pattern: /> .* security:hardening|security-hardening\.js/ },
+  { step: "completionAudit", pattern: /> .* completion:audit|completion-audit\.js/ },
+  { step: "gateReady", pattern: /aigate git-ready/ },
+  { step: "aiDoctor", pattern: /> .* ai:doctor|ai-doctor\.js/ }
+];
+
+const runJobs = new Map();
 
 const contentTypes = {
   ".html": "text/html; charset=utf-8",
@@ -361,26 +385,140 @@ async function saveAiSettings(payload) {
   };
 }
 
-function runAction(action) {
+function actionCommand(action) {
   const entry = actions[action];
   if (!entry) {
-    return Promise.resolve({ ok: false, code: 2, stdout: "", stderr: `Unknown action: ${action}` });
+    return null;
   }
+  return entry;
+}
+
+function makeJobSteps(action) {
+  const stepIds = actionPipelines[action] || [action];
+  return stepIds.map((id, index) => ({
+    id,
+    status: index === 0 ? "running" : "queued",
+    startedAt: index === 0 ? new Date().toISOString() : null,
+    endedAt: null
+  }));
+}
+
+function activateJobStep(job, stepId) {
+  const index = job.steps.findIndex((step) => step.id === stepId);
+  if (index < 0) return;
+  const now = new Date().toISOString();
+  for (const [stepIndex, step] of job.steps.entries()) {
+    if (stepIndex < index && step.status !== "done") {
+      step.status = "done";
+      step.endedAt ||= now;
+    } else if (stepIndex === index && step.status !== "running") {
+      step.status = "running";
+      step.startedAt ||= now;
+      step.endedAt = null;
+    }
+  }
+  job.updatedAt = now;
+}
+
+function finishJobSteps(job, ok) {
+  const now = new Date().toISOString();
+  const activeIndex = job.steps.findIndex((step) => step.status === "running");
+  const fallbackFailedIndex = !ok && activeIndex < 0 ? job.steps.length - 1 : activeIndex;
+  for (const [index, step] of job.steps.entries()) {
+    if (ok || index < fallbackFailedIndex || fallbackFailedIndex < 0) {
+      step.status = "done";
+      step.endedAt ||= now;
+    } else if (index === fallbackFailedIndex) {
+      step.status = "failed";
+      step.endedAt ||= now;
+    }
+  }
+}
+
+function appendJobOutput(job, stream, chunk) {
+  const text = chunk.toString();
+  job[stream] += text;
+  job.updatedAt = new Date().toISOString();
+  for (const marker of commandStepMarkers) {
+    if (marker.pattern.test(text)) {
+      activateJobStep(job, marker.step);
+    }
+  }
+}
+
+function serializeJob(job) {
+  const { child, ...safeJob } = job;
+  return safeJob;
+}
+
+function pruneJobs() {
+  const jobs = [...runJobs.values()].sort((a, b) => String(b.startedAt).localeCompare(String(a.startedAt)));
+  for (const job of jobs.slice(30)) {
+    if (job.status !== "running") runJobs.delete(job.id);
+  }
+}
+
+function createRunJob(action) {
+  const entry = actionCommand(action);
+  if (!entry) {
+    return {
+      id: randomUUID(),
+      action,
+      status: "failed",
+      ok: false,
+      code: 2,
+      command: action,
+      stdout: "",
+      stderr: `Unknown action: ${action}`,
+      steps: [],
+      startedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString()
+    };
+  }
+
   const [command, args] = entry;
-  return new Promise((resolveRun) => {
-    const child = spawn(command, args, { cwd, env: process.env });
-    let stdout = "";
-    let stderr = "";
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("close", (code) => {
-      resolveRun({ ok: code === 0, code, stdout, stderr, action, command: [command, ...args].join(" ") });
-    });
+  const now = new Date().toISOString();
+  const job = {
+    id: randomUUID(),
+    action,
+    status: "running",
+    ok: null,
+    code: null,
+    command: [command, ...args].join(" "),
+    stdout: "",
+    stderr: "",
+    steps: makeJobSteps(action),
+    startedAt: now,
+    updatedAt: now,
+    endedAt: null,
+    child: null
+  };
+  runJobs.set(job.id, job);
+  pruneJobs();
+
+  const child = spawn(command, args, { cwd, env: process.env });
+  job.child = child;
+  child.stdout.on("data", (chunk) => appendJobOutput(job, "stdout", chunk));
+  child.stderr.on("data", (chunk) => appendJobOutput(job, "stderr", chunk));
+  child.on("error", (error) => {
+    job.status = "failed";
+    job.ok = false;
+    job.code = 1;
+    job.stderr += `\n${error.message}`;
+    job.updatedAt = new Date().toISOString();
+    job.endedAt = job.updatedAt;
+    finishJobSteps(job, false);
   });
+  child.on("close", (code) => {
+    job.status = code === 0 ? "passed" : "failed";
+    job.ok = code === 0;
+    job.code = code;
+    job.updatedAt = new Date().toISOString();
+    job.endedAt = job.updatedAt;
+    finishJobSteps(job, code === 0);
+  });
+  return serializeJob(job);
 }
 
 function page() {
@@ -392,47 +530,84 @@ function page() {
   <title>Privit Aegis Console</title>
   <style>
     :root {
-      --bg: #f5f7fa;
+      --bg: #f7f8fa;
       --panel: #ffffff;
-      --text: #172033;
-      --muted: #607086;
-      --line: #d8e0ea;
-      --accent: #2563eb;
-      --ok: #15805f;
-      --warn: #b7791f;
-      --danger: #c2410c;
-      --ink: #0f172a;
-      --side: #111827;
+      --text: #191f28;
+      --muted: #6b7684;
+      --subtle: #8b95a1;
+      --line: #e5e8eb;
+      --soft-line: #f2f4f6;
+      --accent: #3182f6;
+      --accent-weak: #e8f3ff;
+      --ok: #008768;
+      --ok-weak: #e6f7f2;
+      --warn: #b56b00;
+      --warn-weak: #fff3dc;
+      --danger: #d92d20;
+      --danger-weak: #fff0ee;
+      --ink: #191f28;
+      --side: #ffffff;
+      --shadow: 0 8px 24px rgba(25, 31, 40, 0.06);
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     button, input, select { font: inherit; }
-    .shell { display: grid; grid-template-columns: 260px minmax(0, 1fr); min-height: 100vh; }
-    aside { background: var(--side); color: #e5edf7; padding: 22px 18px; }
+    .shell { display: grid; grid-template-columns: 248px minmax(0, 1fr); min-height: 100vh; }
+    aside { background: var(--side); color: var(--text); padding: 22px 18px; border-right: 1px solid var(--line); }
     .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
-    .mark { width: 42px; height: 42px; border-radius: 8px; background: #2563eb; display: grid; place-items: center; color: #eff6ff; font-weight: 900; }
+    .mark { width: 42px; height: 42px; border-radius: 8px; background: var(--accent); display: grid; place-items: center; color: #ffffff; font-weight: 900; }
     .brand strong { display: block; font-size: 18px; }
-    .brand span { color: #9fb0c7; font-size: 12px; }
+    .brand span { color: var(--muted); font-size: 12px; }
     nav { display: grid; gap: 8px; }
-    nav button { width: 100%; border: 0; background: transparent; color: #cbd5e1; text-align: left; padding: 10px 12px; border-radius: 7px; cursor: pointer; }
-    nav button.active, nav button:hover { background: #253044; color: #ffffff; }
-    main { padding: 22px; min-width: 0; }
+    nav button { width: 100%; border: 0; background: transparent; color: var(--muted); text-align: left; padding: 10px 12px; border-radius: 7px; cursor: pointer; font-weight: 800; }
+    nav button.active, nav button:hover { background: var(--accent-weak); color: var(--accent); }
+    main { padding: 24px; min-width: 0; }
     header { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }
     h1 { margin: 0; font-size: 24px; line-height: 1.2; letter-spacing: 0; }
     h2 { margin: 0 0 12px; font-size: 17px; letter-spacing: 0; }
     h3 { margin: 0 0 10px; font-size: 14px; letter-spacing: 0; }
     p { margin: 0; }
     .muted { color: var(--muted); font-size: 13px; }
+    .eyebrow { color: var(--accent); font-size: 12px; font-weight: 900; text-transform: uppercase; }
     .topbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-    .status { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 12px; font-weight: 700; font-size: 13px; }
+    .status { border: 1px solid var(--line); background: var(--panel); border-radius: 999px; padding: 7px 12px; font-weight: 800; font-size: 13px; }
+    .status.ok { color: var(--ok); background: var(--ok-weak); border-color: var(--ok-weak); }
+    .status.warn { color: var(--warn); background: var(--warn-weak); border-color: var(--warn-weak); }
+    .status.danger { color: var(--danger); background: var(--danger-weak); border-color: var(--danger-weak); }
     .language { width: auto; min-width: 132px; padding: 7px 10px; border-radius: 999px; }
-    .grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-    .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04); }
-    .card { padding: 14px; min-width: 0; }
+    .home-grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(340px, 0.65fr); gap: 16px; align-items: start; }
+    .metric-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+    .card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); }
+    .card { padding: 15px; min-width: 0; }
     .card span { color: var(--muted); font-size: 12px; text-transform: uppercase; }
     .card strong { display: block; font-size: 25px; margin-top: 4px; overflow-wrap: anywhere; }
     .layout { display: grid; grid-template-columns: minmax(340px, 440px) minmax(0, 1fr); gap: 14px; align-items: start; }
     .panel { padding: 16px; margin-bottom: 14px; }
+    .run-panel { padding: 22px; display: grid; gap: 18px; }
+    .section-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    .section-heading h2 { margin: 3px 0 6px; font-size: 22px; }
+    .summary-list { display: grid; gap: 10px; }
+    .summary-row { display: flex; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px solid var(--soft-line); }
+    .summary-row:last-child { border-bottom: 0; }
+    .summary-row span { color: var(--muted); font-size: 13px; }
+    .summary-row strong { font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+    .progress-shell { display: grid; gap: 12px; }
+    .progress-meta { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .progress-meta span { color: var(--muted); font-size: 13px; font-weight: 800; }
+    .progress-meta strong { color: var(--accent); font-size: 18px; }
+    .progress-bar { height: 10px; border-radius: 999px; background: var(--soft-line); overflow: hidden; }
+    .progress-fill { width: 0%; height: 100%; border-radius: inherit; background: var(--accent); transition: width 180ms ease; }
+    .progress-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; list-style: none; margin: 0; padding: 0; }
+    .progress-step { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 8px; padding: 9px; background: #ffffff; }
+    .step-dot { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: var(--soft-line); color: var(--muted); font-size: 12px; font-weight: 900; }
+    .progress-step strong { display: block; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .progress-step span { display: block; color: var(--muted); font-size: 12px; }
+    .progress-step.running { border-color: var(--accent); background: var(--accent-weak); }
+    .progress-step.running .step-dot { background: var(--accent); color: #ffffff; }
+    .progress-step.done .step-dot { background: var(--ok); color: #ffffff; }
+    .progress-step.failed { border-color: var(--danger); background: var(--danger-weak); }
+    .progress-step.failed .step-dot { background: var(--danger); color: #ffffff; }
+    .live-log { min-height: 260px; max-height: 420px; }
     form { display: grid; gap: 12px; }
     label { display: grid; gap: 5px; font-weight: 700; font-size: 13px; }
     input, select { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 10px 11px; color: var(--text); background: #ffffff; }
@@ -443,9 +618,13 @@ function page() {
     .switch { display: flex; align-items: center; gap: 8px; font-weight: 700; }
     .switch input { width: auto; }
     .actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .action-list { grid-template-columns: 1fr; }
+    .quick-actions { display: grid; gap: 10px; }
     .actions button, .primary { border: 0; border-radius: 7px; padding: 10px 11px; cursor: pointer; background: #e8eef8; color: var(--ink); font-weight: 800; min-height: 42px; }
     .actions button { position: relative; }
+    .actions button span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; margin-top: 2px; }
     .primary { background: var(--accent); color: #ffffff; }
+    button:disabled { cursor: wait; opacity: 0.58; }
     .actions button:hover, .primary:hover { filter: brightness(0.97); }
     .actions button[data-tooltip]:hover, .actions button[data-tooltip]:focus-visible { z-index: 30; }
     .actions button[data-tooltip]::before,
@@ -480,7 +659,9 @@ function page() {
     .warn { color: var(--warn); }
     .danger { color: var(--danger); }
     @media (max-width: 1120px) {
-      .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .home-grid { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .progress-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 980px) {
       .shell, .layout, .runtime-grid, .runtime-switches { grid-template-columns: 1fr; }
@@ -491,7 +672,8 @@ function page() {
       main { padding: 14px; }
       header { align-items: flex-start; flex-direction: column; }
       .topbar { justify-content: flex-start; }
-      .grid, .row, .actions, .line-item { grid-template-columns: 1fr; }
+      .metric-grid, .progress-steps, .row, .actions, .line-item { grid-template-columns: 1fr; }
+      .section-heading { display: grid; }
       .report-frame { min-height: 640px; }
     }
   </style>
@@ -517,7 +699,7 @@ function page() {
       <header>
         <div>
           <h1 data-i18n="title">Privit Aegis Console</h1>
-          <p class="muted" id="subtitle">Loading</p>
+          <p class="muted" id="subtitle">privit / local</p>
         </div>
         <div class="topbar">
           <select id="language-select" class="language" aria-label="Language">
@@ -531,33 +713,53 @@ function page() {
       </header>
 
       <section id="dashboard-view">
-        <div class="grid">
-          <div class="card"><span data-i18n="metricCatalog">Catalog</span><strong id="catalog-count">0</strong></div>
-          <div class="card"><span data-i18n="metricFindings">Findings</span><strong id="finding-count">0</strong></div>
-          <div class="card"><span data-i18n="metricRoutes">Routes</span><strong id="route-count">0</strong></div>
-          <div class="card"><span data-i18n="metricForms">Forms</span><strong id="form-count">0</strong></div>
-          <div class="card"><span data-i18n="metricAuth">Auth</span><strong id="auth-count">0</strong></div>
-          <div class="card"><span data-i18n="metricAi">AI</span><strong id="ai-count">0/3</strong></div>
-        </div>
-        <div class="layout">
-          <div class="panel">
-            <h2 data-i18n="actions">Actions</h2>
-            <div class="actions">
-              <button data-action="catalog" data-i18n="actionCatalog">Catalog</button>
-              <button data-action="docs" data-i18n="actionDocs">Docs</button>
-              <button data-action="verify" data-i18n="actionVerify">Verify</button>
-              <button data-action="plan" data-i18n="actionPlan">Plan</button>
-              <button data-action="map" data-i18n="actionMap">Map</button>
-              <button data-action="scan" data-i18n="actionScan">Scan</button>
-              <button data-action="dryRun" data-i18n="actionDryRun">Dry Run</button>
-              <button data-action="report" data-i18n="actionReport">Report</button>
-              <button data-action="gate" data-i18n="actionGate">AIGate</button>
-              <button class="primary" data-action="start" data-i18n="actionStart">Start All</button>
+        <div class="home-grid">
+          <div>
+            <div class="panel run-panel">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow" data-i18n="runCenter">Run Center</span>
+                  <h2 data-i18n="runTitle">Authorized security workflow</h2>
+                  <p class="muted" data-i18n="runSubtitle">Run the safe Aegis flow and watch each step as it executes.</p>
+                </div>
+                <button class="primary" data-action="start" data-i18n="actionStart">Start All</button>
+              </div>
+              <div class="progress-shell">
+                <div class="progress-meta">
+                  <span id="progress-title" data-i18n="readyToRun">Ready to run</span>
+                  <strong id="progress-percent">0%</strong>
+                </div>
+                <div class="progress-bar"><div id="progress-fill" class="progress-fill"></div></div>
+                <ol id="progress-steps" class="progress-steps"></ol>
+              </div>
+            </div>
+            <div class="metric-grid">
+              <div class="card"><span data-i18n="metricCatalog">Catalog</span><strong id="catalog-count">0</strong></div>
+              <div class="card"><span data-i18n="metricFindings">Findings</span><strong id="finding-count">0</strong></div>
+              <div class="card"><span data-i18n="metricRoutes">Routes</span><strong id="route-count">0</strong></div>
+              <div class="card"><span data-i18n="metricForms">Forms</span><strong id="form-count">0</strong></div>
+              <div class="card"><span data-i18n="metricAuth">Auth</span><strong id="auth-count">0</strong></div>
+              <div class="card"><span data-i18n="metricAi">AI</span><strong id="ai-count">0/3</strong></div>
             </div>
           </div>
-          <div class="panel">
-            <h2 data-i18n="latestRun">Latest Run</h2>
-            <pre id="latest-summary">No run yet.</pre>
+          <div>
+            <div class="panel quick-actions">
+              <h2 data-i18n="quickActions">Quick Actions</h2>
+              <div class="actions action-list">
+                <button data-action="map" data-i18n="actionMap">Map</button>
+                <button data-action="scan" data-i18n="actionScan">Scan</button>
+                <button data-action="report" data-i18n="actionReport">Report</button>
+                <button data-action="gate" data-i18n="actionGate">AIGate</button>
+              </div>
+            </div>
+            <div class="panel">
+              <h2 data-i18n="latestRun">Latest Run</h2>
+              <div id="latest-summary" class="summary-list"></div>
+            </div>
+            <div class="panel">
+              <h2 data-i18n="liveLog">Live Log</h2>
+              <pre id="live-output" class="live-log" data-i18n="noActiveRun">No active run.</pre>
+            </div>
           </div>
         </div>
       </section>
@@ -744,6 +946,40 @@ function page() {
     const languageSelect = document.querySelector("#language-select");
     let currentState = null;
     let language = localStorage.getItem("aegis.language") || "ko";
+    let activeJob = null;
+    let activeJobId = null;
+    let runPollTimer = null;
+
+    const clientActionPipelines = {
+      start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report", "gate"],
+      ciSecurity: ["audit", "hardening", "catalog", "verify", "plan", "dryRun", "map", "targetAdvisory", "report", "gate", "completionAudit", "gateReady", "aiDoctor"]
+    };
+
+    const actionLabelKeys = {
+      catalog: "actionCatalog",
+      docs: "actionDocs",
+      verify: "actionVerify",
+      plan: "actionPlan",
+      map: "actionMap",
+      scan: "actionScan",
+      dryRun: "actionDryRun",
+      report: "actionReport",
+      gate: "actionGate",
+      start: "actionStart",
+      ai: "actionAiSetup",
+      aiDoctor: "actionAiDoctor",
+      aiReport: "actionAiReport",
+      aiModelCommands: "actionAiModelCommands",
+      aiProviderCheck: "actionAiProviderCheck",
+      audit: "actionAudit",
+      hardening: "actionHardening",
+      targetAdvisory: "actionTargetAdvisory",
+      completionAudit: "actionCompletionAudit",
+      githubReady: "actionGithubReady",
+      gateReady: "actionGateReady",
+      gitStatus: "actionGitStatus",
+      ciSecurity: "actionCiSecurity"
+    };
 
     const messages = {
       ko: {
@@ -756,6 +992,7 @@ function page() {
         aiProfile: "프로필", aiLocale: "언어", aiTemperature: "온도", aiTopP: "Top P", aiMaxOutputTokens: "최대 출력 토큰", aiMaxInputTokens: "최대 입력 토큰", aiFileBudgetTokens: "파일 토큰 예산", aiOutputFormat: "출력 형식", aiMaxTurns: "최대 턴", aiTimeoutMs: "타임아웃 ms", aiParallelism: "병렬성", aiBudgetPerRun: "실행당 예산", aiDailyBudget: "일일 예산", aiMinAigateScore: "최소 AIGate 점수", aiMemoryMode: "메모리 모드", aiHandoffLanguage: "전달 언어", aiAllowNetwork: "네트워크", aiAllowPackageInstall: "패키지 설치", aiPreferLocal: "로컬 우선", aiPromptGuard: "프롬프트 방어", aiRedactSecrets: "시크릿 마스킹", aiStorePrompts: "프롬프트 저장", aiStoreResponses: "응답 저장", aiRequireTests: "테스트 필수", aiAdvancedJson: "고급 JSON",
         model: "모델", providerType: "유형", enabledProvider: "사용", endpoint: "API/로컬 엔드포인트", healthUrl: "헬스 URL", apiStyle: "API 방식", apiKeyEnv: "키 환경변수", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자", disabled: "비활성", check: "확인 필요",
         updates: "업데이트", actionAudit: "npm audit", actionHardening: "하드닝 검사", actionTargetAdvisory: "대상 점검", actionCompletionAudit: "완료 감사", actionGithubReady: "GitHub 준비", actionGateReady: "Gate Ready", actionGitStatus: "Git 상태", actionCiSecurity: "CI 보안", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
+        runCenter: "Run Center", runTitle: "승인된 보안 워크플로", runSubtitle: "안전한 Aegis 흐름을 실행하고 각 단계를 실시간으로 확인합니다.", quickActions: "빠른 작업", liveLog: "실시간 로그", noActiveRun: "실행 중인 작업이 없습니다.", readyToRun: "실행 준비 완료", currentStep: "현재 단계", queued: "대기", progressRunning: "진행 중", progressDone: "완료", progressFailed: "실패", elapsed: "경과", latestScan: "최근 스캔", scanTarget: "대상/모드", discoverySummary: "탐색 결과", targetAdvisorySummary: "대상 점검",
         ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
       },
       en: {
@@ -768,6 +1005,7 @@ function page() {
         aiProfile: "Profile", aiLocale: "Locale", aiTemperature: "Temperature", aiTopP: "Top P", aiMaxOutputTokens: "Max Output Tokens", aiMaxInputTokens: "Max Input Tokens", aiFileBudgetTokens: "File Budget Tokens", aiOutputFormat: "Output Format", aiMaxTurns: "Max Turns", aiTimeoutMs: "Timeout Ms", aiParallelism: "Parallelism", aiBudgetPerRun: "Budget / Run", aiDailyBudget: "Daily Budget", aiMinAigateScore: "Min AIGate Score", aiMemoryMode: "Memory Mode", aiHandoffLanguage: "Handoff Language", aiAllowNetwork: "Network", aiAllowPackageInstall: "Package Install", aiPreferLocal: "Prefer Local", aiPromptGuard: "Prompt Guard", aiRedactSecrets: "Redact Secrets", aiStorePrompts: "Store Prompts", aiStoreResponses: "Store Responses", aiRequireTests: "Require Tests", aiAdvancedJson: "Advanced JSON",
         model: "Model", providerType: "Type", enabledProvider: "Enabled", endpoint: "API/Local Endpoint", healthUrl: "Health URL", apiStyle: "API Style", apiKeyEnv: "Key Env", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args", disabled: "Disabled", check: "Check",
         updates: "Updates", actionAudit: "npm audit", actionHardening: "Hardening", actionTargetAdvisory: "Target Advisory", actionCompletionAudit: "Completion Audit", actionGithubReady: "GitHub Ready", actionGateReady: "Gate Ready", actionGitStatus: "Git Status", actionCiSecurity: "CI Security", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
+        runCenter: "Run Center", runTitle: "Authorized security workflow", runSubtitle: "Run the safe Aegis flow and watch each step as it executes.", quickActions: "Quick Actions", liveLog: "Live Log", noActiveRun: "No active run.", readyToRun: "Ready to run", currentStep: "Current step", queued: "Queued", progressRunning: "Running", progressDone: "Done", progressFailed: "Failed", elapsed: "Elapsed", latestScan: "Latest scan", scanTarget: "Target / mode", discoverySummary: "Discovery", targetAdvisorySummary: "Target advisory",
         ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
       },
       ja: {
@@ -780,6 +1018,7 @@ function page() {
         aiProfile: "プロファイル", aiLocale: "ロケール", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大出力トークン", aiMaxInputTokens: "最大入力トークン", aiFileBudgetTokens: "ファイルトークン予算", aiOutputFormat: "出力形式", aiMaxTurns: "最大ターン", aiTimeoutMs: "タイムアウト ms", aiParallelism: "並列数", aiBudgetPerRun: "実行予算", aiDailyBudget: "日次予算", aiMinAigateScore: "最小AIGateスコア", aiMemoryMode: "メモリモード", aiHandoffLanguage: "引き継ぎ言語", aiAllowNetwork: "ネットワーク", aiAllowPackageInstall: "パッケージ導入", aiPreferLocal: "ローカル優先", aiPromptGuard: "プロンプト防御", aiRedactSecrets: "秘密マスク", aiStorePrompts: "プロンプト保存", aiStoreResponses: "応答保存", aiRequireTests: "テスト必須", aiAdvancedJson: "詳細JSON",
         model: "モデル", providerType: "種類", enabledProvider: "有効", endpoint: "API/ローカルエンドポイント", healthUrl: "ヘルスURL", apiStyle: "API方式", apiKeyEnv: "キー環境変数", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数", disabled: "無効", check: "確認",
         updates: "更新", actionAudit: "npm audit", actionHardening: "ハードニング診断", actionTargetAdvisory: "対象診断", actionCompletionAudit: "完了監査", actionGithubReady: "GitHub準備", actionGateReady: "Gate Ready", actionGitStatus: "Git状態", actionCiSecurity: "CIセキュリティ", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
+        runCenter: "Run Center", runTitle: "承認済みセキュリティワークフロー", runSubtitle: "安全なAegisフローを実行し、各ステップをリアルタイムで確認します。", quickActions: "クイック操作", liveLog: "ライブログ", noActiveRun: "実行中の作業はありません。", readyToRun: "実行準備完了", currentStep: "現在のステップ", queued: "待機", progressRunning: "実行中", progressDone: "完了", progressFailed: "失敗", elapsed: "経過", latestScan: "最新スキャン", scanTarget: "対象/モード", discoverySummary: "探索結果", targetAdvisorySummary: "対象診断",
         ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
       },
       zh: {
@@ -792,6 +1031,7 @@ function page() {
         aiProfile: "配置", aiLocale: "语言", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大输出令牌", aiMaxInputTokens: "最大输入令牌", aiFileBudgetTokens: "文件令牌预算", aiOutputFormat: "输出格式", aiMaxTurns: "最大轮次", aiTimeoutMs: "超时 ms", aiParallelism: "并行数", aiBudgetPerRun: "单次预算", aiDailyBudget: "每日预算", aiMinAigateScore: "最低 AIGate 分数", aiMemoryMode: "记忆模式", aiHandoffLanguage: "交接语言", aiAllowNetwork: "网络", aiAllowPackageInstall: "包安装", aiPreferLocal: "优先本地", aiPromptGuard: "提示防护", aiRedactSecrets: "密钥脱敏", aiStorePrompts: "保存提示", aiStoreResponses: "保存响应", aiRequireTests: "要求测试", aiAdvancedJson: "高级 JSON",
         model: "模型", providerType: "类型", enabledProvider: "启用", endpoint: "API/本地端点", healthUrl: "健康 URL", apiStyle: "API 样式", apiKeyEnv: "密钥环境变量", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数", disabled: "已禁用", check: "需检查",
         updates: "更新", actionAudit: "npm audit", actionHardening: "加固检查", actionTargetAdvisory: "目标检查", actionCompletionAudit: "完成审计", actionGithubReady: "GitHub 就绪", actionGateReady: "Gate Ready", actionGitStatus: "Git 状态", actionCiSecurity: "CI 安全", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
+        runCenter: "Run Center", runTitle: "已授权安全工作流", runSubtitle: "运行安全的 Aegis 流程，并实时查看每个步骤。", quickActions: "快捷操作", liveLog: "实时日志", noActiveRun: "没有正在运行的任务。", readyToRun: "准备运行", currentStep: "当前步骤", queued: "排队", progressRunning: "运行中", progressDone: "完成", progressFailed: "失败", elapsed: "用时", latestScan: "最近扫描", scanTarget: "目标/模式", discoverySummary: "发现结果", targetAdvisorySummary: "目标检查",
         ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
       }
     };
@@ -907,6 +1147,73 @@ function page() {
       return actionDescriptions[language]?.[action] || actionDescriptions.en[action] || "";
     }
 
+    function actionLabel(action) {
+      return t(actionLabelKeys[action] || action) || action;
+    }
+
+    function progressStatusLabel(status) {
+      if (status === "running") return t("progressRunning");
+      if (status === "done") return t("progressDone");
+      if (status === "failed") return t("progressFailed");
+      return t("queued");
+    }
+
+    function formatElapsed(startedAt, endedAt) {
+      if (!startedAt) return "0s";
+      const end = endedAt ? Date.parse(endedAt) : Date.now();
+      const elapsed = Math.max(0, Math.round((end - Date.parse(startedAt)) / 1000));
+      const minutes = Math.floor(elapsed / 60);
+      const seconds = elapsed % 60;
+      return minutes ? minutes + "m " + seconds + "s" : seconds + "s";
+    }
+
+    function formatJobOutput(job) {
+      if (!job) return t("noActiveRun");
+      const output = "$ " + (job.command || job.action || "") + "\\n\\n" + (job.stdout || "") + (job.stderr ? "\\n[stderr]\\n" + job.stderr : "");
+      return output.trim() || t("noActiveRun");
+    }
+
+    function fallbackSteps(action = "start") {
+      return (clientActionPipelines[action] || [action]).map((id) => ({ id, status: "queued" }));
+    }
+
+    function renderProgress(job = activeJob) {
+      const steps = job?.steps?.length ? job.steps : fallbackSteps(job?.action || "start");
+      const doneCount = steps.filter((step) => step.status === "done").length;
+      const failed = steps.some((step) => step.status === "failed") || job?.status === "failed";
+      const running = steps.find((step) => step.status === "running");
+      const percent = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+      const title = job
+        ? failed
+          ? t("failed") + " · " + actionLabel(job.action)
+          : job.status === "passed"
+            ? t("passed") + " · " + actionLabel(job.action)
+            : t("currentStep") + " · " + actionLabel(running?.id || job.action)
+        : t("readyToRun");
+
+      document.querySelector("#progress-title").textContent = title + (job ? " · " + t("elapsed") + " " + formatElapsed(job.startedAt, job.endedAt) : "");
+      document.querySelector("#progress-percent").textContent = (job?.status === "passed" ? 100 : percent) + "%";
+      document.querySelector("#progress-fill").style.width = (job?.status === "passed" ? 100 : percent) + "%";
+      document.querySelector("#progress-steps").innerHTML = steps.map((step, index) => \`
+        <li class="progress-step \${escapeHtml(step.status || "queued")}">
+          <span class="step-dot">\${step.status === "done" ? "✓" : step.status === "failed" ? "!" : index + 1}</span>
+          <span>
+            <strong>\${escapeHtml(actionLabel(step.id))}</strong>
+            <span>\${escapeHtml(progressStatusLabel(step.status || "queued"))}</span>
+          </span>
+        </li>
+      \`).join("");
+      const output = formatJobOutput(job);
+      document.querySelector("#live-output").textContent = output;
+      document.querySelector("#log-output").textContent = output;
+    }
+
+    function setActionButtonsDisabled(disabled) {
+      for (const button of document.querySelectorAll("[data-action]")) {
+        button.disabled = disabled;
+      }
+    }
+
     function escapeHtml(value) {
       return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -929,7 +1236,13 @@ function page() {
         button.title = description;
         button.setAttribute("aria-label", label ? label + ": " + description : description);
       }
-      setStatus(currentState?.reportExists ? t("reportReady") : t("ready"), currentState?.reportExists ? "ok" : "");
+      renderProgress(activeJob);
+      if (currentState) renderLatestSummary(currentState);
+      if (activeJob?.status === "running") {
+        setStatus(t("running") + " " + actionLabel(activeJob.action), "warn");
+      } else {
+        setStatus(currentState?.reportExists ? t("reportReady") : t("ready"), currentState?.reportExists ? "ok" : "");
+      }
     }
 
     function resizeReportFrame() {
@@ -1164,37 +1477,42 @@ function page() {
       \`).join("") : '<tr><td colspan="4" class="muted">No routes</td></tr>';
     }
 
+    function summaryRow(label, value) {
+      return \`<div class="summary-row"><span>\${escapeHtml(label)}</span><strong>\${escapeHtml(value)}</strong></div>\`;
+    }
+
+    function renderLatestSummary(data) {
+      const scan = data?.latestScan || {};
+      const discovery = scan.discovery || {};
+      const targetAdvisory = data?.targetAdvisory || {};
+      document.querySelector("#latest-summary").innerHTML = [
+        summaryRow(t("latestScan"), scan.scan_id || "not run"),
+        summaryRow(t("scanTarget"), [scan.target || "frontend", scan.mode || "passive"].join(" / ")),
+        summaryRow(t("metricFindings"), String((data?.findings || []).length)),
+        summaryRow(t("discoverySummary"), [
+          (discovery.routes?.length || 0) + " routes",
+          (discovery.forms?.length || 0) + " forms",
+          (discovery.auth_surfaces?.length || 0) + " auth"
+        ].join(" / ")),
+        summaryRow(t("targetAdvisorySummary"), [
+          targetAdvisory.status || "not run",
+          (targetAdvisory.summary?.warnings || 0) + " warnings"
+        ].join(" / "))
+      ].join("");
+    }
+
     function renderState(data) {
       currentState = data;
       const scope = data.scope || {};
       const scan = data.latestScan || {};
       const discovery = scan.discovery || {};
-      const targetAdvisory = data.targetAdvisory || {};
       document.querySelector("#subtitle").textContent = [scope.project || "privit", scope.environment || "local", scope.targets?.frontend?.base_url || ""].filter(Boolean).join(" / ");
       document.querySelector("#catalog-count").textContent = data.catalogCount || 0;
       document.querySelector("#finding-count").textContent = (data.findings || []).length;
       document.querySelector("#route-count").textContent = discovery.routes?.length || 0;
       document.querySelector("#form-count").textContent = discovery.forms?.length || 0;
       document.querySelector("#auth-count").textContent = discovery.auth_surfaces?.length || 0;
-      document.querySelector("#latest-summary").textContent = JSON.stringify({
-        scan_id: scan.scan_id || "not run",
-        target: scan.target || "frontend",
-        mode: scan.mode || "passive",
-        selected_checks: scan.selected_check_count || 0,
-        executed_checks: scan.executed_check_count || 0,
-        findings: (data.findings || []).length,
-        discovery: {
-          routes: discovery.routes?.length || 0,
-          forms: discovery.forms?.length || 0,
-          auth_surfaces: discovery.auth_surfaces?.length || 0,
-          blocked_urls: discovery.blocked_urls?.length || 0
-        },
-        target_advisory: {
-          status: targetAdvisory.status || "not run",
-          checked: targetAdvisory.summary?.targets || 0,
-          warnings: targetAdvisory.summary?.warnings || 0
-        }
-      }, null, 2);
+      renderLatestSummary(data);
       document.querySelector("#repo-summary").textContent = JSON.stringify({
         engine_repo: data.repoRoles?.engine,
         workspace_repo: data.repoRoles?.workspace,
@@ -1215,18 +1533,64 @@ function page() {
       renderState(await res.json());
     }
 
-    async function run(action) {
-      setStatus(t("running") + " " + action, "warn");
-      const res = await fetch("/api/action", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action })
-      });
+    async function pollJob(id) {
+      const res = await fetch("/api/action/" + encodeURIComponent(id));
+      if (!res.ok) {
+        setStatus("job_not_found", "danger");
+        setActionButtonsDisabled(false);
+        return;
+      }
       const data = await res.json();
-      document.querySelector("#log-output").textContent = "$ " + (data.command || action) + "\\n\\n" + (data.stdout || "") + (data.stderr ? "\\n[stderr]\\n" + data.stderr : "");
+      if (activeJobId !== id) return;
+      activeJob = data;
+      renderProgress(data);
+      if (data.status === "running") {
+        setStatus(t("running") + " " + actionLabel(data.action), "warn");
+        runPollTimer = setTimeout(() => pollJob(id), 1000);
+        return;
+      }
+      runPollTimer = null;
       setStatus(data.ok ? t("passed") : t("failed"), data.ok ? "ok" : "danger");
+      setActionButtonsDisabled(false);
       await refresh();
-      if (["report", "start", "scan", "map"].includes(action)) loadReportFrame();
+      if (["report", "start", "scan", "map"].includes(data.action)) loadReportFrame();
+    }
+
+    async function run(action) {
+      if (runPollTimer) clearTimeout(runPollTimer);
+      setActionButtonsDisabled(true);
+      setStatus(t("running") + " " + actionLabel(action), "warn");
+      activeJob = {
+        action,
+        status: "running",
+        command: action,
+        stdout: "",
+        stderr: "",
+        steps: fallbackSteps(action),
+        startedAt: new Date().toISOString(),
+        endedAt: null
+      };
+      renderProgress(activeJob);
+      try {
+        const res = await fetch("/api/action", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ action })
+        });
+        const data = await res.json();
+        activeJob = data;
+        activeJobId = data.id;
+        renderProgress(data);
+        if (data.status === "running") {
+          runPollTimer = setTimeout(() => pollJob(data.id), 700);
+        } else {
+          setStatus(data.ok ? t("passed") : t("failed"), data.ok ? "ok" : "danger");
+          setActionButtonsDisabled(false);
+        }
+      } catch (error) {
+        setStatus(error.message, "danger");
+        setActionButtonsDisabled(false);
+      }
     }
 
     async function saveScope() {
@@ -1297,7 +1661,13 @@ async function handle(req, res) {
     if (req.method === "POST" && url.pathname === "/api/ai-settings") return json(res, 200, await saveAiSettings(await readRequest(req)));
     if (req.method === "POST" && url.pathname === "/api/action") {
       const body = await readRequest(req);
-      return json(res, 200, await runAction(body.action));
+      return json(res, 202, createRunJob(body.action));
+    }
+    if (req.method === "GET" && url.pathname.startsWith("/api/action/")) {
+      const id = decodeURIComponent(url.pathname.replace("/api/action/", ""));
+      const job = runJobs.get(id);
+      if (!job) return json(res, 404, { error: "job_not_found" });
+      return json(res, 200, serializeJob(job));
     }
     if (req.method === "GET" && url.pathname === "/report") {
       const file = resolve(cwd, ".aegis/reports/aegis-report.html");
