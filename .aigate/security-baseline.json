@@ -19,6 +19,26 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/"
     },
     {
+      "name": "OWASP WSTG Fingerprint Web Server",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/02-Fingerprint_Web_Server"
+    },
+    {
+      "name": "OWASP WSTG Review Webserver Metafiles for Information Leakage",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/01-Information_Gathering/03-Review_Webserver_Metafiles_for_Information_Leakage"
+    },
+    {
+      "name": "OWASP WSTG Testing for Improper Error Handling",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/v42/4-Web_Application_Security_Testing/08-Testing_for_Error_Handling/01-Testing_For_Improper_Error_Handling"
+    },
+    {
+      "name": "OWASP WSTG Testing for Weak Transport Layer Security",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/01-Testing_for_Weak_Transport_Layer_Security"
+    },
+    {
+      "name": "OWASP Transport Layer Security Cheat Sheet",
+      "url": "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html"
+    },
+    {
       "name": "OWASP WSTG Testing Cross Origin Resource Sharing",
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/11-Client-side_Testing/07-Testing_Cross_Origin_Resource_Sharing"
     },
@@ -91,7 +111,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 80,
+      "maxProbeRequests": 100,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -125,6 +145,16 @@
         "/health",
         "/server-status",
         "/_next/webpack-hmr"
+      ],
+      "metafiles": [
+        "/robots.txt",
+        "/sitemap.xml",
+        "/.well-known/security.txt",
+        "/crossdomain.xml",
+        "/clientaccesspolicy.xml"
+      ],
+      "errorPages": [
+        "/.aegis-error-probe-404"
       ],
       "sourceMaps": [
         "/main.js.map",

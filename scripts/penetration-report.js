@@ -229,6 +229,11 @@ const criteria = {
     criteria: "No checked response exposes X-Powered-By.",
     remediation: "Disable framework disclosure headers in the app server, reverse proxy, or framework config."
   },
+  "frontend.headers.server_version": {
+    category: "Fingerprinting",
+    criteria: "Checked responses do not expose precise web server product/version banners in the Server header.",
+    remediation: "Hide or normalize Server version banners at the web server, reverse proxy, CDN, or application gateway."
+  },
   "frontend.headers.framing": {
     category: "Clickjacking",
     criteria: "Every discovered HTML response sets CSP frame-ancestors or X-Frame-Options DENY/SAMEORIGIN.",
@@ -264,6 +269,16 @@ const criteria = {
     criteria: "Authentication surfaces avoid cleartext transport outside loopback hosts.",
     remediation: "Serve authentication/account flows over HTTPS on non-local environments."
   },
+  "frontend.transport.public_https": {
+    category: "Transport",
+    criteria: "Configured public non-loopback frontend/backend base URLs use HTTPS instead of cleartext HTTP.",
+    remediation: "Serve public environments over HTTPS and redirect HTTP to HTTPS at the edge."
+  },
+  "frontend.transport.tls_certificate": {
+    category: "Transport",
+    criteria: "Public HTTPS targets negotiate TLSv1.2 or TLSv1.3, present a trusted certificate, and have more than 14 days before certificate expiry.",
+    remediation: "Renew or replace invalid/expiring certificates and disable legacy TLS protocols at the edge."
+  },
   "frontend.content.client_secrets": {
     category: "Information leakage",
     criteria: "Discovered client-side JavaScript and JSON assets do not expose obvious private keys, provider keys, JWT literals, or secret assignments.",
@@ -288,6 +303,16 @@ const criteria = {
     category: "Information leakage",
     criteria: "Production source map files are not publicly reachable unless intentionally approved for the environment.",
     remediation: "Disable production source map publishing or restrict access to internal/debug environments."
+  },
+  "frontend.probes.metafiles": {
+    category: "Information leakage",
+    criteria: "robots.txt, sitemap.xml, security.txt, and legacy cross-domain policy files do not disclose sensitive paths or permissive wildcard access.",
+    remediation: "Remove sensitive path hints from public metafiles and replace wildcard cross-domain policy files with explicit trusted origins."
+  },
+  "frontend.probes.error_disclosure": {
+    category: "Error handling",
+    criteria: "Safe error-page probes do not reveal stack traces, framework internals, SQL errors, or verbose implementation details.",
+    remediation: "Return generic error pages to users and route detailed diagnostics only to protected server-side logs."
   },
   "frontend.probes.http_methods": {
     category: "HTTP method exposure",

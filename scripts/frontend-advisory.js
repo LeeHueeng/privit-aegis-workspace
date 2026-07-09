@@ -1,6 +1,8 @@
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
+import { connect as tlsConnect } from "node:tls";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { isIP } from "node:net";
 import { dirname, resolve } from "node:path";
 
 const cwd = process.cwd();
@@ -29,6 +31,15 @@ function addFinding(findings, level, id, title, passed, detail, evidence = {}) {
 
 function isLoopback(hostname) {
   return ["localhost", "127.0.0.1", "::1"].includes(hostname);
+}
+
+function isPublicNonLoopbackUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol) && !isLoopback(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
 function escapeRegex(value) {
@@ -247,6 +258,11 @@ function cspQualityIssues(policy) {
   return issues;
 }
 
+function serverHeaderLooksDetailed(value) {
+  const header = String(value || "");
+  return /\b[a-z][\w.-]*\/\d[\w.-]*/i.test(header);
+}
+
 function corsIssues(response, testOrigin) {
   const allowOrigin = headerValue(response, "access-control-allow-origin");
   const allowCredentials = /\btrue\b/i.test(headerValue(response, "access-control-allow-credentials"));
@@ -344,6 +360,22 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     poweredByPresent.length === 0,
     "Framework disclosure headers add avoidable fingerprinting detail.",
     { present: poweredByPresent.map((response) => response.finalUrl || response.url) }
+  );
+
+  const serverVersionPresent = reachable
+    .map((response) => ({
+      url: response.finalUrl || response.url,
+      server: headerValue(response, "server")
+    }))
+    .filter((item) => serverHeaderLooksDetailed(item.server));
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.server_version",
+    "Responses do not expose precise Server versions",
+    serverVersionPresent.length === 0,
+    "OWASP WSTG web server fingerprinting notes that server/version banners can help attackers target known version-specific issues.",
+    { present: serverVersionPresent }
   );
 
   const framingMissing = htmlResponses.filter((response) => {
@@ -590,6 +622,16 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/server-status",
     "/_next/webpack-hmr"
   ]);
+  const metafiles = configuredProbePaths(baseline, "metafiles", [
+    "/robots.txt",
+    "/sitemap.xml",
+    "/.well-known/security.txt",
+    "/crossdomain.xml",
+    "/clientaccesspolicy.xml"
+  ]);
+  const errorPages = configuredProbePaths(baseline, "errorPages", [
+    "/.aegis-error-probe-404"
+  ]);
   const sourceMapPaths = unique([
     ...configuredProbePaths(baseline, "sourceMaps", [
       "/main.js.map",
@@ -614,11 +656,13 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiDocs", apiDocs));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "errorPages", errorPages));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sourceMaps", sourceMapPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "httpMethods", routeMethodPaths, "OPTIONS"));
   }
 
-  return probes.slice(0, Number(probeConfig.maxProbeRequests || 60));
+  return probes.slice(0, Number(probeConfig.maxProbeRequests || 100));
 }
 
 function responseText(response) {
@@ -670,6 +714,45 @@ function sourceMapSignal(response) {
     return "source_map";
   }
   return "";
+}
+
+function metafileSignal(probe, response) {
+  if (!isSuccessStatus(response)) return "";
+  const path = String(probe.path || "").toLowerCase();
+  const text = responseText(response);
+  const sensitivePath = /(?:admin|internal|private|backup|debug|manage|console|secret|token|config|staging)/i;
+  if (path.endsWith("/robots.txt")) {
+    const disallowLines = text.split(/\r?\n/).filter((line) => /^\s*disallow\s*:/i.test(line));
+    if (disallowLines.some((line) => sensitivePath.test(line))) return "robots_sensitive_disallow";
+  }
+  if (path.endsWith("/sitemap.xml") && /<loc>[^<]*(?:admin|internal|private|backup|debug|manage|console|secret|token|config|staging)/i.test(text)) {
+    return "sitemap_sensitive_path";
+  }
+  if (path.endsWith("/crossdomain.xml") && /<allow-access-from\b[^>]*\bdomain=["']\*["']/i.test(text)) {
+    return "permissive_crossdomain_policy";
+  }
+  if (path.endsWith("/clientaccesspolicy.xml") && /<domain\b[^>]*\buri=["']\*["']/i.test(text)) {
+    return "permissive_crossdomain_policy";
+  }
+  return "";
+}
+
+function errorDisclosureSignal(response) {
+  if (!response.ok || response.status < 400) return "";
+  const text = responseText(response);
+  if (!text) return "";
+  const patterns = [
+    /\bstack trace\b/i,
+    /\btraceback \(most recent call last\)/i,
+    /\b(?:nullpointerexception|runtimeexception|illegalargumentexception)\b/i,
+    /\bjava\.lang\.[a-z]+exception\b/i,
+    /\borg\.springframework\./i,
+    /\bat\s+[\w.$<>]+\([^)]*:\d+\)/,
+    /\b(?:sql syntax|mysql|postgresql|ora-\d{5}|sqliteexception)\b/i,
+    /\b(?:warning|fatal error):\s+.+\s+on line\s+\d+/i,
+    /\b(?:express|next\.js|django|rails|laravel)\b.{0,80}\b(?:error|exception)\b/i
+  ];
+  return patterns.some((pattern) => pattern.test(text)) ? "stack_or_error_detail" : "";
 }
 
 function exposedRouteSignal(scope, discovery, probe, response) {
@@ -767,7 +850,28 @@ async function evaluateClientContentLeakage(findings, scope, latestScan, baselin
   return reviews;
 }
 
-function evaluateTransport(findings, discovery) {
+function evaluateTransport(findings, scope, discovery) {
+  const targetCleartext = targetBaseUrls(scope)
+    .map((target) => ({ target: target.targetName, url: target.baseUrl }))
+    .filter((target) => isAllowedUrl(target.url, scope, target.target))
+    .filter((target) => {
+      try {
+        const parsed = new URL(target.url);
+        return parsed.protocol === "http:" && isPublicNonLoopbackUrl(target.url);
+      } catch {
+        return false;
+      }
+    });
+  addFinding(
+    findings,
+    "warning",
+    "frontend.transport.public_https",
+    "Public non-loopback targets use HTTPS",
+    targetCleartext.length === 0,
+    "OWASP WSTG weak transport testing expects public application traffic to avoid cleartext HTTP.",
+    { cleartext: targetCleartext }
+  );
+
   const authUrls = unique(
     (discovery?.forms || [])
       .filter((form) => form.auth_like)
@@ -792,6 +896,97 @@ function evaluateTransport(findings, discovery) {
   );
 }
 
+function inspectTlsTarget(target) {
+  return new Promise((resolveInspection) => {
+    let parsed;
+    try {
+      parsed = new URL(target.baseUrl);
+    } catch (error) {
+      resolveInspection({ target: target.targetName, url: target.baseUrl, ok: false, error: error.message });
+      return;
+    }
+    if (parsed.protocol !== "https:" || isLoopback(parsed.hostname)) {
+      resolveInspection({ target: target.targetName, url: target.baseUrl, skipped: true });
+      return;
+    }
+
+    const host = parsed.hostname;
+    const port = Number(parsed.port || 443);
+    const socket = tlsConnect({
+      host,
+      port,
+      servername: isIP(host) ? undefined : host,
+      timeout: 7000,
+      rejectUnauthorized: false
+    });
+
+    const finish = (result) => {
+      socket.removeAllListeners();
+      if (!socket.destroyed) socket.destroy();
+      resolveInspection(result);
+    };
+
+    socket.once("secureConnect", () => {
+      const certificate = socket.getPeerCertificate() || {};
+      const validTo = certificate.valid_to || "";
+      const validFrom = certificate.valid_from || "";
+      const validToMs = Date.parse(validTo);
+      const daysRemaining = Number.isFinite(validToMs) ? Math.ceil((validToMs - Date.now()) / 86400000) : null;
+      finish({
+        target: target.targetName,
+        url: target.baseUrl,
+        host,
+        port,
+        ok: true,
+        protocol: socket.getProtocol(),
+        authorized: socket.authorized,
+        authorizationError: socket.authorizationError ? String(socket.authorizationError) : "",
+        validFrom,
+        validTo,
+        daysRemaining,
+        subject: certificate.subject?.CN || "",
+        issuer: certificate.issuer?.CN || ""
+      });
+    });
+    socket.once("timeout", () => finish({ target: target.targetName, url: target.baseUrl, host, port, ok: false, error: "TLS handshake timed out" }));
+    socket.once("error", (error) => finish({ target: target.targetName, url: target.baseUrl, host, port, ok: false, error: error.message }));
+  });
+}
+
+async function evaluateTls(findings, scope) {
+  const targets = targetBaseUrls(scope)
+    .filter((target) => isAllowedUrl(target.baseUrl, scope, target.targetName))
+    .filter((target) => {
+      try {
+        const parsed = new URL(target.baseUrl);
+        return parsed.protocol === "https:" && isPublicNonLoopbackUrl(target.baseUrl);
+      } catch {
+        return false;
+      }
+    });
+  const inspections = [];
+  for (const target of targets) {
+    inspections.push(await inspectTlsTarget(target));
+  }
+  const weak = inspections.filter((item) => {
+    if (!item.ok) return true;
+    if (!["TLSv1.2", "TLSv1.3"].includes(item.protocol)) return true;
+    if (item.authorized !== true) return true;
+    if (!item.validTo) return true;
+    if (typeof item.daysRemaining !== "number" || item.daysRemaining < 14) return true;
+    return false;
+  });
+  addFinding(
+    findings,
+    "warning",
+    "frontend.transport.tls_certificate",
+    "Public HTTPS targets present valid modern TLS certificates",
+    weak.length === 0,
+    "OWASP WSTG weak transport testing includes certificate validity and TLS configuration review for public HTTPS services.",
+    { checked: inspections.length, issues: weak, inspections }
+  );
+}
+
 async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const discovery = latestScan?.discovery || {};
   const probes = buildPassiveProbes(scope, latestScan, baseline);
@@ -810,6 +1005,8 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const apiDocExposures = [];
   const adminExposures = [];
   const debugExposures = [];
+  const metafileExposures = [];
+  const errorDisclosures = [];
   const sourceMapExposures = [];
   const riskyMethods = [];
   for (const { probe, response } of probeResponses) {
@@ -825,6 +1022,12 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "debugPaths") {
       const signal = exposedRouteSignal(scope, discovery, probe, response);
       if (signal) debugExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "metafiles") {
+      const signal = metafileSignal(probe, response);
+      if (signal) metafileExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "errorPages") {
+      const signal = errorDisclosureSignal(response);
+      if (signal) errorDisclosures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "sourceMaps") {
       const signal = sourceMapSignal(response);
       if (signal) sourceMapExposures.push(probeEvidence(probe, response, signal));
@@ -869,6 +1072,24 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     sourceMapExposures.length === 0,
     "Source maps can disclose source paths, internal comments, and client-side implementation details.",
     { checked: probes.filter((probe) => probe.category === "sourceMaps").length, exposed: sourceMapExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.metafiles",
+    "Webserver metafiles do not disclose sensitive paths or permissive cross-domain policy",
+    metafileExposures.length === 0,
+    "OWASP WSTG information gathering includes reviewing robots, sitemap, security.txt, and legacy cross-domain policy files for information leakage.",
+    { checked: probes.filter((probe) => probe.category === "metafiles").length, exposed: metafileExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.error_disclosure",
+    "Error responses do not expose stack traces or framework internals",
+    errorDisclosures.length === 0,
+    "OWASP WSTG error handling tests look for stack traces, framework details, SQL errors, and other implementation clues in error responses.",
+    { checked: probes.filter((probe) => probe.category === "errorPages").length, exposed: errorDisclosures }
   );
   addFinding(
     findings,
@@ -924,7 +1145,8 @@ async function main() {
   await evaluateCors(findings, scope);
   evaluateCookies(findings, responses);
   evaluateForms(findings, discovery);
-  evaluateTransport(findings, discovery);
+  evaluateTransport(findings, scope, discovery);
+  await evaluateTls(findings, scope);
   const contentReviews = await evaluateClientContentLeakage(findings, scope, latestScan, baseline);
   const probes = await evaluatePassiveProbes(findings, scope, latestScan, baseline);
 
@@ -962,7 +1184,8 @@ async function main() {
         "strict-transport-security": response.headers?.["strict-transport-security"] || "",
         "x-content-type-options": response.headers?.["x-content-type-options"] || "",
         "x-frame-options": response.headers?.["x-frame-options"] || "",
-        "x-powered-by": response.headers?.["x-powered-by"] || ""
+        "x-powered-by": response.headers?.["x-powered-by"] || "",
+        server: response.headers?.server || ""
       },
       setCookieCount: response.setCookies?.length || 0
     })),
