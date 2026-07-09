@@ -52,11 +52,18 @@ function hasScripts(packageJson, names) {
   return names.every((name) => Boolean(scripts[name]));
 }
 
+function failedFindingIds(report) {
+  return (report?.findings || [])
+    .filter((finding) => !finding.passed)
+    .map((finding) => finding.id);
+}
+
 function main() {
   const packageJson = readJson("package.json", {});
   const policy = readJson("aegis.policy.json", {});
   const aiSettings = readJson(".aigate/settings.json", {});
   const targetAdvisory = readJson(".aegis/reports/frontend-advisory.json", null);
+  const penetrationReport = readJson(".aegis/reports/penetration-report.json", null);
   const hardening = readJson(".aegis/reports/security-hardening.json", null);
   const webSource = readText("scripts/aegis-web.js");
   const webSettings = readJson(".aegis/web-settings.json", { language: "ko" });
@@ -71,6 +78,7 @@ function main() {
       "web",
       "security:map",
       "security:target",
+      "security:penetration",
       "security:hardening",
       "github:ready",
       "ai:model:set",
@@ -117,8 +125,8 @@ function main() {
     checks,
     "web",
     "actions",
-    ["targetAdvisory", "aiProviderCheck", "gitStatus"].every((needle) => webSource.includes(needle)),
-    "Web console includes target advisory, AI provider check, and git status actions."
+    ["targetAdvisory", "penetrationReport", "aiProviderCheck", "gitStatus"].every((needle) => webSource.includes(needle)),
+    "Web console includes target advisory, penetration report, AI provider check, and git status actions."
   );
   add(
     checks,
@@ -153,13 +161,18 @@ function main() {
     "Target advisory includes passive penetration probes for sensitive files, API docs, admin/debug surfaces, and HTTP methods.",
     { probes: targetAdvisory?.summary?.probes }
   );
+  const hardeningFailedIds = failedFindingIds(hardening);
+  const hardeningBlockedByScope = hardening?.status === "FAIL" && hardeningFailedIds.every((id) => id === "scope.local.loopback");
   add(
     checks,
     "security",
     "hardening",
     ["PASS", "WARN"].includes(hardening?.status),
-    "OWASP/GitHub hardening report is generated and has no blocking errors.",
-    { status: hardening?.status, summary: hardening?.summary }
+    hardeningBlockedByScope
+      ? "Hardening is blocked by the current local scope pointing at external hosts; confirm authorization or switch back to loopback."
+      : "OWASP/GitHub hardening report is generated and has no blocking errors.",
+    { status: hardening?.status, summary: hardening?.summary, failed: hardeningFailedIds },
+    hardeningBlockedByScope
   );
   add(
     checks,
@@ -167,6 +180,14 @@ function main() {
     "reports",
     existsSync(resolve(cwd, ".aegis/reports/aegis-report.html")) && existsSync(resolve(cwd, ".aegis/reports/frontend-advisory.json")),
     "HTML and frontend advisory reports exist."
+  );
+  add(
+    checks,
+    "security",
+    "penetration_report",
+    existsSync(resolve(cwd, ".aegis/reports/penetration-report.html")) && Boolean(penetrationReport?.testMatrix?.length),
+    "Penetration report exists and documents executed checks with pass criteria.",
+    { status: penetrationReport?.status, summary: penetrationReport?.summary }
   );
   add(
     checks,

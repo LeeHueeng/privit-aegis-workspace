@@ -6,6 +6,7 @@ The local and CI security gate is:
 npm run ci:aegis
 npm run security:hardening
 npm run security:target
+npm run security:penetration
 npm run completion:audit
 npm run gate:ready
 ```
@@ -17,6 +18,7 @@ The gate performs:
 - Passive frontend plan generation
 - Passive frontend site discovery
 - Frontend response header, auth-page cache, cookie flag, and autocomplete advisory
+- Passive penetration report with executed checks, pass criteria, evidence summaries, and remediation guidance
 - Completion audit for CLI, web, i18n, AI providers, target advisory, and GitHub readiness
 - OWASP/GitHub hardening baseline review
 - HTML report generation
@@ -24,6 +26,7 @@ The gate performs:
 
 The web console Start All flow is Aegis-only: catalog, docs, scope verification,
 plan, passive discovery, target advisory, and localized report generation.
+It also generates the local penetration report from the latest advisory output.
 AIGate is reserved for git push and CI quality-gate commands such as
 `npm run gate:ready` and `npm run ci:security`.
 
@@ -34,6 +37,8 @@ Report outputs:
 - SARIF: `.aegis/reports/aegis-report.sarif`
 - Hardening: `.aegis/reports/security-hardening.json`
 - Frontend advisory: `.aegis/reports/frontend-advisory.json`
+- Penetration report HTML: `.aegis/reports/penetration-report.html`
+- Penetration report JSON: `.aegis/reports/penetration-report.json`
 
 The web console serves the latest HTML report at:
 
@@ -76,3 +81,8 @@ HTML with the current web console language from `.aegis/web-settings.json`.
 Supported report languages are Korean, English, Japanese, and Chinese. Stale
 findings that are no longer reproduced by the latest scan are excluded from the
 localized report.
+
+`npm run security:penetration` creates the human-readable penetration/security
+testing report. It answers three audit questions for each check: what was run,
+what pass criterion was used, and what redacted evidence was observed. The web
+console serves it at `/penetration-report` and exposes it from the report tab.

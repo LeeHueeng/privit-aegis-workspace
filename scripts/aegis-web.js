@@ -19,6 +19,7 @@ const actions = {
   scan: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--crawl", "true"]],
   dryRun: ["aegis", ["run", "--target", "frontend", "--mode", "passive", "--dry-run"]],
   report: ["npm", ["run", "security:report"]],
+  penetrationReport: ["npm", ["run", "security:penetration"]],
   audit: ["npm", ["run", "security:audit"]],
   hardening: ["npm", ["run", "security:hardening"]],
   targetAdvisory: ["npm", ["run", "security:target"]],
@@ -32,7 +33,7 @@ const actions = {
 };
 
 const actionPipelines = {
-  start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report"]
+  start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report", "penetrationReport"]
 };
 
 const commandStepMarkers = [
@@ -43,6 +44,7 @@ const commandStepMarkers = [
   { step: "map", pattern: /\$ aegis run .*--crawl true/ },
   { step: "targetAdvisory", pattern: /\$ node \.\/scripts\/frontend-advisory\.js/ },
   { step: "report", pattern: /\$ npm run security:report/ },
+  { step: "penetrationReport", pattern: /\$ npm run security:penetration|penetration-report\.js/ },
   { step: "audit", pattern: /> .* security:audit|npm audit/ },
   { step: "hardening", pattern: /> .* security:hardening|security-hardening\.js/ },
   { step: "aiDoctor", pattern: /> .* ai:doctor|ai-doctor\.js/ }
@@ -253,14 +255,17 @@ async function state() {
   const latestScan = await readJsonFile(".aegis/latest-scan.json", null);
   const findings = await readJsonFile(".aegis/findings.json", []);
   const targetAdvisory = await readJsonFile(".aegis/reports/frontend-advisory.json", null);
+  const penetrationReport = await readJsonFile(".aegis/reports/penetration-report.json", null);
   const integrations = await readJsonFile(".aigate/integrations.json", null);
   const aiSettings = await readJsonFile(".aigate/settings.json", null);
   const webSettings = await readJsonFile(".aegis/web-settings.json", { language: "ko" });
   const reportPath = resolve(cwd, ".aegis/reports/aegis-report.html");
+  const penetrationReportPath = resolve(cwd, ".aegis/reports/penetration-report.html");
   return {
     scope,
     latestScan,
     targetAdvisory,
+    penetrationReport,
     findings,
     ai: buildAiState(integrations, aiSettings),
     catalogCount: countCatalogLines(),
@@ -269,7 +274,9 @@ async function state() {
       html: existsSync(reportPath),
       json: existsSync(resolve(cwd, ".aegis/reports/aegis-report.json")),
       sarif: existsSync(resolve(cwd, ".aegis/reports/aegis-report.sarif")),
-      junit: existsSync(resolve(cwd, ".aegis/reports/aegis-report.junit.xml"))
+      junit: existsSync(resolve(cwd, ".aegis/reports/aegis-report.junit.xml")),
+      penetrationHtml: existsSync(penetrationReportPath),
+      penetrationJson: existsSync(resolve(cwd, ".aegis/reports/penetration-report.json"))
     },
     tools: {
       aegis: commandInfo("aegis"),
@@ -283,6 +290,7 @@ async function state() {
       workspace: cwd
     },
     reportUrl: "/report",
+    penetrationReportUrl: "/penetration-report",
     generatedAt: new Date().toISOString()
   };
 }
@@ -626,6 +634,9 @@ function page() {
     .actions button[data-tooltip]:focus-visible::before,
     .actions button[data-tooltip]:focus-visible::after { opacity: 1; transform: translate(-50%, 0); }
     #report-view { padding-bottom: 24px; }
+    .report-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .report-toolbar button { border: 1px solid var(--line); border-radius: 7px; padding: 9px 11px; background: #ffffff; color: var(--muted); font-weight: 800; cursor: pointer; }
+    .report-toolbar button.active, .report-toolbar button:hover { border-color: var(--accent); background: var(--accent-weak); color: var(--accent); }
     .report-frame { width: 100%; min-height: 720px; height: 720px; border: 0; border-radius: 0; background: transparent; display: block; overflow: hidden; }
     pre { min-height: 190px; max-height: 380px; overflow: auto; background: #0f172a; color: #dbeafe; border-radius: 8px; padding: 12px; white-space: pre-wrap; font-size: 13px; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -739,6 +750,7 @@ function page() {
                 <button data-action="map" data-i18n="actionMap">Map</button>
                 <button data-action="scan" data-i18n="actionScan">Scan</button>
                 <button data-action="report" data-i18n="actionReport">Report</button>
+                <button data-action="penetrationReport" data-i18n="actionPenetrationReport">Penetration Report</button>
               </div>
             </div>
             <div class="panel">
@@ -896,6 +908,7 @@ function page() {
               <button data-action="audit" data-i18n="actionAudit">npm audit</button>
               <button data-action="hardening" data-i18n="actionHardening">Hardening</button>
               <button data-action="targetAdvisory" data-i18n="actionTargetAdvisory">Target Advisory</button>
+              <button data-action="penetrationReport" data-i18n="actionPenetrationReport">Penetration Report</button>
               <button data-action="gitStatus" data-i18n="actionGitStatus">Git Status</button>
             </div>
           </div>
@@ -911,6 +924,10 @@ function page() {
       </section>
 
       <section id="report-view" class="hidden">
+        <div class="report-toolbar">
+          <button class="active" data-report-src="/report" data-i18n="aegisReport">Aegis Report</button>
+          <button data-report-src="/penetration-report" data-i18n="penetrationReport">Penetration Report</button>
+        </div>
         <iframe id="report-frame" class="report-frame" title="Aegis report" scrolling="no"></iframe>
       </section>
 
@@ -929,6 +946,7 @@ function page() {
     const discoveryForm = document.querySelector("#discovery-form");
     const aiModelForm = document.querySelector("#ai-model-form");
     const languageSelect = document.querySelector("#language-select");
+    let activeReportPath = "/report";
     let currentState = null;
     let language = localStorage.getItem("aegis.language") || "ko";
     let activeJob = null;
@@ -936,7 +954,7 @@ function page() {
     let runPollTimer = null;
 
     const clientActionPipelines = {
-      start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report"]
+      start: ["catalog", "docs", "verify", "plan", "map", "targetAdvisory", "report", "penetrationReport"]
     };
 
     const actionLabelKeys = {
@@ -948,6 +966,7 @@ function page() {
       scan: "actionScan",
       dryRun: "actionDryRun",
       report: "actionReport",
+      penetrationReport: "actionPenetrationReport",
       start: "actionStart",
       ai: "actionAiSetup",
       aiDoctor: "actionAiDoctor",
@@ -964,53 +983,53 @@ function page() {
       ko: {
         navDashboard: "대시보드", navScope: "범위", navDiscovery: "탐색", navAi: "AI", navUpdates: "업데이트", navReport: "보고서", navLogs: "로그",
         title: "Privit Aegis 콘솔", metricCatalog: "카탈로그", metricFindings: "취약점", metricRoutes: "경로", metricForms: "폼", metricAuth: "인증", metricAi: "AI",
-        actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionStart: "전체 실행",
+        actions: "작업", actionCatalog: "카탈로그", actionDocs: "문서", actionVerify: "검증", actionPlan: "계획", actionMap: "사이트맵", actionScan: "스캔", actionDryRun: "드라이런", actionReport: "보고서", actionPenetrationReport: "침투검사 리포트", actionStart: "전체 실행",
         latestRun: "최근 실행", scopeSettings: "범위 설정", project: "프로젝트", environment: "환경", frontendUrl: "프론트 URL", backendUrl: "백엔드 API URL", owner: "소유자 이메일", expiresAt: "승인 만료일", allowedPaths: "허용 경로", deniedPaths: "차단 경로", maxRps: "최대 RPS", maxConcurrency: "최대 동시성", backendApi: "백엔드 API", ciCd: "CI/CD", saveScope: "범위 저장",
         discoverySettings: "탐색 설정", maxDepth: "최대 깊이", maxPages: "최대 페이지", sitemapPaths: "사이트맵 경로", loginIndicators: "로그인 지표", discoveryEnabled: "탐색", includeForms: "폼 수집", followRedirects: "리다이렉트 추적", saveDiscovery: "탐색 저장", siteMap: "사이트맵",
         providers: "프로바이더", aiModels: "AI 모델", aiRuntimeSettings: "AI 런타임 설정", defaultProvider: "기본 프로바이더", saveAiModels: "AI 모델 저장", aiTools: "AI 도구", aiCommandReference: "명령어 참고", actionAiSetup: "AI 설정", actionAiDoctor: "AI 점검", actionAiReport: "AI 보고서", actionAiModelCommands: "모델 명령어", actionAiProviderCheck: "프로바이더 점검", modelDocs: "모델 문서",
         aiProfile: "프로필", aiLocale: "언어", aiTemperature: "온도", aiTopP: "Top P", aiMaxOutputTokens: "최대 출력 토큰", aiMaxInputTokens: "최대 입력 토큰", aiFileBudgetTokens: "파일 토큰 예산", aiOutputFormat: "출력 형식", aiMaxTurns: "최대 턴", aiTimeoutMs: "타임아웃 ms", aiParallelism: "병렬성", aiBudgetPerRun: "실행당 예산", aiDailyBudget: "일일 예산", aiMinPushGateScore: "최소 푸시 게이트 점수", aiMemoryMode: "메모리 모드", aiHandoffLanguage: "전달 언어", aiAllowNetwork: "네트워크", aiAllowPackageInstall: "패키지 설치", aiPreferLocal: "로컬 우선", aiPromptGuard: "프롬프트 방어", aiRedactSecrets: "시크릿 마스킹", aiStorePrompts: "프롬프트 저장", aiStoreResponses: "응답 저장", aiRequireTests: "테스트 필수", aiAdvancedJson: "고급 JSON",
         model: "모델", providerType: "유형", enabledProvider: "사용", endpoint: "API/로컬 엔드포인트", healthUrl: "헬스 URL", apiStyle: "API 방식", apiKeyEnv: "키 환경변수", effort: "추론 강도", approvalMode: "승인 모드", permissionMode: "권한 모드", sandbox: "샌드박스", outputFormat: "출력 형식", fallbackModel: "대체 모델", extraArgs: "추가 인자", disabled: "비활성", check: "확인 필요",
         updates: "업데이트", actionAudit: "npm audit", actionHardening: "하드닝 검사", actionTargetAdvisory: "대상 점검", actionGitStatus: "Git 상태", repositoryRoles: "레포 역할", toolchain: "툴체인", commandOutput: "명령 출력",
-        runCenter: "Run Center", runTitle: "승인된 보안 워크플로", runSubtitle: "안전한 Aegis 흐름을 실행하고 각 단계를 실시간으로 확인합니다.", quickActions: "빠른 작업", liveLog: "실시간 로그", noActiveRun: "실행 중인 작업이 없습니다.", readyToRun: "실행 준비 완료", currentStep: "현재 단계", queued: "대기", progressRunning: "진행 중", progressDone: "완료", progressFailed: "실패", elapsed: "경과", latestScan: "최근 스캔", scanTarget: "대상/모드", discoverySummary: "탐색 결과", targetAdvisorySummary: "대상 점검", passiveProbeSummary: "패시브 침투 프로브",
+        runCenter: "Run Center", runTitle: "승인된 보안 워크플로", runSubtitle: "안전한 Aegis 흐름을 실행하고 각 단계를 실시간으로 확인합니다.", quickActions: "빠른 작업", liveLog: "실시간 로그", noActiveRun: "실행 중인 작업이 없습니다.", readyToRun: "실행 준비 완료", currentStep: "현재 단계", queued: "대기", progressRunning: "진행 중", progressDone: "완료", progressFailed: "실패", elapsed: "경과", latestScan: "최근 스캔", scanTarget: "대상/모드", discoverySummary: "탐색 결과", targetAdvisorySummary: "대상 점검", passiveProbeSummary: "패시브 침투 프로브", penetrationReportSummary: "침투 리포트", aegisReport: "Aegis 보고서", penetrationReport: "침투검사 리포트",
         ready: "준비", reportReady: "보고서 준비", running: "실행 중", passed: "통과", failed: "실패", saved: "저장됨"
       },
       en: {
         navDashboard: "Dashboard", navScope: "Scope", navDiscovery: "Discovery", navAi: "AI", navUpdates: "Updates", navReport: "Report", navLogs: "Logs",
         title: "Privit Aegis Console", metricCatalog: "Catalog", metricFindings: "Findings", metricRoutes: "Routes", metricForms: "Forms", metricAuth: "Auth", metricAi: "AI",
-        actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionStart: "Start All",
+        actions: "Actions", actionCatalog: "Catalog", actionDocs: "Docs", actionVerify: "Verify", actionPlan: "Plan", actionMap: "Site Map", actionScan: "Scan", actionDryRun: "Dry Run", actionReport: "Report", actionPenetrationReport: "Penetration Report", actionStart: "Start All",
         latestRun: "Latest Run", scopeSettings: "Scope Settings", project: "Project", environment: "Environment", frontendUrl: "Frontend URL", backendUrl: "Backend API URL", owner: "Owner Email", expiresAt: "Authorization Expires", allowedPaths: "Allowed Paths", deniedPaths: "Denied Paths", maxRps: "Max RPS", maxConcurrency: "Max Concurrency", backendApi: "Backend API", ciCd: "CI/CD", saveScope: "Save Scope",
         discoverySettings: "Discovery Settings", maxDepth: "Max Depth", maxPages: "Max Pages", sitemapPaths: "Sitemap Paths", loginIndicators: "Login Indicators", discoveryEnabled: "Discovery", includeForms: "Form Inventory", followRedirects: "Follow Redirects", saveDiscovery: "Save Discovery", siteMap: "Site Map",
         providers: "Providers", aiModels: "AI Models", aiRuntimeSettings: "AI Runtime Settings", defaultProvider: "Default Provider", saveAiModels: "Save AI Models", aiTools: "AI Tools", aiCommandReference: "Command Reference", actionAiSetup: "AI Setup", actionAiDoctor: "AI Doctor", actionAiReport: "AI Report", actionAiModelCommands: "Model Commands", actionAiProviderCheck: "Provider Check", modelDocs: "Model Docs",
         aiProfile: "Profile", aiLocale: "Locale", aiTemperature: "Temperature", aiTopP: "Top P", aiMaxOutputTokens: "Max Output Tokens", aiMaxInputTokens: "Max Input Tokens", aiFileBudgetTokens: "File Budget Tokens", aiOutputFormat: "Output Format", aiMaxTurns: "Max Turns", aiTimeoutMs: "Timeout Ms", aiParallelism: "Parallelism", aiBudgetPerRun: "Budget / Run", aiDailyBudget: "Daily Budget", aiMinPushGateScore: "Min Push Gate Score", aiMemoryMode: "Memory Mode", aiHandoffLanguage: "Handoff Language", aiAllowNetwork: "Network", aiAllowPackageInstall: "Package Install", aiPreferLocal: "Prefer Local", aiPromptGuard: "Prompt Guard", aiRedactSecrets: "Redact Secrets", aiStorePrompts: "Store Prompts", aiStoreResponses: "Store Responses", aiRequireTests: "Require Tests", aiAdvancedJson: "Advanced JSON",
         model: "Model", providerType: "Type", enabledProvider: "Enabled", endpoint: "API/Local Endpoint", healthUrl: "Health URL", apiStyle: "API Style", apiKeyEnv: "Key Env", effort: "Effort", approvalMode: "Approval Mode", permissionMode: "Permission Mode", sandbox: "Sandbox", outputFormat: "Output Format", fallbackModel: "Fallback Model", extraArgs: "Extra Args", disabled: "Disabled", check: "Check",
         updates: "Updates", actionAudit: "npm audit", actionHardening: "Hardening", actionTargetAdvisory: "Target Advisory", actionGitStatus: "Git Status", repositoryRoles: "Repository Roles", toolchain: "Toolchain", commandOutput: "Command Output",
-        runCenter: "Run Center", runTitle: "Authorized security workflow", runSubtitle: "Run the safe Aegis flow and watch each step as it executes.", quickActions: "Quick Actions", liveLog: "Live Log", noActiveRun: "No active run.", readyToRun: "Ready to run", currentStep: "Current step", queued: "Queued", progressRunning: "Running", progressDone: "Done", progressFailed: "Failed", elapsed: "Elapsed", latestScan: "Latest scan", scanTarget: "Target / mode", discoverySummary: "Discovery", targetAdvisorySummary: "Target advisory", passiveProbeSummary: "Passive probes",
+        runCenter: "Run Center", runTitle: "Authorized security workflow", runSubtitle: "Run the safe Aegis flow and watch each step as it executes.", quickActions: "Quick Actions", liveLog: "Live Log", noActiveRun: "No active run.", readyToRun: "Ready to run", currentStep: "Current step", queued: "Queued", progressRunning: "Running", progressDone: "Done", progressFailed: "Failed", elapsed: "Elapsed", latestScan: "Latest scan", scanTarget: "Target / mode", discoverySummary: "Discovery", targetAdvisorySummary: "Target advisory", passiveProbeSummary: "Passive probes", penetrationReportSummary: "Penetration report", aegisReport: "Aegis Report", penetrationReport: "Penetration Report",
         ready: "Ready", reportReady: "Report ready", running: "Running", passed: "Passed", failed: "Failed", saved: "Saved"
       },
       ja: {
         navDashboard: "ダッシュボード", navScope: "スコープ", navDiscovery: "探索", navAi: "AI", navUpdates: "更新", navReport: "レポート", navLogs: "ログ",
         title: "Privit Aegis コンソール", metricCatalog: "カタログ", metricFindings: "検出", metricRoutes: "経路", metricForms: "フォーム", metricAuth: "認証", metricAi: "AI",
-        actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionStart: "全実行",
+        actions: "操作", actionCatalog: "カタログ", actionDocs: "ドキュメント", actionVerify: "検証", actionPlan: "計画", actionMap: "サイトマップ", actionScan: "スキャン", actionDryRun: "ドライラン", actionReport: "レポート", actionPenetrationReport: "侵入テストレポート", actionStart: "全実行",
         latestRun: "最新実行", scopeSettings: "スコープ設定", project: "プロジェクト", environment: "環境", frontendUrl: "フロントURL", backendUrl: "バックエンドAPI URL", owner: "所有者メール", expiresAt: "承認期限", allowedPaths: "許可パス", deniedPaths: "拒否パス", maxRps: "最大RPS", maxConcurrency: "最大同時実行", backendApi: "バックエンドAPI", ciCd: "CI/CD", saveScope: "スコープ保存",
         discoverySettings: "探索設定", maxDepth: "最大深度", maxPages: "最大ページ", sitemapPaths: "サイトマップパス", loginIndicators: "ログイン指標", discoveryEnabled: "探索", includeForms: "フォーム収集", followRedirects: "リダイレクト追跡", saveDiscovery: "探索保存", siteMap: "サイトマップ",
         providers: "プロバイダー", aiModels: "AIモデル", aiRuntimeSettings: "AIランタイム設定", defaultProvider: "既定プロバイダー", saveAiModels: "AIモデル保存", aiTools: "AIツール", aiCommandReference: "コマンド参照", actionAiSetup: "AI設定", actionAiDoctor: "AI診断", actionAiReport: "AIレポート", actionAiModelCommands: "モデルコマンド", actionAiProviderCheck: "プロバイダー診断", modelDocs: "モデル文書",
         aiProfile: "プロファイル", aiLocale: "ロケール", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大出力トークン", aiMaxInputTokens: "最大入力トークン", aiFileBudgetTokens: "ファイルトークン予算", aiOutputFormat: "出力形式", aiMaxTurns: "最大ターン", aiTimeoutMs: "タイムアウト ms", aiParallelism: "並列数", aiBudgetPerRun: "実行予算", aiDailyBudget: "日次予算", aiMinPushGateScore: "最小プッシュゲートスコア", aiMemoryMode: "メモリモード", aiHandoffLanguage: "引き継ぎ言語", aiAllowNetwork: "ネットワーク", aiAllowPackageInstall: "パッケージ導入", aiPreferLocal: "ローカル優先", aiPromptGuard: "プロンプト防御", aiRedactSecrets: "秘密マスク", aiStorePrompts: "プロンプト保存", aiStoreResponses: "応答保存", aiRequireTests: "テスト必須", aiAdvancedJson: "詳細JSON",
         model: "モデル", providerType: "種類", enabledProvider: "有効", endpoint: "API/ローカルエンドポイント", healthUrl: "ヘルスURL", apiStyle: "API方式", apiKeyEnv: "キー環境変数", effort: "推論強度", approvalMode: "承認モード", permissionMode: "権限モード", sandbox: "サンドボックス", outputFormat: "出力形式", fallbackModel: "フォールバックモデル", extraArgs: "追加引数", disabled: "無効", check: "確認",
         updates: "更新", actionAudit: "npm audit", actionHardening: "ハードニング診断", actionTargetAdvisory: "対象診断", actionGitStatus: "Git状態", repositoryRoles: "リポジトリ役割", toolchain: "ツールチェーン", commandOutput: "コマンド出力",
-        runCenter: "Run Center", runTitle: "承認済みセキュリティワークフロー", runSubtitle: "安全なAegisフローを実行し、各ステップをリアルタイムで確認します。", quickActions: "クイック操作", liveLog: "ライブログ", noActiveRun: "実行中の作業はありません。", readyToRun: "実行準備完了", currentStep: "現在のステップ", queued: "待機", progressRunning: "実行中", progressDone: "完了", progressFailed: "失敗", elapsed: "経過", latestScan: "最新スキャン", scanTarget: "対象/モード", discoverySummary: "探索結果", targetAdvisorySummary: "対象診断", passiveProbeSummary: "パッシブ侵入プローブ",
+        runCenter: "Run Center", runTitle: "承認済みセキュリティワークフロー", runSubtitle: "安全なAegisフローを実行し、各ステップをリアルタイムで確認します。", quickActions: "クイック操作", liveLog: "ライブログ", noActiveRun: "実行中の作業はありません。", readyToRun: "実行準備完了", currentStep: "現在のステップ", queued: "待機", progressRunning: "実行中", progressDone: "完了", progressFailed: "失敗", elapsed: "経過", latestScan: "最新スキャン", scanTarget: "対象/モード", discoverySummary: "探索結果", targetAdvisorySummary: "対象診断", passiveProbeSummary: "パッシブ侵入プローブ", penetrationReportSummary: "侵入テストレポート", aegisReport: "Aegisレポート", penetrationReport: "侵入テストレポート",
         ready: "準備完了", reportReady: "レポート準備完了", running: "実行中", passed: "成功", failed: "失敗", saved: "保存済み"
       },
       zh: {
         navDashboard: "仪表盘", navScope: "范围", navDiscovery: "发现", navAi: "AI", navUpdates: "更新", navReport: "报告", navLogs: "日志",
         title: "Privit Aegis 控制台", metricCatalog: "目录", metricFindings: "发现项", metricRoutes: "路由", metricForms: "表单", metricAuth: "认证", metricAi: "AI",
-        actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionStart: "全部运行",
+        actions: "操作", actionCatalog: "目录", actionDocs: "文档", actionVerify: "验证", actionPlan: "计划", actionMap: "站点图", actionScan: "扫描", actionDryRun: "试运行", actionReport: "报告", actionPenetrationReport: "渗透测试报告", actionStart: "全部运行",
         latestRun: "最近运行", scopeSettings: "范围设置", project: "项目", environment: "环境", frontendUrl: "前端 URL", backendUrl: "后端 API URL", owner: "所有者邮箱", expiresAt: "授权到期", allowedPaths: "允许路径", deniedPaths: "拒绝路径", maxRps: "最大 RPS", maxConcurrency: "最大并发", backendApi: "后端 API", ciCd: "CI/CD", saveScope: "保存范围",
         discoverySettings: "发现设置", maxDepth: "最大深度", maxPages: "最大页面", sitemapPaths: "站点图路径", loginIndicators: "登录指标", discoveryEnabled: "发现", includeForms: "表单清单", followRedirects: "跟随重定向", saveDiscovery: "保存发现", siteMap: "站点图",
         providers: "提供方", aiModels: "AI 模型", aiRuntimeSettings: "AI 运行时设置", defaultProvider: "默认提供方", saveAiModels: "保存 AI 模型", aiTools: "AI 工具", aiCommandReference: "命令参考", actionAiSetup: "AI 设置", actionAiDoctor: "AI 检查", actionAiReport: "AI 报告", actionAiModelCommands: "模型命令", actionAiProviderCheck: "提供方检查", modelDocs: "模型文档",
         aiProfile: "配置", aiLocale: "语言", aiTemperature: "温度", aiTopP: "Top P", aiMaxOutputTokens: "最大输出令牌", aiMaxInputTokens: "最大输入令牌", aiFileBudgetTokens: "文件令牌预算", aiOutputFormat: "输出格式", aiMaxTurns: "最大轮次", aiTimeoutMs: "超时 ms", aiParallelism: "并行数", aiBudgetPerRun: "单次预算", aiDailyBudget: "每日预算", aiMinPushGateScore: "最低推送门禁分数", aiMemoryMode: "记忆模式", aiHandoffLanguage: "交接语言", aiAllowNetwork: "网络", aiAllowPackageInstall: "包安装", aiPreferLocal: "优先本地", aiPromptGuard: "提示防护", aiRedactSecrets: "密钥脱敏", aiStorePrompts: "保存提示", aiStoreResponses: "响应保存", aiRequireTests: "要求测试", aiAdvancedJson: "高级 JSON",
         model: "模型", providerType: "类型", enabledProvider: "启用", endpoint: "API/本地端点", healthUrl: "健康 URL", apiStyle: "API 样式", apiKeyEnv: "密钥环境变量", effort: "推理强度", approvalMode: "审批模式", permissionMode: "权限模式", sandbox: "沙箱", outputFormat: "输出格式", fallbackModel: "备用模型", extraArgs: "额外参数", disabled: "已禁用", check: "需检查",
         updates: "更新", actionAudit: "npm audit", actionHardening: "加固检查", actionTargetAdvisory: "目标检查", actionGitStatus: "Git 状态", repositoryRoles: "仓库角色", toolchain: "工具链", commandOutput: "命令输出",
-        runCenter: "Run Center", runTitle: "已授权安全工作流", runSubtitle: "运行安全的 Aegis 流程，并实时查看每个步骤。", quickActions: "快捷操作", liveLog: "实时日志", noActiveRun: "没有正在运行的任务。", readyToRun: "准备运行", currentStep: "当前步骤", queued: "排队", progressRunning: "运行中", progressDone: "完成", progressFailed: "失败", elapsed: "用时", latestScan: "最近扫描", scanTarget: "目标/模式", discoverySummary: "发现结果", targetAdvisorySummary: "目标检查", passiveProbeSummary: "被动渗透探测",
+        runCenter: "Run Center", runTitle: "已授权安全工作流", runSubtitle: "运行安全的 Aegis 流程，并实时查看每个步骤。", quickActions: "快捷操作", liveLog: "实时日志", noActiveRun: "没有正在运行的任务。", readyToRun: "准备运行", currentStep: "当前步骤", queued: "排队", progressRunning: "运行中", progressDone: "完成", progressFailed: "失败", elapsed: "用时", latestScan: "最近扫描", scanTarget: "目标/模式", discoverySummary: "发现结果", targetAdvisorySummary: "目标检查", passiveProbeSummary: "被动渗透探测", penetrationReportSummary: "渗透测试报告", aegisReport: "Aegis 报告", penetrationReport: "渗透测试报告",
         ready: "就绪", reportReady: "报告就绪", running: "运行中", passed: "通过", failed: "失败", saved: "已保存"
       }
     };
@@ -1025,7 +1044,8 @@ function page() {
         scan: "허용된 범위 안에서 passive 보안 스캔을 실행합니다.",
         dryRun: "저장 없이 스캔 명령이 안전하게 실행되는지 미리 확인합니다.",
         report: "최근 스캔 결과를 HTML 보고서로 생성하고 현재 언어로 변환합니다.",
-        start: "카탈로그, 문서, 검증, 계획, 사이트맵, 대상 점검, 보고서를 순서대로 실행합니다.",
+        penetrationReport: "검사 항목, 통과 기준, 증거 요약이 포함된 침투검사 리포트를 생성합니다.",
+        start: "카탈로그, 문서, 검증, 계획, 사이트맵, 대상 점검, 보고서, 침투검사 리포트를 순서대로 실행합니다.",
         ai: "AI 통합 설정을 생성하거나 갱신합니다.",
         aiDoctor: "AI 제공자, 키, 로컬 모델 연결 상태를 진단합니다.",
         aiReport: "AI 통합 상태와 권장 설정 보고서를 생성합니다.",
@@ -1045,7 +1065,8 @@ function page() {
         scan: "Runs a passive security scan inside the authorized scope.",
         dryRun: "Previews whether the scan command can run safely without saving results.",
         report: "Generates the latest HTML scan report and localizes it to the current language.",
-        start: "Runs catalog, docs, verify, plan, site map, target advisory, and report in order.",
+        penetrationReport: "Generates a penetration report with executed checks, pass criteria, and evidence summaries.",
+        start: "Runs catalog, docs, verify, plan, site map, target advisory, report, and penetration report in order.",
         ai: "Creates or updates AI integration settings.",
         aiDoctor: "Checks AI providers, keys, and local model connectivity.",
         aiReport: "Generates an AI integration status and recommendation report.",
@@ -1065,7 +1086,8 @@ function page() {
         scan: "許可された範囲内でpassiveセキュリティスキャンを実行します。",
         dryRun: "結果を保存せず、スキャンコマンドが安全に動くか事前確認します。",
         report: "最新スキャン結果をHTMLレポートにし、現在の言語へ変換します。",
-        start: "カタログ、文書、検証、計画、サイトマップ、対象診断、レポートを順番に実行します。",
+        penetrationReport: "実施検査、合格基準、証跡サマリーを含む侵入テストレポートを生成します。",
+        start: "カタログ、文書、検証、計画、サイトマップ、対象診断、レポート、侵入テストレポートを順番に実行します。",
         ai: "AI統合設定を作成または更新します。",
         aiDoctor: "AIプロバイダー、キー、ローカルモデル接続を診断します。",
         aiReport: "AI統合状態と推奨設定のレポートを生成します。",
@@ -1085,7 +1107,8 @@ function page() {
         scan: "在授权范围内执行 passive 安全扫描。",
         dryRun: "不保存结果，预先确认扫描命令能否安全运行。",
         report: "生成最新 HTML 扫描报告，并转换为当前语言。",
-        start: "依次运行目录、文档、验证、计划、站点图、目标检查和报告。",
+        penetrationReport: "生成包含执行检查、通过标准和证据摘要的渗透测试报告。",
+        start: "依次运行目录、文档、验证、计划、站点图、目标检查、报告和渗透测试报告。",
         ai: "创建或更新 AI 集成设置。",
         aiDoctor: "诊断 AI 提供方、密钥和本地模型连接状态。",
         aiReport: "生成 AI 集成状态和建议设置报告。",
@@ -1200,7 +1223,8 @@ function page() {
       if (activeJob?.status === "running") {
         setStatus(t("running") + " " + actionLabel(activeJob.action), "warn");
       } else {
-        setStatus(currentState?.reportExists ? t("reportReady") : t("ready"), currentState?.reportExists ? "ok" : "");
+        const reportReady = currentState?.reportExists || currentState?.reports?.penetrationHtml;
+        setStatus(reportReady ? t("reportReady") : t("ready"), reportReady ? "ok" : "");
       }
     }
 
@@ -1220,9 +1244,13 @@ function page() {
       frame.style.height = height + "px";
     }
 
-    function loadReportFrame() {
+    function loadReportFrame(path = activeReportPath) {
       const frame = document.querySelector("#report-frame");
-      frame.src = "/report?ts=" + Date.now();
+      activeReportPath = path || "/report";
+      for (const button of document.querySelectorAll("[data-report-src]")) {
+        button.classList.toggle("active", button.dataset.reportSrc === activeReportPath);
+      }
+      frame.src = activeReportPath + "?ts=" + Date.now();
     }
 
     function view(name) {
@@ -1444,6 +1472,7 @@ function page() {
       const scan = data?.latestScan || {};
       const discovery = scan.discovery || {};
       const targetAdvisory = data?.targetAdvisory || {};
+      const penetrationReport = data?.penetrationReport || {};
       document.querySelector("#latest-summary").innerHTML = [
         summaryRow(t("latestScan"), scan.scan_id || "not run"),
         summaryRow(t("scanTarget"), [scan.target || "frontend", scan.mode || "passive"].join(" / ")),
@@ -1460,6 +1489,11 @@ function page() {
         summaryRow(t("passiveProbeSummary"), [
           (targetAdvisory.summary?.probes || 0) + " probes",
           (targetAdvisory.summary?.errors || 0) + " errors"
+        ].join(" / ")),
+        summaryRow(t("penetrationReportSummary"), [
+          penetrationReport.status || "not run",
+          (penetrationReport.summary?.tests || 0) + " tests",
+          (penetrationReport.summary?.warnings || 0) + " warnings"
         ].join(" / "))
       ].join("");
     }
@@ -1516,7 +1550,8 @@ function page() {
       setStatus(data.ok ? t("passed") : t("failed"), data.ok ? "ok" : "danger");
       setActionButtonsDisabled(false);
       await refresh();
-      if (["report", "start", "scan", "map"].includes(data.action)) loadReportFrame();
+      if (data.action === "penetrationReport") activeReportPath = "/penetration-report";
+      if (["report", "penetrationReport", "start", "scan", "map"].includes(data.action)) loadReportFrame();
     }
 
     async function run(action) {
@@ -1568,6 +1603,7 @@ function page() {
 
     document.querySelectorAll("nav button").forEach((button) => button.addEventListener("click", () => view(button.dataset.view)));
     document.querySelectorAll("[data-action]").forEach((button) => button.addEventListener("click", () => run(button.dataset.action)));
+    document.querySelectorAll("[data-report-src]").forEach((button) => button.addEventListener("click", () => loadReportFrame(button.dataset.reportSrc)));
     document.querySelector("#report-frame").addEventListener("load", () => {
       resizeReportFrame();
       setTimeout(resizeReportFrame, 100);
@@ -1635,6 +1671,11 @@ async function handle(req, res) {
     if (req.method === "GET" && url.pathname === "/report") {
       const file = resolve(cwd, ".aegis/reports/aegis-report.html");
       if (!existsSync(file)) return send(res, 404, "<h1>Report not generated</h1>", "text/html; charset=utf-8");
+      return send(res, 200, await readFile(file, "utf8"), contentTypes[extname(file)] || "text/plain; charset=utf-8");
+    }
+    if (req.method === "GET" && url.pathname === "/penetration-report") {
+      const file = resolve(cwd, ".aegis/reports/penetration-report.html");
+      if (!existsSync(file)) return send(res, 404, "<h1>Penetration report not generated</h1>", "text/html; charset=utf-8");
       return send(res, 200, await readFile(file, "utf8"), contentTypes[extname(file)] || "text/plain; charset=utf-8");
     }
     return json(res, 404, { error: "not_found" });
