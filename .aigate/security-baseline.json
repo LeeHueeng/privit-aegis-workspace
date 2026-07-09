@@ -213,7 +213,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 220,
+      "maxProbeRequests": 260,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -285,6 +285,21 @@
         "/oauth2/authorize",
         "/oauth2/token",
         "/auth/realms/master/.well-known/openid-configuration"
+      ],
+      "authApiPaths": [
+        "/api/me",
+        "/api/user",
+        "/api/users",
+        "/api/users/me",
+        "/api/profile",
+        "/api/account",
+        "/api/session",
+        "/api/auth/session",
+        "/api/auth/me",
+        "/api/admin/users",
+        "/users/me",
+        "/profile",
+        "/account"
       ],
       "adminPaths": [
         "/admin",

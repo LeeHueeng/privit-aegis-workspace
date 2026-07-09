@@ -465,6 +465,11 @@ const criteria = {
     criteria: "OIDC, OAuth, and JWKS metadata endpoints are inventoried so issuer, key, scope, and token posture can be reviewed.",
     remediation: "Confirm metadata is intentionally public, rotate signing keys safely, restrict token endpoints, and validate issuer/audience consistently."
   },
+  "frontend.probes.unauthenticated_user_api": {
+    category: "API authorization",
+    criteria: "Common user, account, profile, and session API paths do not anonymously return identity, role, permission, tenant, or session JSON.",
+    remediation: "Require authentication and object/function authorization for user/session APIs, and return 401/403 for anonymous requests."
+  },
   "frontend.probes.admin_debug": {
     category: "Administration/debug",
     criteria: "Admin consoles, debug endpoints, metrics, actuator, server-status, and hot-reload endpoints are absent or require authentication.",
@@ -823,6 +828,12 @@ const localizedCriteria = {
       category: "인증/식별",
       criteria: "issuer, key, scope, token posture 검토를 위해 OIDC, OAuth, JWKS 메타데이터 엔드포인트가 기록되어야 합니다.",
       remediation: "메타데이터 공개가 의도된 것인지 확인하고 signing key rotation, token endpoint 제한, issuer/audience 검증을 점검하세요."
+    },
+    "frontend.probes.unauthenticated_user_api": {
+      title: "사용자, 계정, 세션 API가 익명으로 읽히지 않음",
+      category: "API 권한",
+      criteria: "일반 사용자, 계정, 프로필, 세션 API 경로는 익명 요청에 identity, role, permission, tenant, session JSON을 반환하지 않아야 합니다.",
+      remediation: "사용자/세션 API에 인증과 객체/기능 권한 검사를 요구하고 익명 요청에는 401/403을 반환하세요."
     },
     "frontend.probes.admin_debug": {
       title: "관리자 및 디버그 표면이 없거나 인증을 요구함",

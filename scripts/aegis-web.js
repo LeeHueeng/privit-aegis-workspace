@@ -1392,10 +1392,10 @@ function page() {
           zh: "API 授权与对象访问"
         },
         detects: {
-          ko: "ID-bearing route, role/admin/status 필드, GraphQL endpoint, OIDC/OAuth/JWKS 메타데이터를 인벤토리합니다.",
-          en: "Inventories ID-bearing routes, role/admin/status fields, GraphQL endpoints, and OIDC/OAuth/JWKS metadata.",
-          ja: "ID含有route、role/admin/statusフィールド、GraphQL endpoint、OIDC/OAuth/JWKSメタデータをインベントリします。",
-          zh: "盘点带 ID 的路由、role/admin/status 字段、GraphQL 端点和 OIDC/OAuth/JWKS 元数据。"
+          ko: "ID-bearing route, role/admin/status 필드, GraphQL endpoint, OIDC/OAuth/JWKS 메타데이터, 사용자/세션 API 익명 노출을 인벤토리합니다.",
+          en: "Inventories ID-bearing routes, role/admin/status fields, GraphQL endpoints, OIDC/OAuth/JWKS metadata, and anonymous user/session API exposure.",
+          ja: "ID含有route、role/admin/statusフィールド、GraphQL endpoint、OIDC/OAuth/JWKSメタデータ、ユーザー/セッションAPIの匿名露出をインベントリします。",
+          zh: "盘点带 ID 的路由、role/admin/status 字段、GraphQL 端点、OIDC/OAuth/JWKS 元数据以及用户/会话 API 匿名暴露。"
         },
         criteria: {
           ko: "자동 passive 검사는 후보를 식별하고, 실제 BOLA/BFLA 검증은 인증된 role-matrix 테스트로 이어져야 합니다.",
@@ -1404,10 +1404,10 @@ function page() {
           zh: "Passive 检查识别候选项，真正的 BOLA/BFLA 验证应继续使用已认证的角色矩阵测试。"
         },
         evidence: {
-          ko: "path, parameter, field, method, 상태, GraphQL/identity signal을 기록합니다.",
-          en: "Records path, parameter, field, method, status, and GraphQL/identity signals.",
-          ja: "path、parameter、field、method、status、GraphQL/identity signalを記録します。",
-          zh: "记录 path、parameter、field、method、状态和 GraphQL/identity 信号。"
+          ko: "path, parameter, field, method, 상태, GraphQL/identity/user API signal을 기록합니다.",
+          en: "Records path, parameter, field, method, status, and GraphQL/identity/user API signals.",
+          ja: "path、parameter、field、method、status、GraphQL/identity/user API signalを記録します。",
+          zh: "记录 path、parameter、field、method、状态以及 GraphQL/identity/user API 信号。"
         }
       },
       {

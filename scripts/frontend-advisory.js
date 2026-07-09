@@ -1010,6 +1010,21 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/oauth2/token",
     "/auth/realms/master/.well-known/openid-configuration"
   ]);
+  const authApiPaths = configuredProbePaths(baseline, "authApiPaths", [
+    "/api/me",
+    "/api/user",
+    "/api/users",
+    "/api/users/me",
+    "/api/profile",
+    "/api/account",
+    "/api/session",
+    "/api/auth/session",
+    "/api/auth/me",
+    "/api/admin/users",
+    "/users/me",
+    "/profile",
+    "/account"
+  ]);
   const adminPaths = configuredProbePaths(baseline, "adminPaths", [
     "/admin",
     "/admin/login",
@@ -1073,6 +1088,7 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "graphqlEndpoints", graphqlEndpoints));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "uploadPaths", uploadPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "identityEndpoints", identityEndpoints));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "authApiPaths", authApiPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
@@ -1221,6 +1237,23 @@ function identityMetadataSignal(probe, response) {
   }
   if (path.includes("jwks") && type.includes("json") && /"keys"\s*:\s*\[/.test(text)) return "jwks_metadata";
   if (/\/oauth2?\/(?:authorize|token)(?:$|[/?#])/i.test(path) && !isSoftNotFoundResponse(response)) return "oauth_endpoint";
+  return "";
+}
+
+function unauthenticatedUserApiSignal(probe, response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  const text = responseText(response);
+  const type = contentType(response);
+  const path = String(probe.path || "").toLowerCase();
+  if (type.includes("json") && /"(?:email|username|user(Name)?|account|profile|role|roles|permissions|tenant|organization|session|userId|accountId)"\s*:/i.test(text)) {
+    return "user_or_session_json";
+  }
+  if (type.includes("json") && /\[(?:\s*\{[\s\S]{0,300}"(?:id|email|username|role)"\s*:)/i.test(text)) {
+    return "user_collection_json";
+  }
+  if (/\/(?:api\/)?(?:me|user|users|profile|account|session)(?:\/|$)/i.test(path) && type.includes("json") && text.trim().startsWith("{")) {
+    return "auth_api_json";
+  }
   return "";
 }
 
@@ -2174,6 +2207,7 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   const graphqlExposures = [];
   const uploadSurfaces = [];
   const identityMetadata = [];
+  const unauthenticatedUserApis = [];
   const adminExposures = [];
   const debugExposures = [];
   const metafileExposures = [];
@@ -2203,6 +2237,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "identityEndpoints") {
       const signal = identityMetadataSignal(probe, response);
       if (signal) identityMetadata.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "authApiPaths") {
+      const signal = unauthenticatedUserApiSignal(probe, response);
+      if (signal) unauthenticatedUserApis.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "adminPaths") {
       const signal = exposedRouteSignal(scope, discovery, probe, response);
       if (signal) adminExposures.push(probeEvidence(probe, response, signal));
@@ -2289,6 +2326,15 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     true,
     "Identity metadata can be intentionally public, but discovered issuer, JWKS, authorization, and token endpoints should be reviewed for scope, audience, and key-rotation posture.",
     { checked: probes.filter((probe) => probe.category === "identityEndpoints").length, endpoints: identityMetadata }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.unauthenticated_user_api",
+    "User, account, and session APIs are not anonymously readable",
+    unauthenticatedUserApis.length === 0,
+    "Passive probes check common user/session API paths for anonymously reachable JSON that appears to expose identities, roles, permissions, tenants, or session state.",
+    { checked: probes.filter((probe) => probe.category === "authApiPaths").length, exposed: unauthenticatedUserApis }
   );
   addFinding(
     findings,

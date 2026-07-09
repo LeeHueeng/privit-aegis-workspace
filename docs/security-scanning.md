@@ -82,8 +82,9 @@ detail, source map files, risky HTTP methods, GraphQL endpoints, upload/import/
 export surfaces, OIDC/OAuth/JWKS metadata, CORS trust decisions, CSP quality,
 authentication form GET submissions, state-changing form CSRF token candidates,
 external form actions, sensitive cleartext form submissions, file-upload form
-controls, sensitive URL query parameter names, client-side bundle leakage
-signals, DOM XSS source/sink patterns, Web Messaging patterns, URL-controlled
+controls, sensitive URL query parameter names, anonymously readable user/account/
+profile/session API JSON, client-side bundle leakage signals, DOM XSS source/sink
+patterns, Web Messaging patterns, URL-controlled
 redirect/resource-loading patterns, client-side template sinks,
 prototype-pollution candidate flows, sensitive browser-storage keys, cleartext
 public WebSocket endpoints, JWT header algorithm signals, XSSI JSON candidates,
