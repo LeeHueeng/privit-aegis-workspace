@@ -275,6 +275,33 @@ function corsIssues(response, testOrigin) {
   return issues;
 }
 
+function headerMisconfigurationIssues(response) {
+  const issues = [];
+  const crossDomainPolicy = headerValue(response, "x-permitted-cross-domain-policies");
+  const xFrameOptions = headerValue(response, "x-frame-options");
+  const hsts = headerValue(response, "strict-transport-security");
+  const finalUrl = response.finalUrl || response.url;
+
+  if (crossDomainPolicy && !/\bnone\b/i.test(crossDomainPolicy)) {
+    issues.push({ url: finalUrl, header: "x-permitted-cross-domain-policies", value: crossDomainPolicy, signal: "permissive_cross_domain_policy" });
+  }
+  if (headerValue(response, "public-key-pins") || headerValue(response, "public-key-pins-report-only")) {
+    issues.push({ url: finalUrl, header: "public-key-pins", signal: "deprecated_hpkp" });
+  }
+  if (/\ballow-from\b/i.test(xFrameOptions)) {
+    issues.push({ url: finalUrl, header: "x-frame-options", value: xFrameOptions, signal: "obsolete_allow_from" });
+  }
+  try {
+    const parsed = new URL(finalUrl);
+    if (parsed.protocol === "http:" && hsts) {
+      issues.push({ url: finalUrl, header: "strict-transport-security", signal: "hsts_on_http" });
+    }
+  } catch {
+    // Ignore malformed response URLs in optional header placement checks.
+  }
+  return issues;
+}
+
 function evaluateHeaders(findings, responses, scope, discovery) {
   const reachable = responses.filter((response) => response.ok);
   const htmlResponses = reachable.filter(isHtmlResponse);
@@ -376,6 +403,17 @@ function evaluateHeaders(findings, responses, scope, discovery) {
     serverVersionPresent.length === 0,
     "OWASP WSTG web server fingerprinting notes that server/version banners can help attackers target known version-specific issues.",
     { present: serverVersionPresent }
+  );
+
+  const headerMisconfigurations = reachable.flatMap(headerMisconfigurationIssues);
+  addFinding(
+    findings,
+    "warning",
+    "frontend.headers.misconfiguration",
+    "Security headers avoid deprecated or overly permissive directives",
+    headerMisconfigurations.length === 0,
+    "OWASP WSTG recommends checking for permissive cross-domain policy headers, obsolete X-Frame-Options directives, deprecated HPKP, and misplaced HSTS.",
+    { checked: reachable.length, issues: headerMisconfigurations }
   );
 
   const framingMissing = htmlResponses.filter((response) => {
@@ -598,6 +636,34 @@ function buildPassiveProbes(scope, latestScan, baseline) {
     "/db.sql",
     "/phpinfo.php"
   ]);
+  const backupFiles = configuredProbePaths(baseline, "backupFiles", [
+    "/.DS_Store",
+    "/backup.tar.gz",
+    "/backup.tgz",
+    "/backup.sql",
+    "/database.sql.gz",
+    "/site.zip",
+    "/www.zip",
+    "/config.php.bak",
+    "/config.php~",
+    "/application.properties.bak",
+    "/application.yml.bak",
+    "/web.config.bak"
+  ]);
+  const sensitiveExtensions = configuredProbePaths(baseline, "sensitiveExtensions", [
+    "/index.inc",
+    "/config.inc",
+    "/settings.inc",
+    "/global.asa",
+    "/web.config",
+    "/app.config",
+    "/application.properties",
+    "/application.yml",
+    "/WEB-INF/web.xml",
+    "/WEB-INF/classes/application.properties",
+    "/composer.lock",
+    "/package-lock.json"
+  ]);
   const apiDocs = configuredProbePaths(baseline, "apiDocs", [
     "/openapi.json",
     "/swagger.json",
@@ -632,6 +698,16 @@ function buildPassiveProbes(scope, latestScan, baseline) {
   const errorPages = configuredProbePaths(baseline, "errorPages", [
     "/.aegis-error-probe-404"
   ]);
+  const directoryListings = configuredProbePaths(baseline, "directoryListings", [
+    "/uploads/",
+    "/files/",
+    "/backup/",
+    "/backups/",
+    "/download/",
+    "/downloads/",
+    "/assets/",
+    "/static/"
+  ]);
   const sourceMapPaths = unique([
     ...configuredProbePaths(baseline, "sourceMaps", [
       "/main.js.map",
@@ -653,16 +729,19 @@ function buildPassiveProbes(scope, latestScan, baseline) {
   const probes = [];
   for (const target of targetBaseUrls(scope)) {
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sensitiveFiles", sensitiveFiles));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "backupFiles", backupFiles));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sensitiveExtensions", sensitiveExtensions));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "apiDocs", apiDocs));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "adminPaths", adminPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "debugPaths", debugPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "metafiles", metafiles));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "errorPages", errorPages));
+    probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "directoryListings", directoryListings));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "sourceMaps", sourceMapPaths));
     probes.push(...probeFactory(scope, target.targetName, target.baseUrl, "httpMethods", routeMethodPaths, "OPTIONS"));
   }
 
-  return probes.slice(0, Number(probeConfig.maxProbeRequests || 100));
+  return probes.slice(0, Number(probeConfig.maxProbeRequests || 150));
 }
 
 function responseText(response) {
@@ -694,6 +773,65 @@ function sensitiveSignal(probe, response) {
   if (path.endsWith(".sql") && /(?:create table|insert into|mysqldump|postgresql)/i.test(text)) return "database_dump";
   if (path.endsWith(".zip") && /(?:application\/zip|application\/octet-stream)/i.test(type)) return "archive";
   if (path.endsWith("phpinfo.php") && /php version|phpinfo\(\)/i.test(text)) return "phpinfo";
+  return "";
+}
+
+function isSoftNotFoundResponse(response) {
+  const text = responseText(response);
+  if (!contentType(response).includes("text/html")) return false;
+  return /<title>\s*(?:404|not found|page not found)/i.test(text)
+    || /\b(?:404 not found|page not found|not found|does not exist)\b/i.test(text);
+}
+
+function sensitiveContentSignal(text) {
+  const value = String(text || "");
+  if (/-----BEGIN (?:RSA |EC |OPENSSH |)PRIVATE KEY-----/i.test(value)) return "private_key";
+  if (/\b(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|passwd|pwd|secret)\b\s*[:=]/i.test(value)) return "secret_marker";
+  if (/\b(?:spring\.datasource|jdbc:|database_url|connectionstring|db_password|mysql|postgresql)\b/i.test(value)) return "database_config";
+  if (/<\?(?:php|=)|<%|package\s+[\w.]+;|import\s+java\./i.test(value)) return "source_code";
+  return "";
+}
+
+function backupFileSignal(probe, response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  const path = probe.path.toLowerCase();
+  const type = contentType(response);
+  const text = responseText(response);
+  if (path === "/.ds_store" && /Bud1/.test(text)) return "macos_ds_store";
+  if (/\.(?:zip|tar\.gz|tgz|gz|rar|7z)$/i.test(path) && /(?:application\/(?:zip|gzip|x-gzip|x-tar|octet-stream)|binary)/i.test(type)) {
+    return "backup_archive";
+  }
+  if (/\.sql(?:\.gz)?$/i.test(path) && /(?:create table|insert into|mysqldump|postgresql|dump completed)/i.test(text)) {
+    return "database_dump";
+  }
+  const contentSignal = sensitiveContentSignal(text);
+  if (contentSignal) return contentSignal;
+  if (/\.(?:bak|old|orig|tmp|swp)$|~$/i.test(path) && !type.includes("text/html")) return "backup_copy";
+  return "";
+}
+
+function sensitiveExtensionSignal(probe, response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response) || isSoftNotFoundResponse(response)) return "";
+  const path = probe.path.toLowerCase();
+  const type = contentType(response);
+  const text = responseText(response);
+  const contentSignal = sensitiveContentSignal(text);
+  if (contentSignal) return contentSignal;
+  if (/\/web-inf\//i.test(path)) return "java_web_inf";
+  if (/\.(?:asa|inc|config|properties|ya?ml)$/i.test(path) && !type.includes("text/html")) return "sensitive_extension";
+  if (/(?:composer|package-lock)\.json$/i.test(path) && /"(?:packages|dependencies|lockfileVersion)"\s*[:{]/i.test(text)) {
+    return "dependency_manifest";
+  }
+  return "";
+}
+
+function directoryListingSignal(response) {
+  if (!isSuccessStatus(response) || isLoginLikeBody(response)) return "";
+  const text = responseText(response);
+  if (/<title>\s*Index of\s+\//i.test(text)) return "index_of";
+  if (/\bParent Directory\b/i.test(text) && /<a\s+href=/i.test(text)) return "parent_directory";
+  if (/\bDirectory listing for\s+\//i.test(text)) return "directory_listing";
+  if (/\[To Parent Directory\]/i.test(text)) return "iis_directory_listing";
   return "";
 }
 
@@ -1002,17 +1140,26 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
   }
 
   const sensitiveExposures = [];
+  const backupExposures = [];
+  const extensionExposures = [];
   const apiDocExposures = [];
   const adminExposures = [];
   const debugExposures = [];
   const metafileExposures = [];
   const errorDisclosures = [];
+  const directoryListingExposures = [];
   const sourceMapExposures = [];
   const riskyMethods = [];
   for (const { probe, response } of probeResponses) {
     if (probe.category === "sensitiveFiles") {
       const signal = sensitiveSignal(probe, response);
       if (signal) sensitiveExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "backupFiles") {
+      const signal = backupFileSignal(probe, response);
+      if (signal) backupExposures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "sensitiveExtensions") {
+      const signal = sensitiveExtensionSignal(probe, response);
+      if (signal) extensionExposures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "apiDocs") {
       const signal = apiDocsSignal(response);
       if (signal) apiDocExposures.push(probeEvidence(probe, response, signal));
@@ -1028,6 +1175,9 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     } else if (probe.category === "errorPages") {
       const signal = errorDisclosureSignal(response);
       if (signal) errorDisclosures.push(probeEvidence(probe, response, signal));
+    } else if (probe.category === "directoryListings") {
+      const signal = directoryListingSignal(response);
+      if (signal) directoryListingExposures.push(probeEvidence(probe, response, signal));
     } else if (probe.category === "sourceMaps") {
       const signal = sourceMapSignal(response);
       if (signal) sourceMapExposures.push(probeEvidence(probe, response, signal));
@@ -1045,6 +1195,24 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     sensitiveExposures.length === 0,
     "Passive probes check for exposed dotenv, VCS metadata, config, archive, dump, and phpinfo files without storing response bodies.",
     { checked: probes.filter((probe) => probe.category === "sensitiveFiles").length, exposed: sensitiveExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.backup_files",
+    "Old backup and unreferenced files are not publicly readable",
+    backupExposures.length === 0,
+    "OWASP WSTG warns that old backups, editor copies, snapshots, and archives can expose source code, credentials, logs, or hidden functionality.",
+    { checked: probes.filter((probe) => probe.category === "backupFiles").length, exposed: backupExposures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.sensitive_extensions",
+    "Sensitive server-side extensions and config files are not publicly served",
+    extensionExposures.length === 0,
+    "OWASP WSTG file-extension testing checks whether server-side include, config, source, and dependency files are exposed through the web server.",
+    { checked: probes.filter((probe) => probe.category === "sensitiveExtensions").length, exposed: extensionExposures }
   );
   addFinding(
     findings,
@@ -1090,6 +1258,15 @@ async function evaluatePassiveProbes(findings, scope, latestScan, baseline) {
     errorDisclosures.length === 0,
     "OWASP WSTG error handling tests look for stack traces, framework details, SQL errors, and other implementation clues in error responses.",
     { checked: probes.filter((probe) => probe.category === "errorPages").length, exposed: errorDisclosures }
+  );
+  addFinding(
+    findings,
+    "warning",
+    "frontend.probes.directory_listing",
+    "Directory listing is not enabled on common public directories",
+    directoryListingExposures.length === 0,
+    "OWASP WSTG old/unreferenced file testing calls out directory listing as a common way to enumerate forgotten content.",
+    { checked: probes.filter((probe) => probe.category === "directoryListings").length, exposed: directoryListingExposures }
   );
   addFinding(
     findings,
@@ -1185,6 +1362,9 @@ async function main() {
         "x-content-type-options": response.headers?.["x-content-type-options"] || "",
         "x-frame-options": response.headers?.["x-frame-options"] || "",
         "x-powered-by": response.headers?.["x-powered-by"] || "",
+        "x-permitted-cross-domain-policies": response.headers?.["x-permitted-cross-domain-policies"] || "",
+        "public-key-pins": response.headers?.["public-key-pins"] || "",
+        "public-key-pins-report-only": response.headers?.["public-key-pins-report-only"] || "",
         server: response.headers?.server || ""
       },
       setCookieCount: response.setCookies?.length || 0

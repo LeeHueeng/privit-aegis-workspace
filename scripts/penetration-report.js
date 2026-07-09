@@ -234,6 +234,11 @@ const criteria = {
     criteria: "Checked responses do not expose precise web server product/version banners in the Server header.",
     remediation: "Hide or normalize Server version banners at the web server, reverse proxy, CDN, or application gateway."
   },
+  "frontend.headers.misconfiguration": {
+    category: "Browser hardening",
+    criteria: "Security headers avoid deprecated HPKP, obsolete X-Frame-Options ALLOW-FROM, permissive X-Permitted-Cross-Domain-Policies, and HSTS on cleartext HTTP.",
+    remediation: "Remove deprecated headers, set X-Permitted-Cross-Domain-Policies to none when used, and keep HSTS only on HTTPS responses."
+  },
   "frontend.headers.framing": {
     category: "Clickjacking",
     criteria: "Every discovered HTML response sets CSP frame-ancestors or X-Frame-Options DENY/SAMEORIGIN.",
@@ -289,6 +294,16 @@ const criteria = {
     criteria: "Common sensitive files, VCS metadata, backup archives, database dumps, and phpinfo pages are not publicly readable.",
     remediation: "Remove exposed files, block dotfiles/backups at the web server, and rotate secrets if exposure is confirmed."
   },
+  "frontend.probes.backup_files": {
+    category: "Exposure",
+    criteria: "Common backup archives, editor copies, snapshots, and database dump names are not publicly readable.",
+    remediation: "Remove old backups from the web root, block backup extensions at the web server, and rotate any exposed credentials."
+  },
+  "frontend.probes.sensitive_extensions": {
+    category: "Exposure",
+    criteria: "Server-side include/config/source/dependency files with sensitive extensions are not publicly served.",
+    remediation: "Block server-side and configuration extensions from static serving and keep build/dependency metadata outside the web root."
+  },
   "frontend.probes.api_docs": {
     category: "API exposure",
     criteria: "OpenAPI, Swagger UI, ReDoc, and similar API docs are absent, authenticated, IP-restricted, or intentionally approved for the environment.",
@@ -313,6 +328,11 @@ const criteria = {
     category: "Error handling",
     criteria: "Safe error-page probes do not reveal stack traces, framework internals, SQL errors, or verbose implementation details.",
     remediation: "Return generic error pages to users and route detailed diagnostics only to protected server-side logs."
+  },
+  "frontend.probes.directory_listing": {
+    category: "Exposure",
+    criteria: "Common public directories do not return auto-generated directory index listings.",
+    remediation: "Disable directory indexing and require explicit routes or authenticated file listings."
   },
   "frontend.probes.http_methods": {
     category: "HTTP method exposure",

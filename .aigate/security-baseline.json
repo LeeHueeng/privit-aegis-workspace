@@ -35,6 +35,18 @@
       "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/09-Testing_for_Weak_Cryptography/01-Testing_for_Weak_Transport_Layer_Security"
     },
     {
+      "name": "OWASP WSTG Test File Extensions Handling for Sensitive Information",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/03-Test_File_Extensions_Handling_for_Sensitive_Information"
+    },
+    {
+      "name": "OWASP WSTG Review Old Backup and Unreferenced Files for Sensitive Information",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/04-Review_Old_Backup_and_Unreferenced_Files_for_Sensitive_Information"
+    },
+    {
+      "name": "OWASP WSTG Test Other HTTP Security Header Misconfigurations",
+      "url": "https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/02-Configuration_and_Deployment_Management_Testing/14-Test_Other_HTTP_Security_Header_Misconfigurations"
+    },
+    {
       "name": "OWASP Transport Layer Security Cheat Sheet",
       "url": "https://cheatsheetseries.owasp.org/cheatsheets/Transport_Layer_Security_Cheat_Sheet.html"
     },
@@ -111,7 +123,7 @@
       "cache-control"
     ],
     "passiveProbes": {
-      "maxProbeRequests": 100,
+      "maxProbeRequests": 150,
       "maxMethodTargets": 12,
       "sensitiveFiles": [
         "/.env",
@@ -121,6 +133,34 @@
         "/backup.zip",
         "/db.sql",
         "/phpinfo.php"
+      ],
+      "backupFiles": [
+        "/.DS_Store",
+        "/backup.tar.gz",
+        "/backup.tgz",
+        "/backup.sql",
+        "/database.sql.gz",
+        "/site.zip",
+        "/www.zip",
+        "/config.php.bak",
+        "/config.php~",
+        "/application.properties.bak",
+        "/application.yml.bak",
+        "/web.config.bak"
+      ],
+      "sensitiveExtensions": [
+        "/index.inc",
+        "/config.inc",
+        "/settings.inc",
+        "/global.asa",
+        "/web.config",
+        "/app.config",
+        "/application.properties",
+        "/application.yml",
+        "/WEB-INF/web.xml",
+        "/WEB-INF/classes/application.properties",
+        "/composer.lock",
+        "/package-lock.json"
       ],
       "apiDocs": [
         "/openapi.json",
@@ -155,6 +195,16 @@
       ],
       "errorPages": [
         "/.aegis-error-probe-404"
+      ],
+      "directoryListings": [
+        "/uploads/",
+        "/files/",
+        "/backup/",
+        "/backups/",
+        "/download/",
+        "/downloads/",
+        "/assets/",
+        "/static/"
       ],
       "sourceMaps": [
         "/main.js.map",

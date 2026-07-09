@@ -62,14 +62,18 @@ and only requests in-scope HTML/auth-like URLs. It checks the live target for
 OWASP-style response header coverage, `Cache-Control: no-store` on
 authentication-like pages, defensive cookie attributes, and password-manager
 autocomplete hints. It also reviews public transport posture for cleartext HTTP,
-basic TLS certificate validity, and precise web server version banners. It does
-not submit forms or send attack payloads.
+basic TLS certificate validity, and precise web server version banners. It also
+performs header-misconfiguration checks for deprecated HPKP, obsolete
+`X-Frame-Options: ALLOW-FROM`, permissive cross-domain policy headers, and HSTS
+placement. It does not submit forms or send attack payloads.
 
 The target advisory also runs low-impact passive penetration probes based on
 OWASP WSTG and OWASP API Security Top 10 themes. These probes use GET/OPTIONS
 only and check for anonymously reachable sensitive files, VCS metadata, backup
-or database dumps, phpinfo pages, OpenAPI/Swagger/ReDoc docs, admin/debug
-surfaces, metrics/actuator/server-status endpoints, webserver metafiles
+or database dumps, editor backup copies, server-side/config file extensions,
+dependency manifests, directory listings, phpinfo pages, OpenAPI/Swagger/ReDoc
+docs, admin/debug surfaces, metrics/actuator/server-status endpoints,
+webserver metafiles
 (`robots.txt`, `sitemap.xml`, `security.txt`, `crossdomain.xml`,
 `clientaccesspolicy.xml`), generic error pages for stack trace/framework/SQL
 detail, source map files, risky HTTP methods, CORS trust decisions, CSP quality,
