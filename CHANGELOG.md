@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added CodeQL, Dependency Review, OpenSSF Scorecard, SBOM generation, and
+  provenance attestation workflows.
+- Updated GitHub Actions pins to current SHA-pinned action releases, including
+  Pages actions that target the newer runner runtime.
 - Added repository-role documentation to clarify why the CLI engine and Privit
   workspace remain separate public repositories.
 - Added multilingual root README files for Korean, English, Japanese, and

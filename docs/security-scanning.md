@@ -21,6 +21,8 @@ The gate performs:
 - Passive penetration report with executed checks, pass criteria, evidence summaries, and remediation guidance
 - Completion audit for CLI, web, i18n, AI providers, target advisory, and GitHub readiness
 - OWASP/GitHub hardening baseline review
+- CodeQL, Dependency Review, OpenSSF Scorecard, SBOM, and provenance workflows
+  for repository supply-chain posture
 - HTML report generation
 - AIGate upload readiness check
 
