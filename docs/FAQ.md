@@ -6,6 +6,13 @@ It is a Privit-specific workspace around the Aegis CLI. The reusable scanner
 engine lives in `LeeHueeng/privit-project`, while this repository keeps scope,
 local web-console orchestration, reports, CI, AI settings, and docs.
 
+## Why are there two repositories?
+
+They have different jobs. `privit-project` is the reusable CLI engine and should
+stay small, package-like, and easy to install. `privit-aegis-workspace` is the
+showcase and operating workspace: web console, localized reports, GitHub Pages,
+Privit scope, AI settings, and AIGate CI. See `docs/REPOSITORY_ROLES.md`.
+
 ## Does it attack the target?
 
 No by default. The normal workflow is passive and scope-guarded. It discovers
@@ -25,8 +32,8 @@ optional AIGate AI reports. AI does not decide passive scan findings.
 
 ## Why is GitHub Pages not live yet?
 
-GitHub Pages is prepared and validated. Actual deployment depends on Pages being
-enabled for the repository. See `docs/github-pages.md`.
+GitHub Pages is enabled and deployed from `docs/pages`. See
+`docs/github-pages.md`.
 
 ## Can this be made public for stars?
 

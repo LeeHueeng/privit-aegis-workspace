@@ -47,6 +47,7 @@ failed, and what evidence was retained.
 - Security scanning guide: [`docs/security-scanning.md`](./docs/security-scanning.md)
 - Hardening baseline: [`docs/security-hardening-baseline.md`](./docs/security-hardening-baseline.md)
 - AI integration: [`docs/ai-integration.md`](./docs/ai-integration.md)
+- Repository roles: [`docs/REPOSITORY_ROLES.md`](./docs/REPOSITORY_ROLES.md)
 - Public CLI engine: <https://github.com/LeeHueeng/privit-project>
 - GitHub workflow security: [`docs/github-security-hardening.md`](./docs/github-security-hardening.md)
 - GitHub Pages setup: [`docs/github-pages.md`](./docs/github-pages.md)
@@ -135,6 +136,9 @@ AIGate AI reports.
 
 ## Repository Map
 
+- `privit-aegis-workspace`: this repository; web console, reports, docs,
+  GitHub Pages, AI settings, CI, and Privit-specific scope wiring.
+- `privit-project`: reusable Aegis CLI engine installed by this workspace.
 - `scripts/`: local console, report localization, hardening checks, AI settings,
   GitHub readiness, and report generation helpers.
 - `docs/`: security guides, multilingual human/agent guides, roadmap, and Pages
