@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write
 
 jobs:
   scorecard:
@@ -27,4 +26,12 @@ jobs:
         with:
           results_file: scorecard-results.sarif
           results_format: sarif
-          publish_results: true
+          publish_results: false
+      # actions/upload-artifact v7.0.1
+      - name: Upload Scorecard SARIF artifact
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: scorecard-results
+          path: scorecard-results.sarif
+          if-no-files-found: ignore
