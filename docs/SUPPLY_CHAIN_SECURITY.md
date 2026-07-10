@@ -12,7 +12,7 @@ workspace.
 | Privit Aegis | `.github/workflows/ci.yml` | AIGate, Aegis checks, hardening baseline, AI readiness |
 | CodeQL | `.github/workflows/codeql.yml` | JavaScript security and quality analysis in GitHub code scanning |
 | Dependency Review | `.github/workflows/dependency-review.yml` | Blocks high-severity vulnerable dependencies introduced in pull requests |
-| OpenSSF Scorecard | `.github/workflows/scorecard.yml` | Publishes open-source security posture signals |
+| OpenSSF Scorecard | `.github/workflows/scorecard.yml` | Generates open-source security posture signals and stores SARIF artifacts |
 | SBOM and Provenance | `.github/workflows/sbom.yml` | Generates CycloneDX/SPDX SBOM files and attests the CycloneDX artifact |
 
 ## Action Pinning
