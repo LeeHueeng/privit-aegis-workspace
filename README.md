@@ -3,6 +3,8 @@
 <p align="center">
   <a href="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/ci.yml"><img alt="AIGate" src="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/pages.yml"><img alt="GitHub Pages" src="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/pages.yml/badge.svg"></a>
+  <a href="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/codeql.yml/badge.svg"></a>
+  <a href="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/scorecard.yml"><img alt="OpenSSF Scorecard" src="https://github.com/LeeHueeng/privit-aegis-workspace/actions/workflows/scorecard.yml/badge.svg"></a>
   <img alt="Passive by default" src="https://img.shields.io/badge/security-passive%20by%20default-0f766e">
   <img alt="Multilingual" src="https://img.shields.io/badge/i18n-ko%20%7C%20en%20%7C%20ja%20%7C%20zh-2563eb">
 </p>
@@ -40,6 +42,8 @@ failed, and what evidence was retained.
   remediation prompts, while scan findings stay deterministic.
 - GitHub Actions are pinned, scoped to least privilege, and separated from local
   AIGate/git-push workflows.
+- CodeQL, Dependency Review, OpenSSF Scorecard, SBOM generation, and provenance
+  attestations are wired into the public repository security baseline.
 
 ## Live Documentation
 
@@ -48,6 +52,7 @@ failed, and what evidence was retained.
 - Hardening baseline: [`docs/security-hardening-baseline.md`](./docs/security-hardening-baseline.md)
 - AI integration: [`docs/ai-integration.md`](./docs/ai-integration.md)
 - Repository roles: [`docs/REPOSITORY_ROLES.md`](./docs/REPOSITORY_ROLES.md)
+- Supply-chain security: [`docs/SUPPLY_CHAIN_SECURITY.md`](./docs/SUPPLY_CHAIN_SECURITY.md)
 - Public CLI engine: <https://github.com/LeeHueeng/privit-project>
 - GitHub workflow security: [`docs/github-security-hardening.md`](./docs/github-security-hardening.md)
 - GitHub Pages setup: [`docs/github-pages.md`](./docs/github-pages.md)

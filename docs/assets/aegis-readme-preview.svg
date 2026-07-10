@@ -51,7 +51,7 @@
       <text x="24" y="158" fill="#d7fff1" font-size="15">$ npm run security:report</text>
       <text x="24" y="192" fill="#d7fff1" font-size="15">$ npm run gate:ready</text>
       <rect x="24" y="236" width="296" height="52" rx="12" fill="#15803d"/>
-      <text x="48" y="268" fill="#ffffff" font-size="17" font-weight="900">Score 89/100 · no blockers</text>
+      <text x="48" y="268" fill="#ffffff" font-size="17" font-weight="900">Score 100/100 · no blockers</text>
     </g>
   </g>
 </svg>
