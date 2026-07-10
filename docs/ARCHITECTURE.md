@@ -25,6 +25,8 @@ flowchart LR
 
 - `privit-aegis-workspace` stores project wiring, local reports, docs, and CI.
 - `privit-project` stores the public Aegis CLI engine and scanner logic.
+- The workspace pins the CLI engine by commit SHA in CI so engine upgrades are
+  explicit and reviewable.
 - `.aegis/` is local generated state and should not be committed unless outputs
   are intentionally sanitized.
 - AIGate is a git/CI quality gate, not a web-console scan button.

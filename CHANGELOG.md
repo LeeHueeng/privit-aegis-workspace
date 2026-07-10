@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Added repository-role documentation to clarify why the CLI engine and Privit
+  workspace remain separate public repositories.
 - Added multilingual root README files for Korean, English, Japanese, and
   Chinese.
 - Added a GitHub Pages documentation site under `docs/pages`.
